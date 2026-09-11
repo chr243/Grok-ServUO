@@ -43,7 +43,7 @@ namespace Server.Custom.Dudes.Commands
         }
 
         [Usage("SpawnTestDude [definitionId]")]
-        [Description("TEST: Spawns a wild Dude at your location. Ids: emberling, tideling, stonepaw, gustling")]
+        [Description("TEST: Spawns a wild Dude at your location. See DudeRegistry / README for ids.")]
         private static void SpawnTestDude_OnCommand(CommandEventArgs e)
         {
             Mobile from = e.Mobile;
@@ -59,7 +59,7 @@ namespace Server.Custom.Dudes.Commands
             DudeDefinition def = DudeRegistry.Get(id);
             if (def == null)
             {
-                from.SendMessage("Unknown Dude id '{0}'. Try: emberling, tideling, stonepaw, gustling", id);
+                from.SendMessage("Unknown Dude id '{0}'. Use [SpawnAllTestDudes or see Dude README for ids.", id);
                 return;
             }
 
@@ -69,7 +69,7 @@ namespace Server.Custom.Dudes.Commands
         }
 
         [Usage("SpawnAllTestDudes")]
-        [Description("TEST: Spawns one wild Dude of each registered type near you.")]
+        [Description("TEST: Spawns one wild Dude of each registered species near you (weak/basic/medium/strong).")]
         private static void SpawnAllTestDudes_OnCommand(CommandEventArgs e)
         {
             Mobile from = e.Mobile;
@@ -174,7 +174,7 @@ namespace Server.Custom.Dudes.Commands
 
             DudeJobStation station = new DudeJobStation();
             station.MoveToWorld(from.Location, from.Map);
-            from.SendMessage(0x59, "TEST: Dude Job Station placed. Assign an Earth Dude (stonepaw) near mineable terrain.");
+            from.SendMessage(0x59, "TEST: Dude Job Station placed. Assign an Earth Dude (pebblet/stonepaw/boulderback) near mineable terrain.");
         }
 
         [Usage("SpawnEmberlord")]

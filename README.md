@@ -38,6 +38,7 @@ ServUO needs Ultima Online client data (`.mul` / UOP assets). On Windows it can 
 
 - Shard-specific notes: [docs/CUSTOM.md](docs/CUSTOM.md)
 - Custom C# scripts: [Scripts/Custom/](Scripts/Custom/)
+- Dude companions (catch/summon/jobs/roster): [Scripts/Custom/Dudes/README.md](Scripts/Custom/Dudes/README.md)
 
 ## License
 

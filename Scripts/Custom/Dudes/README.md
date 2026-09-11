@@ -1,4 +1,4 @@
-# Dude System (v1 + Phase 2–3 + first boss + Trainer's Manual)
+# Dude System (v1 + Phase 2–3 + roster tiers + first boss + Trainer's Manual)
 
 Pokémon-style companion loop for Grok-ServUO, designed for **UOR (Ultima Online Renaissance)** rules:
 
@@ -18,7 +18,7 @@ Wild Dude → catch with Dude Ball (100%) → store → summon → fight + abili
 Filled Dude Ball → **Dude Mixer** (confirm) → **Dude Dust** + empty ball → **Dude Crafting Kit** recipe (`Iron Ingot` + `Dude Dust` → empty Dude Ball).
 
 ### Job Station / Gathering (Phase 3)
-Filled Earth Dude Ball → drop on **Dude Job Station** → Start Job → worker travels to nearest mineable tile → works → returns → deposits **Iron Ore** into station container → ball remains.
+Filled **Earth**-type Dude Ball → drop on **Dude Job Station** → Start Job → worker travels to nearest mineable tile → works → returns → deposits **Iron Ore** into station container → ball remains.
 
 ### Boss (Emberlord)
 Staff-spawned **Emberlord** (`DudeBoss`) — hostile Fire boss, not catchable, no Dude Ball on death. Fight → Ember Burst AoE → corpse loot (Dude Dust, Iron Ingots, rare Ember Core). No world spawner.
@@ -57,6 +57,28 @@ Staff-spawned **Emberlord** (`DudeBoss`) — hostile Fire boss, not catchable, n
 - **Safety**: rejects empty/wrong balls, multi-ball, no-job, no-resource; blocks ball lift mid-job; ejects ball/resources on station delete; deposits beside station if full.
 - **Bosses**: `DudeBoss` is a `BaseCreature`, not a companion. `DudeCapture.GetCaptureBlockReason` / `DudeCreature.CanBeCaught` reject bosses. Ember Burst is boss-local AoE (companion Ember Burst stays single-target). Add a new boss by subclassing `DudeBoss` (stats/ability/unique loot).
 
+
+## Species roster
+
+Register new species in `DudeRegistry` (stats/body/hue/ability/slots). Abilities in `SimpleDudeAbilities` + `DudeAbilityRegistry`. Leveling is unchanged (Str+2, HitsMax+5, Min/MaxDamage+1 per level; ability damage = base + DudeLevel×2).
+
+| Id | Name | Type | Tier | Body | Slots | Key stats (Str / Hits / Dmg) | Ability |
+|----|------|------|------|------|-------|------------------------------|---------|
+| sparkmite | Sparkmite | Fire | weak | 51 slime | 1 | 18 / 20 / 1–3 | ember_burst |
+| puddling | Puddling | Water | weak | 81 bullfrog | 1 | 16 / 22 / 1–3 | tide_crash |
+| pebblet | Pebblet | Earth | weak | 48 scorpion | 1 | 22 / 28 / 2–4 | stone_slam |
+| breezeling | Breezeling | Air | weak | 6 bird | 1 | 14 / 18 / 1–3 | gust_slash |
+| emberling | Emberling | Fire | basic | 15 fire elem | 1 | 35 / 40 / 4–7 | ember_burst |
+| tideling | Tideling | Water | basic | 16 water elem | 1 | 32 / 42 / 3–6 | tide_crash |
+| stonepaw | Stonepaw | Earth | basic | 14 earth elem | 1 | 50 / 55 / 5–8 | stone_slam |
+| gustling | Gustling | Air | basic | 13 air elem | 1 | 28 / 35 / 3–6 | gust_slash |
+| cinderfang | Cinderfang | Fire | medium | 0xC9 hellcat | 1 | 55 / 70 / 7–11 | cinder_bite |
+| riptide | Riptide | Water | medium | 161 ice elem | 1 | 48 / 78 / 6–10 | riptide_crash |
+| boulderback | Boulderback | Earth | medium | 67 stone garg | 2 | 72 / 95 / 8–13 | boulder_crush |
+| pyreclaw | Pyreclaw | Fire | strong | 130 fire garg | 2 | 95 / 145 / 11–16 | pyre_blast |
+
+Earth-type Dudes (`pebblet`, `stonepaw`, `boulderback`) qualify for **Earth Gathering** via the existing type check. `[SpawnAllTestDudes` spawns every registered id; `[SpawnTestDude <id>` / `[FillDudeBall <id>` accept any of the above.
+
 ## GM test commands
 
 | Command | Purpose |
@@ -83,7 +105,7 @@ Staff-spawned **Emberlord** (`DudeBoss`) — hostile Fire boss, not catchable, n
 
 ### Phase 3 loop
 1. Place station near **mountains/caves** (mineable land tiles): `[CreateDudeJobStation`
-2. `[CreateDudeBall` + `[FillDudeBall stonepaw` (Earth only for now).
+2. `[CreateDudeBall` + `[FillDudeBall stonepaw` (or `pebblet` / `boulderback` — any Earth type).
 3. Drag filled ball onto station → assigned.
 4. Double-click station → **Start Job**.
 5. Watch worker path to ore tile, work, return; open storage for Iron Ore.

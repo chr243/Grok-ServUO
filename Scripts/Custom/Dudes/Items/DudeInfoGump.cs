@@ -284,6 +284,14 @@ namespace Server.Items
                     return "Heavy earth slam against a nearby foe.";
                 case "gust_slash":
                     return "Cutting wind slash against a nearby foe.";
+                case "cinder_bite":
+                    return "Searing fangs that bite with cinder heat.";
+                case "riptide_crash":
+                    return "A crushing surge of cold water.";
+                case "boulder_crush":
+                    return "A crushing boulder smash against a foe.";
+                case "pyre_blast":
+                    return "Elite fire blast that sears a nearby foe.";
                 default:
                     return "A special Dude technique.";
             }

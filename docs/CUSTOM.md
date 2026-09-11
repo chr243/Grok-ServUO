@@ -18,7 +18,7 @@ This shard starts from ServUO Publish **57.4.1**. Prefer additive changes so ups
 | Server engine | `Server/` | Rarely touch; keep changes minimal and documented |
 | Spawns / data | `Spawns/`, `Data/`, `RevampedSpawns/` | Content data; customize carefully |
 
-## Dude system (v1 + Phase 2–3 + first boss + Trainer's Manual)
+## Dude system (v1 + Phase 2–3 + roster tiers + first boss + Trainer's Manual)
 
 Pokémon-style companions under `Scripts/Custom/Dudes/`. Full overview: [`Scripts/Custom/Dudes/README.md`](../Scripts/Custom/Dudes/README.md).
 
@@ -36,7 +36,7 @@ Pokémon-style companions under `Scripts/Custom/Dudes/`. Full overview: [`Script
 
 ### Phase 3 — Job Station + Earth Gathering
 - **DudeJobStation** (container): one DudeBall; asks `DudeJobRegistry` what job the Dude can do.
-- Only **Earth Gathering** (`stonepaw` / Earth type): finds nearest mineable land tile, spawns **DudeJobWorker**, pathfinds (teleport fallback), works, returns, deposits Iron Ore.
+- Only **Earth Gathering** (any Earth-type Dude: `pebblet` / `stonepaw` / `boulderback`): finds nearest mineable land tile, spawns **DudeJobWorker**, pathfinds (teleport fallback), works, returns, deposits Iron Ore. Roster also includes weak/medium/strong catchable species — see Dude README.
 - Job state persists across restart; safety for stuck workers, full container, station/ball delete, etc.
 
 ### First boss — Emberlord
@@ -47,7 +47,7 @@ Staff-only spawn (`[SpawnEmberlord` / `[add Emberlord`). Hostile Fire `DudeBoss`
 
 **GM commands:** `[CreateDudeBall`, `[SpawnTestDude`, `[FillDudeBall`, `[CreateDudeMixer`, `[CreateDudeDust`, `[CreateDudeCraftKit`, `[CreateDudeJobStation`, `[StartDudeJob`, `[SpawnEmberlord`, `[CreateEmberCore`, `[CreateTrainersManual`
 
-**Still out of scope:** Additional bosses, multi-phase, auto world-spawn, Ember Core recipes, processing jobs, multiple gathering professions, economy balancing.
+**Still out of scope:** Additional bosses, multi-phase, auto world-spawn, Ember Core recipes, processing jobs, multiple gathering professions, economy balancing, evolution.
 
 ## Workflow tips
 

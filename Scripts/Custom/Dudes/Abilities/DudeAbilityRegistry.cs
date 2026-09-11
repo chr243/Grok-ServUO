@@ -17,10 +17,19 @@ namespace Server.Custom.Dudes
 
             m_Initialized = true;
 
+            // Basic / weak (shared type abilities)
             Register(new EmberBurstAbility());
             Register(new TideCrashAbility());
             Register(new StoneSlamAbility());
             Register(new GustSlashAbility());
+
+            // Medium
+            Register(new CinderBiteAbility());
+            Register(new RiptideCrashAbility());
+            Register(new BoulderCrushAbility());
+
+            // Strong elite
+            Register(new PyreBlastAbility());
         }
 
         public static void Register(DudeAbility ability)
