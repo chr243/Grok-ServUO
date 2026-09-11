@@ -18,19 +18,30 @@ This shard starts from ServUO Publish **57.4.1**. Prefer additive changes so ups
 | Server engine | `Server/` | Rarely touch; keep changes minimal and documented |
 | Spawns / data | `Spawns/`, `Data/`, `RevampedSpawns/` | Content data; customize carefully |
 
-## Dude system (v1)
+## Dude system (v1 + Phase 2–3)
 
-Pokémon-style companions under `Scripts/Custom/Dudes/`. Full overview and file map: [`Scripts/Custom/Dudes/README.md`](../Scripts/Custom/Dudes/README.md).
+Pokémon-style companions under `Scripts/Custom/Dudes/`. Full overview: [`Scripts/Custom/Dudes/README.md`](../Scripts/Custom/Dudes/README.md).
 
+### Phase 1 — Catch / summon
 **Loop:** Wild Dude → catch with Dude Ball (100%) → store → summon (classic follower slots) → follow/fight + ability → EXP/level → recall → persists on the ball across restart.
 
 **UOR notes:** Uses `AI_Melee`, `ControlSlots`/`ControlMaster`, elemental bodies 13–16, crystal ball `0xE2E`. No SA pet masteries or imbuing.
 
-**GM test commands:** `[CreateDudeBall`, `[SpawnTestDude`, `[SpawnAllTestDudes`, `[FillDudeBall`
-
 **Death policy:** Summoned Dude faints into the ball (state saved); re-summon revives. Prevents soft-lock.
 
-**Out of scope (v1):** Evolution, jobs/stations, DudeMixer, DudeDust, bosses, complex capture formulas.
+### Phase 2 — Crafting / Mixer / Dust
+- **DudeMixer** recycles a filled ball into **DudeDust** (confirm gump); empties the ball.
+- **DudeDust** quantity from `DudeDustFormula` (level-based; rarity/type hooks reserved).
+- **DefDudeCrafting** + **DudeCraftingKit**: placeholder recipe `5 Iron Ingot + 1 Dude Dust → empty Dude Ball` (100% success; retune freely).
+
+### Phase 3 — Job Station + Earth Gathering
+- **DudeJobStation** (container): one DudeBall; asks `DudeJobRegistry` what job the Dude can do.
+- Only **Earth Gathering** (`stonepaw` / Earth type): finds nearest mineable land tile, spawns **DudeJobWorker**, pathfinds (teleport fallback), works, returns, deposits Iron Ore.
+- Job state persists across restart; safety for stuck workers, full container, station/ball delete, etc.
+
+**GM commands:** `[CreateDudeBall`, `[SpawnTestDude`, `[FillDudeBall`, `[CreateDudeMixer`, `[CreateDudeDust`, `[CreateDudeCraftKit`, `[CreateDudeJobStation`, `[StartDudeJob`
+
+**Still out of scope:** Bosses, processing jobs, multiple gathering professions, economy balancing.
 
 ## Workflow tips
 

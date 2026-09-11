@@ -15,6 +15,7 @@ namespace Server.Items
     {
         private DudeData m_StoredDude;
         private DudeCreature m_SummonedDude;
+        private DudeJobStation m_AssignedStation;
 
         private const int EmptyHue = 0;
         private const int FilledHue = 1153;
@@ -62,6 +63,30 @@ namespace Server.Items
             get { return SummonedDude != null; }
         }
 
+        /// <summary>True while this ball is assigned to a Job Station (possibly mid-job).</summary>
+        public bool IsAssignedToJob
+        {
+            get
+            {
+                if (m_AssignedStation != null && m_AssignedStation.Deleted)
+                    m_AssignedStation = null;
+
+                return m_AssignedStation != null;
+            }
+        }
+
+        public DudeJobStation AssignedStation
+        {
+            get
+            {
+                if (m_AssignedStation != null && m_AssignedStation.Deleted)
+                    m_AssignedStation = null;
+
+                return m_AssignedStation;
+            }
+            set { m_AssignedStation = value; }
+        }
+
         public void StoreDude(DudeData data)
         {
             m_StoredDude = data;
@@ -75,6 +100,17 @@ namespace Server.Items
             m_StoredDude = null;
             Hue = EmptyHue;
             InvalidateProperties();
+        }
+
+        public override bool OnDragLift(Mobile from)
+        {
+            if (IsAssignedToJob && m_AssignedStation != null && m_AssignedStation.JobActive)
+            {
+                from.SendMessage("You cannot remove the Dude Ball while a job is in progress.");
+                return false;
+            }
+
+            return base.OnDragLift(from);
         }
 
         public void ClearSummonLink()
@@ -100,7 +136,9 @@ namespace Server.Items
                 list.Add("EXP: {0} / {1}", m_StoredDude.CurrentEXP, m_StoredDude.EXPToNext);
                 list.Add("HP: {0} / {1}", m_StoredDude.Hits, m_StoredDude.HitsMax);
 
-                if (m_StoredDude.IsFainted)
+                if (IsAssignedToJob)
+                    list.Add("Status: At Job Station");
+                else if (m_StoredDude.IsFainted)
                     list.Add("Status: Fainted");
                 else if (IsSummoned)
                     list.Add("Status: Summoned");
@@ -121,6 +159,12 @@ namespace Server.Items
 
         public override void OnDoubleClick(Mobile from)
         {
+            if (IsAssignedToJob)
+            {
+                from.SendMessage("This Dude Ball is assigned to a Job Station.");
+                return;
+            }
+
             if (!IsChildOf(from.Backpack) && RootParent != from)
             {
                 from.SendLocalizedMessage(1042001); // That must be in your pack for you to use it.

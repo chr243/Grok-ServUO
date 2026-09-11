@@ -8,7 +8,7 @@ ServUO compiles scripts under `Scripts/`. Keep custom code here so it stays sepa
 
 | System | Path | Notes |
 |--------|------|--------|
-| **Dudes** | `Dudes/` | Pokémon-style catch/summon companions (UOR-oriented). See `Dudes/README.md`. |
+| **Dudes** | `Dudes/` | Catch/summon + Mixer/Dust crafting + Job Station gathering (UOR-oriented). See `Dudes/README.md`. |
 
 ## Guidelines
 

@@ -1,4 +1,4 @@
-# Dude System (v1)
+# Dude System (v1 + Phase 2–3)
 
 Pokémon-style companion loop for Grok-ServUO, designed for **UOR (Ultima Online Renaissance)** rules:
 
@@ -9,29 +9,70 @@ Pokémon-style companion loop for Grok-ServUO, designed for **UOR (Ultima Online
 
 Persistent state lives on **DudeBall**. The world creature is a temporary projection.
 
+## Loops
+
+### Combat / catch (v1)
+Wild Dude → catch with Dude Ball (100%) → store → summon → fight + ability → EXP/level → recall.
+
+### Craft / Mixer / Dust (Phase 2)
+Filled Dude Ball → **Dude Mixer** (confirm) → **Dude Dust** + empty ball → **Dude Crafting Kit** recipe (`Iron Ingot` + `Dude Dust` → empty Dude Ball).
+
+### Job Station / Gathering (Phase 3)
+Filled Earth Dude Ball → drop on **Dude Job Station** → Start Job → worker travels to nearest mineable tile → works → returns → deposits **Iron Ore** into station container → ball remains.
+
 ## File map
 
-| File | Role |
+| Path | Role |
 |------|------|
-| `DudeType.cs` | Fire / Water / Earth / Air enum |
-| `DudeDefinition.cs` | Species template |
-| `DudeRegistry.cs` | Register / lookup species (add new Dudes here) |
-| `DudeData.cs` | Serializable persistent stats |
-| `Abilities/*` | Ability base + four type abilities + registry |
-| `Items/DudeBall.cs` | Catch / store / summon / recall + Serialize |
-| `Mobiles/DudeCreature.cs` | Wild + summoned creature, combat AI, faint-on-death |
-| `Systems/DudeCapture.cs` | Modular 100% capture chance |
-| `Systems/DudeExperience.cs` | EXP + level-up |
-| `Systems/DudeKillHandler.cs` | EventSink kill → EXP |
-| `Commands/DudeTestCommands.cs` | GM test commands |
+| `DudeType.cs` / `DudeDefinition.cs` / `DudeRegistry.cs` / `DudeData.cs` | Species + persistent stats |
+| `Abilities/*` | Combat abilities |
+| `Items/DudeBall.cs` | Catch / store / summon / recall |
+| `Items/DudeDust.cs` | Recycled dust (stackable) |
+| `Items/DudeMixer.cs` | Dude → Dust converter (confirm gump) |
+| `Items/DudeCraftingKit.cs` + `Craft/DefDudeCrafting.cs` | Empty ball crafting |
+| `Items/DudeJobStation.cs` (+ Gump) | Generic job station + container |
+| `Jobs/*` | Abstract jobs, registry, Earth gathering |
+| `Mobiles/DudeCreature.cs` | Wild / summoned combat Dude |
+| `Mobiles/DudeJobWorker.cs` | Temporary job worker |
+| `Systems/*` | Capture, EXP, kill handler, dust formula |
+| `Commands/DudeTestCommands.cs` | GM helpers |
 
-## Test commands (GM)
+## Architecture notes
 
-- `[CreateDudeBall` — empty ball in backpack
-- `[SpawnTestDude emberling` — wild Dude (ids: emberling, tideling, stonepaw, gustling)
-- `[SpawnAllTestDudes` — one of each
-- `[FillDudeBall emberling` — target a ball to skip catch
+- **Dust formula** (`DudeDustFormula`): level-based quantity; rarity/type multipliers reserved.
+- **Jobs**: station asks `DudeJobRegistry.GetJobForDude(data)` — does not hard-code professions. Only **Earth Gathering** is registered.
+- **Travel**: real `PathFollower` movement; stuck / timeout → teleport fallback; station never permanently blocked.
+- **Persistence**: station serializes ball, job id, stage, times, destination, worker; on load recovers stage from elapsed time.
+- **Safety**: rejects empty/wrong balls, multi-ball, no-job, no-resource; blocks ball lift mid-job; ejects ball/resources on station delete; deposits beside station if full.
 
-## Death policy
+## GM test commands
 
-Summoned Dude death writes last state to the ball as **Fainted**, deletes the world creature, and clears the summon link. Re-summoning revives to full HP. This avoids soft-locks.
+| Command | Purpose |
+|---------|---------|
+| `[CreateDudeBall` | Empty ball |
+| `[SpawnTestDude stonepaw` | Wild Earth Dude |
+| `[FillDudeBall stonepaw` | Skip catch |
+| `[CreateDudeMixer` | Mixer |
+| `[CreateDudeDust 5` | Dust stack |
+| `[CreateDudeCraftKit` | Craft kit + ingots |
+| `[CreateDudeJobStation` | Station at feet |
+| `[StartDudeJob` | Target station to start |
+
+## In-game test steps
+
+### Phase 2 loop
+1. `[CreateDudeMixer`, `[CreateDudeBall`, `[FillDudeBall emberling`
+2. Double-click Mixer → target filled ball → OK confirm → receive Dude Dust; ball empties.
+3. `[CreateDudeCraftKit` (gives kit + iron). Ensure dust in pack.
+4. Double-click kit → craft **Dude Ball** (Iron Ingot ×5 + Dude Dust ×1).
+
+### Phase 3 loop
+1. Place station near **mountains/caves** (mineable land tiles): `[CreateDudeJobStation`
+2. `[CreateDudeBall` + `[FillDudeBall stonepaw` (Earth only for now).
+3. Drag filled ball onto station → assigned.
+4. Double-click station → **Start Job**.
+5. Watch worker path to ore tile, work, return; open storage for Iron Ore.
+6. After job: **Retrieve Dude Ball** from gump. Restart shard mid-job to verify recovery.
+
+## Out of scope (still)
+Bosses, resource-processing jobs, multiple gathering professions, economy balancing, evolution, rarity dust variants.
