@@ -1,4 +1,4 @@
-# Dude System (v1 + Phase 2–3 + first boss)
+# Dude System (v1 + Phase 2–3 + first boss + Trainer's Manual)
 
 Pokémon-style companion loop for Grok-ServUO, designed for **UOR (Ultima Online Renaissance)** rules:
 
@@ -23,6 +23,9 @@ Filled Earth Dude Ball → drop on **Dude Job Station** → Start Job → worker
 ### Boss (Emberlord)
 Staff-spawned **Emberlord** (`DudeBoss`) — hostile Fire boss, not catchable, no Dude Ball on death. Fight → Ember Burst AoE → corpse loot (Dude Dust, Iron Ingots, rare Ember Core). No world spawner.
 
+### Trainer's Manual
+**Trainer's Manual** item → double-click → target a wild/summoned `DudeCreature`, filled `DudeBall`, or `DudeBoss` → opens **DudeInfoGump** (name, type, level, EXP, stats, ability, status, owner). Ball data works without recalling. Bosses show a scout sheet (uncatchable).
+
 ## File map
 
 | Path | Role |
@@ -40,6 +43,8 @@ Staff-spawned **Emberlord** (`DudeBoss`) — hostile Fire boss, not catchable, n
 | `Bosses/DudeBoss.cs` | Abstract uncatchable boss (`DudeBoss` → subclass) |
 | `Bosses/Emberlord.cs` | First Fire boss + Ember Burst AoE |
 | `Items/EmberCore.cs` | Rare Emberlord drop (future crafting) |
+| `Items/TrainersManual.cs` | Inspect tool (target Dude / ball / boss) |
+| `Items/DudeInfoGump.cs` | Read-only info sheet (+ `DudeInfoView`) |
 | `Systems/*` | Capture, EXP, kill handler, dust formula |
 | `Commands/DudeTestCommands.cs` | GM helpers |
 
@@ -66,6 +71,7 @@ Staff-spawned **Emberlord** (`DudeBoss`) — hostile Fire boss, not catchable, n
 | `[StartDudeJob` | Target station to start |
 | `[SpawnEmberlord` | Hostile Emberlord at your feet |
 | `[CreateEmberCore` | Rare boss item |
+| `[CreateTrainersManual` | Trainer's Manual (info gump) |
 
 ## In-game test steps
 
@@ -89,6 +95,13 @@ Staff-spawned **Emberlord** (`DudeBoss`) — hostile Fire boss, not catchable, n
 3. `[CreateDudeBall` → double-click → target Emberlord: capture must fail ("cannot be caught in a Dude Ball").
 4. Kill it: corpse has Dude Dust, Iron Ingots, 25% Ember Core. No Dude Ball drop.
 5. `[CreateEmberCore` to inspect the item without fighting. Restart shard with the item in pack to verify serialize.
+
+### Trainer's Manual loop
+1. `[CreateTrainersManual` (or `[add TrainersManual`).
+2. `[SpawnTestDude stonepaw` → double-click manual → target wild Dude → info gump (Wild).
+3. `[CreateDudeBall` + `[FillDudeBall emberling` → target the filled ball (no need to summon) → Captured sheet with EXP/owner.
+4. Summon from ball → target the pet → Summoned sheet with live HP.
+5. `[SpawnEmberlord` → target boss → Boss sheet (uncatchable + Ember Burst). Empty balls / non-Dudes are rejected with messages.
 
 ## Out of scope (still)
 Additional bosses, multi-phase fights, automatic world spawn, Ember Core recipes, resource-processing jobs, multiple gathering professions, economy balancing, evolution, rarity dust variants.

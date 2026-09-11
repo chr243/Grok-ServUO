@@ -74,6 +74,16 @@ namespace Server.Mobiles
             get { return 6; }
         }
 
+        public override string AbilityDisplayName
+        {
+            get { return "Ember Burst"; }
+        }
+
+        public override string AbilityDescription
+        {
+            get { return "AoE fire burst that scorches nearby players and pets."; }
+        }
+
         public override bool BleedImmune
         {
             get { return true; }

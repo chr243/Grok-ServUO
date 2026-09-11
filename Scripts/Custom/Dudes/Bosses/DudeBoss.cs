@@ -45,6 +45,18 @@ namespace Server.Mobiles
             get { return 6; }
         }
 
+        /// <summary>Display name for Trainer's Manual / scouting UI.</summary>
+        public virtual string AbilityDisplayName
+        {
+            get { return "Unknown Ability"; }
+        }
+
+        /// <summary>Short ability blurb for Trainer's Manual. Null hides the line.</summary>
+        public virtual string AbilityDescription
+        {
+            get { return null; }
+        }
+
         public override bool AlwaysMurderer
         {
             get { return true; }

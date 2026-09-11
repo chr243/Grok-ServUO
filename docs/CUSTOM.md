@@ -18,7 +18,7 @@ This shard starts from ServUO Publish **57.4.1**. Prefer additive changes so ups
 | Server engine | `Server/` | Rarely touch; keep changes minimal and documented |
 | Spawns / data | `Spawns/`, `Data/`, `RevampedSpawns/` | Content data; customize carefully |
 
-## Dude system (v1 + Phase 2–3 + first boss)
+## Dude system (v1 + Phase 2–3 + first boss + Trainer's Manual)
 
 Pokémon-style companions under `Scripts/Custom/Dudes/`. Full overview: [`Scripts/Custom/Dudes/README.md`](../Scripts/Custom/Dudes/README.md).
 
@@ -42,7 +42,10 @@ Pokémon-style companions under `Scripts/Custom/Dudes/`. Full overview: [`Script
 ### First boss — Emberlord
 Staff-only spawn (`[SpawnEmberlord` / `[add Emberlord`). Hostile Fire `DudeBoss`; Ember Burst AoE; not catchable (`DudeCapture` hook); loot Dude Dust / Iron Ingots / rare **Ember Core** (future craft mat). No world spawner, no phases.
 
-**GM commands:** `[CreateDudeBall`, `[SpawnTestDude`, `[FillDudeBall`, `[CreateDudeMixer`, `[CreateDudeDust`, `[CreateDudeCraftKit`, `[CreateDudeJobStation`, `[StartDudeJob`, `[SpawnEmberlord`, `[CreateEmberCore`
+### Trainer's Manual
+`TrainersManual` + `DudeInfoGump`: double-click and target wild/summoned Dude, filled Dude Ball (no recall required), or Dude boss for a classic info sheet (stats, ability, status).
+
+**GM commands:** `[CreateDudeBall`, `[SpawnTestDude`, `[FillDudeBall`, `[CreateDudeMixer`, `[CreateDudeDust`, `[CreateDudeCraftKit`, `[CreateDudeJobStation`, `[StartDudeJob`, `[SpawnEmberlord`, `[CreateEmberCore`, `[CreateTrainersManual`
 
 **Still out of scope:** Additional bosses, multi-phase, auto world-spawn, Ember Core recipes, processing jobs, multiple gathering professions, economy balancing.
 

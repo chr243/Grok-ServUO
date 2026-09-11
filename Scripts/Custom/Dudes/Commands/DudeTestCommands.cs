@@ -26,6 +26,7 @@ namespace Server.Custom.Dudes.Commands
             CommandSystem.Register("StartDudeJob", AccessLevel.GameMaster, new CommandEventHandler(StartDudeJob_OnCommand));
             CommandSystem.Register("SpawnEmberlord", AccessLevel.GameMaster, new CommandEventHandler(SpawnEmberlord_OnCommand));
             CommandSystem.Register("CreateEmberCore", AccessLevel.GameMaster, new CommandEventHandler(CreateEmberCore_OnCommand));
+            CommandSystem.Register("CreateTrainersManual", AccessLevel.GameMaster, new CommandEventHandler(CreateTrainersManual_OnCommand));
         }
 
         [Usage("CreateDudeBall")]
@@ -199,6 +200,18 @@ namespace Server.Custom.Dudes.Commands
 
             from.Backpack.DropItem(new EmberCore());
             from.SendMessage(0x59, "TEST: Ember Core created.");
+        }
+
+        [Usage("CreateTrainersManual")]
+        [Description("TEST: Creates a Trainer's Manual in your backpack.")]
+        private static void CreateTrainersManual_OnCommand(CommandEventArgs e)
+        {
+            Mobile from = e.Mobile;
+            if (from == null || from.Backpack == null)
+                return;
+
+            from.Backpack.DropItem(new TrainersManual());
+            from.SendMessage(0x59, "TEST: Trainer's Manual created. Double-click and target a Dude, ball, or boss.");
         }
 
         [Usage("StartDudeJob")]
