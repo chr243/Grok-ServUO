@@ -4,10 +4,15 @@ Place shard-specific C# scripts in this folder (or subfolders).
 
 ServUO compiles scripts under `Scripts/`. Keep custom code here so it stays separate from upstream Publish 57.4.1 sources.
 
-Examples of what belongs here:
+## Active systems
 
-- Custom commands, items, mobiles, or gumps
-- Shard rules / event scripts
-- Small overrides that wrap rather than replace stock systems
+| System | Path | Notes |
+|--------|------|--------|
+| **Dudes** | `Dudes/` | Pokémon-style catch/summon companions (UOR-oriented). See `Dudes/README.md`. |
 
-Add `.cs` files as needed. Rebuild the server after changes.
+## Guidelines
+
+- Custom commands, items, mobiles, or gumps belong here
+- Prefer wrapping stock systems over editing them in place
+- C# 7.3 only (no nullable refs, switch expressions, `using` declarations, records, etc.)
+- Rebuild the server after changes
