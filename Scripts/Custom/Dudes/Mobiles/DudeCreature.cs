@@ -77,6 +77,14 @@ namespace Server.Mobiles
             set { m_IsWild = value; }
         }
 
+        /// <summary>
+        /// Wild companions are catchable; bosses / special Dudes override to false.
+        /// </summary>
+        public virtual bool CanBeCaught
+        {
+            get { return m_IsWild; }
+        }
+
         [CommandProperty(AccessLevel.GameMaster)]
         public int DudeLevel
         {

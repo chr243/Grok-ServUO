@@ -10,12 +10,38 @@ namespace Server.Custom.Dudes
     /// </summary>
     public static class DudeCapture
     {
+        /// <summary>
+        /// Why this target cannot be caught, or null if capture may proceed.
+        /// Blocks DudeBoss (and any DudeCreature.CanBeCaught == false).
+        /// </summary>
+        public static string GetCaptureBlockReason(Mobile thrower, object targeted, DudeBall ball)
+        {
+            if (thrower == null || ball == null)
+                return "You cannot catch that.";
+
+            if (ball.HasDude)
+                return "That Dude Ball is already occupied.";
+
+            DudeBoss boss = targeted as DudeBoss;
+            if (boss != null)
+                return string.Format("{0} cannot be caught in a Dude Ball!", boss.Name);
+
+            DudeCreature dude = targeted as DudeCreature;
+            if (dude == null || dude.Deleted)
+                return "That is not a wild Dude.";
+
+            if (!dude.CanBeCaught)
+                return string.Format("{0} cannot be caught.", dude.Name);
+
+            return null;
+        }
+
         public static double Calculate(Mobile thrower, DudeCreature wild, DudeBall ball)
         {
             if (thrower == null || wild == null || ball == null)
                 return 0.0;
 
-            if (wild.Deleted || !wild.IsWild)
+            if (wild.Deleted || !wild.CanBeCaught)
                 return 0.0;
 
             if (ball.HasDude)

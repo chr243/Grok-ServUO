@@ -24,6 +24,8 @@ namespace Server.Custom.Dudes.Commands
             CommandSystem.Register("CreateDudeCraftKit", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeCraftKit_OnCommand));
             CommandSystem.Register("CreateDudeJobStation", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeJobStation_OnCommand));
             CommandSystem.Register("StartDudeJob", AccessLevel.GameMaster, new CommandEventHandler(StartDudeJob_OnCommand));
+            CommandSystem.Register("SpawnEmberlord", AccessLevel.GameMaster, new CommandEventHandler(SpawnEmberlord_OnCommand));
+            CommandSystem.Register("CreateEmberCore", AccessLevel.GameMaster, new CommandEventHandler(CreateEmberCore_OnCommand));
         }
 
         [Usage("CreateDudeBall")]
@@ -172,6 +174,31 @@ namespace Server.Custom.Dudes.Commands
             DudeJobStation station = new DudeJobStation();
             station.MoveToWorld(from.Location, from.Map);
             from.SendMessage(0x59, "TEST: Dude Job Station placed. Assign an Earth Dude (stonepaw) near mineable terrain.");
+        }
+
+        [Usage("SpawnEmberlord")]
+        [Description("TEST: Spawns Emberlord (Dude boss) at your location. Not catchable.")]
+        private static void SpawnEmberlord_OnCommand(CommandEventArgs e)
+        {
+            Mobile from = e.Mobile;
+            if (from == null || from.Map == null || from.Map == Map.Internal)
+                return;
+
+            Emberlord boss = new Emberlord();
+            boss.MoveToWorld(from.Location, from.Map);
+            from.SendMessage(0x59, "TEST: Spawned Emberlord. Hostile, uncatchable, no world spawner.");
+        }
+
+        [Usage("CreateEmberCore")]
+        [Description("TEST: Creates an Ember Core in your backpack.")]
+        private static void CreateEmberCore_OnCommand(CommandEventArgs e)
+        {
+            Mobile from = e.Mobile;
+            if (from == null || from.Backpack == null)
+                return;
+
+            from.Backpack.DropItem(new EmberCore());
+            from.SendMessage(0x59, "TEST: Ember Core created.");
         }
 
         [Usage("StartDudeJob")]

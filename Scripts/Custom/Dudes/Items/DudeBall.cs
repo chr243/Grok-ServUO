@@ -357,12 +357,16 @@ namespace Server.Items
                     return;
                 }
 
-                DudeCreature wild = targeted as DudeCreature;
-                if (wild == null || !wild.IsWild)
+                string blocked = DudeCapture.GetCaptureBlockReason(from, targeted, m_Ball);
+                if (blocked != null)
                 {
-                    from.SendMessage("That is not a wild Dude.");
+                    from.SendMessage(blocked);
                     return;
                 }
+
+                DudeCreature wild = targeted as DudeCreature;
+                if (wild == null)
+                    return;
 
                 DudeCapture.TryCapture(from, wild, m_Ball);
             }

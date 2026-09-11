@@ -18,7 +18,7 @@ This shard starts from ServUO Publish **57.4.1**. Prefer additive changes so ups
 | Server engine | `Server/` | Rarely touch; keep changes minimal and documented |
 | Spawns / data | `Spawns/`, `Data/`, `RevampedSpawns/` | Content data; customize carefully |
 
-## Dude system (v1 + Phase 2–3)
+## Dude system (v1 + Phase 2–3 + first boss)
 
 Pokémon-style companions under `Scripts/Custom/Dudes/`. Full overview: [`Scripts/Custom/Dudes/README.md`](../Scripts/Custom/Dudes/README.md).
 
@@ -39,9 +39,12 @@ Pokémon-style companions under `Scripts/Custom/Dudes/`. Full overview: [`Script
 - Only **Earth Gathering** (`stonepaw` / Earth type): finds nearest mineable land tile, spawns **DudeJobWorker**, pathfinds (teleport fallback), works, returns, deposits Iron Ore.
 - Job state persists across restart; safety for stuck workers, full container, station/ball delete, etc.
 
-**GM commands:** `[CreateDudeBall`, `[SpawnTestDude`, `[FillDudeBall`, `[CreateDudeMixer`, `[CreateDudeDust`, `[CreateDudeCraftKit`, `[CreateDudeJobStation`, `[StartDudeJob`
+### First boss — Emberlord
+Staff-only spawn (`[SpawnEmberlord` / `[add Emberlord`). Hostile Fire `DudeBoss`; Ember Burst AoE; not catchable (`DudeCapture` hook); loot Dude Dust / Iron Ingots / rare **Ember Core** (future craft mat). No world spawner, no phases.
 
-**Still out of scope:** Bosses, processing jobs, multiple gathering professions, economy balancing.
+**GM commands:** `[CreateDudeBall`, `[SpawnTestDude`, `[FillDudeBall`, `[CreateDudeMixer`, `[CreateDudeDust`, `[CreateDudeCraftKit`, `[CreateDudeJobStation`, `[StartDudeJob`, `[SpawnEmberlord`, `[CreateEmberCore`
+
+**Still out of scope:** Additional bosses, multi-phase, auto world-spawn, Ember Core recipes, processing jobs, multiple gathering professions, economy balancing.
 
 ## Workflow tips
 
