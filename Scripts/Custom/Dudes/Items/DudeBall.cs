@@ -368,7 +368,7 @@ namespace Server.Items
                 if (wild == null)
                     return;
 
-                DudeCapture.TryCapture(from, wild, m_Ball);
+                DudeCapture.BeginCapture(from, wild, m_Ball);
             }
         }
     }
