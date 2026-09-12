@@ -12,6 +12,11 @@ namespace Server
 	{
 		public static readonly Expansion Expansion = Config.GetEnum("Expansion.CurrentExpansion", Expansion.EJ);
 
+		/// <summary>
+		/// When true, enables ObjectPropertyList tooltips even if CurrentExpansion is pre-AOS (e.g. UOR hybrid).
+		/// </summary>
+		public static readonly bool ForceTooltips = Config.Get("Expansion.ForceTooltips", false);
+
 		[CallPriority(Int32.MinValue)]
 		public static void Configure()
 		{
@@ -21,29 +26,37 @@ namespace Server
 			AccountGold.ConvertOnBank = true;
 			AccountGold.ConvertOnTrade = false;
 			VirtualCheck.UseEditGump = true;
-            
+
 			TownCryerSystem.Enabled = Core.TOL;
 
-			ObjectPropertyList.Enabled = Core.AOS;
+			// UOR (or earlier) + ForceTooltips = hybrid: classic rules, AOS-style property tooltips.
+			ObjectPropertyList.Enabled = Core.AOS || ForceTooltips;
 
-            Mobile.InsuranceEnabled = Core.AOS && !Siege.SiegeShard;
+			Mobile.InsuranceEnabled = Core.AOS && !Siege.SiegeShard;
 			Mobile.VisibleDamageType = Core.AOS ? VisibleDamageType.Related : VisibleDamageType.None;
-			Mobile.GuildClickMessage = !Core.AOS;
-			Mobile.AsciiClickMessage = !Core.AOS;
+
+			if (ObjectPropertyList.Enabled)
+			{
+				// Tooltips own single-click; disable classic ascii/guild click spam.
+				Mobile.GuildClickMessage = false;
+				Mobile.AsciiClickMessage = false;
+				PacketHandlers.SingleClickProps = true;
+			}
+			else
+			{
+				Mobile.GuildClickMessage = !Core.AOS;
+				Mobile.AsciiClickMessage = !Core.AOS;
+			}
 
 			if (!Core.AOS)
 			{
+				Mobile.ActionDelay = 500;
 				return;
 			}
 
 			AOS.DisableStatInfluences();
 
-			if (ObjectPropertyList.Enabled)
-			{
-				PacketHandlers.SingleClickProps = true; // single click for everything is overriden to check object property list
-			}
-
-			Mobile.ActionDelay = Core.TOL ? 500 : Core.AOS ? 1000 : 500;
+			Mobile.ActionDelay = Core.TOL ? 500 : 1000;
 			Mobile.AOSStatusHandler = AOS.GetStatus;
 		}
 	}
