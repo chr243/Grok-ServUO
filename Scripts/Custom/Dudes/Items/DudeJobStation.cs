@@ -632,23 +632,9 @@ namespace Server.Items
 
         private Point3D GetSpawnLocation()
         {
-            Map map = Map;
-            Point3D loc = Location;
-
-            if (map == null)
-                return loc;
-
-            for (int i = 0; i < 8; i++)
-            {
-                int x = loc.X + Utility.RandomMinMax(-1, 1);
-                int y = loc.Y + Utility.RandomMinMax(-1, 1);
-                int z = map.GetAverageZ(x, y);
-                Point3D p = new Point3D(x, y, z);
-                if (map.CanFit(p, 16, false, false))
-                    return p;
-            }
-
-            return loc;
+            // Use the station's own location/Z so house interiors work.
+            // Pathfinding into houses often fails; return teleports land here.
+            return Location;
         }
 
         private void DespawnWorker()
@@ -785,15 +771,21 @@ namespace Server.Items
             TimeSpan stageElapsed = DateTime.UtcNow - m_StageStartUtc;
             TimeSpan expected = outbound ? m_OutboundDuration : m_ReturnDuration;
 
-            if (worker.IsStuck(DudeJobConfig.StuckTimeout) || stageElapsed >= DudeJobConfig.MaxTravelDuration)
+            // Houses block pathing — teleport when no path, stuck, or overdue.
+            // Return legs get a shorter overdue grace (common house entry fail).
+            TimeSpan overdueGrace = outbound ? TimeSpan.FromSeconds(15.0) : TimeSpan.FromSeconds(5.0);
+            bool noPath = !arrived && !worker.CanPathToGoal();
+            bool stuck = worker.IsStuck(DudeJobConfig.StuckTimeout);
+            bool overdue = stageElapsed >= expected + overdueGrace;
+            bool maxed = stageElapsed >= DudeJobConfig.MaxTravelDuration;
+
+            if (!arrived && (noPath || stuck || overdue || maxed))
             {
-                worker.TeleportToGoal();
-                arrived = true;
-            }
-            else if (!arrived && stageElapsed >= expected + TimeSpan.FromSeconds(15.0))
-            {
-                // Soft fallback if pathfinding is slow.
-                worker.TeleportToGoal();
+                if (outbound)
+                    worker.TeleportToGoal();
+                else
+                    worker.TeleportTo(GetSpawnLocation(), Map); // preserve house Z
+
                 arrived = true;
             }
 

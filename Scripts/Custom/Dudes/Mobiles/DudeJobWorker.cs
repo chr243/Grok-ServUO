@@ -137,35 +137,23 @@ namespace Server.Mobiles
             return (DateTime.UtcNow - m_LastProgress) >= timeout;
         }
 
+        /// <summary>True if MovementPath can currently reach the goal (false into many houses).</summary>
+        public bool CanPathToGoal()
+        {
+            if (!m_HasGoal || Deleted || Map == null || Map == Map.Internal)
+                return true;
+
+            MovementPath path = new MovementPath(this, m_Goal);
+            return path.Success;
+        }
+
         public void TeleportToGoal()
         {
             if (!m_HasGoal || Map == null || Map == Map.Internal)
                 return;
 
-            Map map = Map;
-            Point3D dest = m_Goal;
-
-            // Nudge to a nearby CanFit if needed.
-            if (!map.CanFit(dest, 16, false, false))
-            {
-                for (int i = 0; i < 8; i++)
-                {
-                    int x = dest.X + Utility.RandomMinMax(-1, 1);
-                    int y = dest.Y + Utility.RandomMinMax(-1, 1);
-                    int z = map.GetAverageZ(x, y);
-                    Point3D p = new Point3D(x, y, z);
-                    if (map.CanFit(p, 16, false, false))
-                    {
-                        dest = p;
-                        break;
-                    }
-                }
-            }
-
-            MoveToWorld(dest, map);
-            m_LastLocation = Location;
-            m_LastProgress = DateTime.UtcNow;
-            m_Path = null;
+            // Force move — house tiles often fail CanFit/average-Z checks.
+            TeleportTo(m_Goal, Map);
         }
 
         public void TeleportTo(Point3D loc, Map map)
