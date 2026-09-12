@@ -121,11 +121,11 @@ namespace Server.Custom.Dudes
             data.Level++;
             data.EXPToNext = GetExpRequiredForLevel(data.Level);
 
-            // Classic UO-style bumps (modest per level).
+            // Classic UO-style bumps; HitsMax +8 so pets stay ahead of early undead.
             data.Str += 2;
             data.Dex += 2;
             data.Int += 1;
-            data.HitsMax += 5;
+            data.HitsMax += 8;
             data.Hits = data.HitsMax;
             data.MinDamage += 1;
             data.MaxDamage += 1;

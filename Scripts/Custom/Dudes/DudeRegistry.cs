@@ -76,7 +76,8 @@ namespace Server.Custom.Dudes
         private static void RegisterDefaults()
         {
             // Classic UO / UOR-safe bodies. Tiers: weak fodder < basic starters < medium < strong elite.
-            // Leveling (unchanged): Str+2, HitsMax+5, Min/MaxDamage+1 per level; abilities base+(DudeLevel*2).
+            // Leveling: Str+2, HitsMax+8, Min/MaxDamage+1 per level; abilities base+(DudeLevel*2).
+            // Weak L1 tuned to clear skeletons/zombies; higher tiers keep clear separation.
 
             // --- WEAK (starter-fodder / early catch) — ControlSlots 1, reuse type abilities ---
 
@@ -87,10 +88,10 @@ namespace Server.Custom.Dudes
                 51,   // slime
                 1358, // hot orange
                 456,
-                18, 30, 10,
-                20,
-                1, 3,
-                4,
+                45, 40, 15,
+                50,
+                4, 7,
+                14,
                 "ember_burst",
                 1));
 
@@ -101,10 +102,10 @@ namespace Server.Custom.Dudes
                 81,   // bullfrog
                 1366, // deep cyan
                 0x266,
-                16, 28, 12,
-                22,
-                1, 3,
-                4,
+                42, 38, 18,
+                52,
+                4, 7,
+                14,
                 "tide_crash",
                 1));
 
@@ -115,10 +116,10 @@ namespace Server.Custom.Dudes
                 48,   // scorpion
                 2412, // dusty stone
                 397,
-                22, 15, 8,
-                28,
-                2, 4,
-                8,
+                50, 28, 12,
+                55,
+                5, 8,
+                16,
                 "stone_slam",
                 1));
 
@@ -129,10 +130,10 @@ namespace Server.Custom.Dudes
                 6,    // bird
                 1150, // pale air
                 0x1B,
-                14, 35, 15,
-                18,
-                1, 3,
-                3,
+                40, 50, 20,
+                48,
+                4, 7,
+                12,
                 "gust_slash",
                 1));
 
@@ -145,10 +146,10 @@ namespace Server.Custom.Dudes
                 15,   // fire elemental body
                 1359, // bright orange-red
                 838,
-                35, 40, 20,
-                40,
-                4, 7,
-                12,
+                55, 50, 30,
+                70,
+                6, 10,
+                18,
                 "ember_burst",
                 1));
 
@@ -159,10 +160,10 @@ namespace Server.Custom.Dudes
                 16,   // water elemental body
                 1365, // cyan-blue
                 278,
-                32, 45, 25,
-                42,
-                3, 6,
-                10,
+                50, 55, 35,
+                72,
+                5, 9,
+                16,
                 "tide_crash",
                 1));
 
@@ -173,10 +174,10 @@ namespace Server.Custom.Dudes
                 14,   // earth elemental body
                 2413, // brown/stone
                 268,
-                50, 25, 15,
-                55,
-                5, 8,
-                18,
+                65, 35, 22,
+                85,
+                7, 11,
+                22,
                 "stone_slam",
                 1));
 
@@ -187,10 +188,10 @@ namespace Server.Custom.Dudes
                 13,   // air elemental body
                 1153, // pale sky
                 655,
-                28, 55, 30,
-                35,
-                3, 6,
-                8,
+                48, 65, 40,
+                68,
+                5, 9,
+                15,
                 "gust_slash",
                 1));
 
@@ -203,10 +204,10 @@ namespace Server.Custom.Dudes
                 0xC9, // hell cat
                 1359,
                 0x69,
-                55, 60, 25,
-                70,
-                7, 11,
-                16,
+                70, 70, 35,
+                100,
+                9, 14,
+                20,
                 "cinder_bite",
                 1));
 
@@ -217,10 +218,10 @@ namespace Server.Custom.Dudes
                 161,  // ice elemental
                 1154, // frost blue
                 268,
-                48, 50, 40,
-                78,
-                6, 10,
-                16,
+                65, 60, 50,
+                105,
+                8, 13,
+                20,
                 "riptide_crash",
                 1));
 
@@ -231,10 +232,10 @@ namespace Server.Custom.Dudes
                 67,   // stone gargoyle
                 2413,
                 0x174,
-                72, 28, 18,
-                95,
-                8, 13,
-                28,
+                90, 40, 25,
+                130,
+                10, 16,
+                32,
                 "boulder_crush",
                 2));
 
@@ -247,10 +248,10 @@ namespace Server.Custom.Dudes
                 130,  // fire gargoyle
                 1161, // bright fire (distinct from Emberling 1359)
                 0x174,
-                95, 55, 50,
-                145,
-                11, 16,
-                35,
+                110, 65, 55,
+                180,
+                13, 19,
+                40,
                 "pyre_blast",
                 2));
         }
