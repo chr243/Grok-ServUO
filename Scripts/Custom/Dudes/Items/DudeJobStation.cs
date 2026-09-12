@@ -2,6 +2,8 @@ using System;
 using Server.Custom.Dudes;
 using Server.Custom.Dudes.Jobs;
 using Server.Mobiles;
+using Server.Multis;
+using Server.Gumps;
 using Server.Network;
 
 namespace Server.Items
@@ -10,10 +12,12 @@ namespace Server.Items
     /// Generic Job Station: accepts one DudeBall, resolves a job from the Dude,
     /// runs travel → work → return, deposits rewards into this container.
     /// </summary>
-    public class DudeJobStation : BaseContainer
+    public class DudeJobStation : BaseContainer, ISecurable
     {
         private DudeBall m_ActiveBall;
         private DudeJobWorker m_Worker;
+        private Mobile m_Placer;
+        private SecureLevel m_SecureLevel = SecureLevel.Owner;
         private bool m_JobActive;
         private string m_JobId;
         private DudeJobStage m_Stage;
@@ -43,6 +47,22 @@ namespace Server.Items
         public DudeJobStation(Serial serial)
             : base(serial)
         {
+        }
+
+        /// <summary>House secure access level — always Owner for this station.</summary>
+        [CommandProperty(AccessLevel.GameMaster)]
+        public SecureLevel Level
+        {
+            get { return SecureLevel.Owner; }
+            set { m_SecureLevel = SecureLevel.Owner; }
+        }
+
+        /// <summary>Player who placed the station in a house; only they may open/use it.</summary>
+        [CommandProperty(AccessLevel.GameMaster)]
+        public Mobile Placer
+        {
+            get { return m_Placer; }
+            set { m_Placer = value; InvalidateProperties(); }
         }
 
         public DudeBall ActiveBall
@@ -136,7 +156,7 @@ namespace Server.Items
                 }
                 else
                 {
-                    list.Add("Status: Idle — double-click to open or start");
+                    list.Add("Status: Idle — drop a Dude Ball to start");
                 }
             }
 
@@ -144,6 +164,17 @@ namespace Server.Items
             if (ball != null && ball.HasDude)
                 propJob = ResolveCurrentJob(ball.StoredDude);
             list.Add(FormatStorageLine(propJob));
+
+            if (m_Placer != null && !m_Placer.Deleted)
+                list.Add("Owner: {0}", m_Placer.Name);
+
+            BaseHouse house = BaseHouse.FindHouseAt(this);
+            if (house == null || !house.IsInside(this))
+                list.Add("Requires: house placement");
+            else if (!IsSecure)
+                list.Add("Requires: secure (house)");
+            else
+                list.Add("Secured in house");
         }
 
         public override void OnSingleClick(Mobile from)
@@ -154,6 +185,80 @@ namespace Server.Items
                 LabelTo(from, "Dude Job Station");
         }
 
+        public override bool OnDroppedToWorld(Mobile from, Point3D p)
+        {
+            if (!base.OnDroppedToWorld(from, p))
+                return false;
+
+            if (from == null || from.Map == null)
+                return false;
+
+            BaseHouse house = BaseHouse.FindHouseAt(p, from.Map, ItemData.Height);
+            if (house == null || !house.IsInside(p, ItemData.Height))
+            {
+                from.SendMessage("A Dude Job Station can only be placed inside a house.");
+                return false;
+            }
+
+            if (from.AccessLevel < AccessLevel.GameMaster && !house.IsCoOwner(from))
+            {
+                from.SendMessage("You must be a house owner or co-owner to place a Job Station.");
+                return false;
+            }
+
+            m_Placer = from;
+            InvalidateProperties();
+            from.SendMessage("Job Station placed. Secure it in the house before using it.");
+            return true;
+        }
+
+        public override bool IsAccessibleTo(Mobile m)
+        {
+            if (m != null && m.AccessLevel >= AccessLevel.GameMaster)
+                return true;
+
+            if (!ValidateHouseSecureUse(m, false))
+                return false;
+
+            return m != null && m_Placer != null && m == m_Placer;
+        }
+
+        /// <summary>
+        /// Must sit inside a house, be house-secured, and only the placer may use it.
+        /// </summary>
+        public bool ValidateHouseSecureUse(Mobile from, bool message)
+        {
+            if (Deleted)
+                return false;
+
+            if (from != null && from.AccessLevel >= AccessLevel.GameMaster)
+                return true;
+
+            BaseHouse house = BaseHouse.FindHouseAt(this);
+            if (house == null || !house.IsInside(this))
+            {
+                if (message && from != null)
+                    from.SendMessage("The Job Station must be placed inside a house.");
+                return false;
+            }
+
+            if (!IsSecure)
+            {
+                if (message && from != null)
+                    from.SendMessage("The Job Station must be secured in the house first. Use the house secure command.");
+                return false;
+            }
+
+            if (from != null && (m_Placer == null || from != m_Placer))
+            {
+                if (message)
+                    from.SendMessage("Only the person who placed this Job Station can use it.");
+                return false;
+            }
+
+            return true;
+        }
+
         public override void OnDoubleClick(Mobile from)
         {
             if (!from.InRange(GetWorldLocation(), 2))
@@ -162,12 +267,18 @@ namespace Server.Items
                 return;
             }
 
+            if (!ValidateHouseSecureUse(from, true))
+                return;
+
             from.CloseGump(typeof(DudeJobStationGump));
             from.SendGump(new DudeJobStationGump(from, this));
         }
 
         public override bool OnDragDrop(Mobile from, Item dropped)
         {
+            if (!ValidateHouseSecureUse(from, true))
+                return false;
+
             DudeBall ball = dropped as DudeBall;
             if (ball != null)
                 return TryAssignBall(from, ball);
@@ -178,6 +289,9 @@ namespace Server.Items
 
         public override bool TryDropItem(Mobile from, Item dropped, bool sendFullMessage)
         {
+            if (!ValidateHouseSecureUse(from, true))
+                return false;
+
             DudeBall ball = dropped as DudeBall;
             if (ball != null)
                 return TryAssignBall(from, ball);
@@ -187,18 +301,15 @@ namespace Server.Items
 
         public override bool CheckLift(Mobile from, Item item, ref LRReason reject)
         {
-            if (item == m_ActiveBall && m_JobActive)
-            {
-                from.SendMessage("You cannot remove the Dude Ball while a job is in progress.");
-                reject = LRReason.CannotLift;
-                return false;
-            }
-
+            // Removing the active Dude Ball stops the job (see OnItemRemoved).
             return base.CheckLift(from, item, ref reject);
         }
 
         public override bool OnDragDropInto(Mobile from, Item item, Point3D p)
         {
+            if (!ValidateHouseSecureUse(from, true))
+                return false;
+
             DudeBall ball = item as DudeBall;
             if (ball != null)
                 return TryAssignBall(from, ball);
@@ -209,6 +320,9 @@ namespace Server.Items
         public bool TryAssignBall(Mobile from, DudeBall ball)
         {
             if (from == null || ball == null || ball.Deleted)
+                return false;
+
+            if (!ValidateHouseSecureUse(from, true))
                 return false;
 
             if (m_JobActive)
@@ -268,7 +382,14 @@ namespace Server.Items
             ball.AssignedStation = this;
             InvalidateProperties();
 
-            from.SendMessage(0x59, "{0} assigned. Job available: {1}. Double-click the station to Start Job.", ball.StoredDude.DisplayName, job.Name);
+            from.SendMessage(0x59, "{0} assigned. Starting {1}...", ball.StoredDude.DisplayName, job.Name);
+
+            if (!TryStartJob(from))
+            {
+                // Assign kept; player can fix (full storage / no resource) and re-drop or wait.
+                from.SendMessage("Job did not start. Fix the issue, retrieve the ball, or try again.");
+            }
+
             return true;
         }
 
@@ -344,6 +465,9 @@ namespace Server.Items
 
         public bool TryStopJob(Mobile from)
         {
+            if (!ValidateHouseSecureUse(from, true))
+                return false;
+
             if (!m_JobActive)
             {
                 if (from != null)
@@ -363,6 +487,9 @@ namespace Server.Items
                 from.SendLocalizedMessage(500446);
                 return false;
             }
+
+            if (!ValidateHouseSecureUse(from, true))
+                return false;
 
             if (m_JobActive)
             {
@@ -455,11 +582,8 @@ namespace Server.Items
             if (from == null)
                 return false;
 
-            if (m_JobActive)
-            {
-                from.SendMessage("Wait for the job to finish before retrieving the Dude Ball.");
+            if (!ValidateHouseSecureUse(from, true))
                 return false;
-            }
 
             DudeBall ball = ActiveBall;
             if (ball == null)
@@ -467,6 +591,9 @@ namespace Server.Items
                 from.SendMessage("No Dude Ball is assigned.");
                 return false;
             }
+
+            if (m_JobActive)
+                AbortJob(from, "Job stopped — Dude Ball retrieved.");
 
             ball.AssignedStation = null;
             m_ActiveBall = null;
@@ -593,6 +720,14 @@ namespace Server.Items
             if (!m_JobActive)
             {
                 StopJobTimer();
+                return;
+            }
+
+            // Abort if moved out of house or unsecured while running.
+            BaseHouse house = BaseHouse.FindHouseAt(this);
+            if (house == null || !house.IsInside(this) || !IsSecure)
+            {
+                AbortJob(null, "Job Station must remain secured in a house.");
                 return;
             }
 
@@ -791,7 +926,7 @@ namespace Server.Items
         }
 
         /// <summary>
-        /// 1% (configurable) chance each cycle to also deposit Dude Dust into the station.
+        /// 5% (configurable) chance each cycle to also deposit Dude Dust into the station.
         /// </summary>
         private void TryDepositBonusDust()
         {
@@ -917,23 +1052,41 @@ namespace Server.Items
                 from.SendMessage(message);
         }
 
-        public string GetStatusMessage()
+        public string[] GetStatusLines()
         {
             DudeBall ball = ActiveBall;
             string dude = (ball != null && ball.HasDude) ? ball.StoredDude.DisplayName : "none";
             DudeJob job = DudeJobRegistry.Get(m_JobId);
-            string jobName = job != null ? job.Name : "none";
-
             DudeData data = (ball != null && ball.HasDude) ? ball.StoredDude : null;
             DudeJob statusJob = job != null ? job : ResolveCurrentJob(data);
+            string jobName = statusJob != null ? statusJob.Name : (job != null ? job.Name : "none");
             string storage = FormatStorageLine(statusJob);
 
             if (!m_JobActive)
-                return string.Format("Station idle. Dude: {0}. Job: {1}. {2}.", dude, jobName, storage);
+            {
+                return new string[]
+                {
+                    string.Format("Dude: {0}", dude),
+                    string.Format("Job: {0}", jobName),
+                    "Status: Idle",
+                    "Dest: -",
+                    storage
+                };
+            }
 
-            return string.Format(
-                "Dude: {0}. Job: {1}. Status: {2}. Dest: {3} tiles. {4}.",
-                dude, jobName, FormatStage(m_Stage), m_Distance, storage);
+            return new string[]
+            {
+                string.Format("Dude: {0}", dude),
+                string.Format("Job: {0}", jobName),
+                string.Format("Status: {0}", FormatStage(m_Stage)),
+                string.Format("Dest: {0} tiles", m_Distance),
+                storage
+            };
+        }
+
+        public string GetStatusMessage()
+        {
+            return string.Join(" ", GetStatusLines());
         }
 
         private static string FormatStage(DudeJobStage stage)
@@ -1009,10 +1162,7 @@ namespace Server.Items
             if (item == m_ActiveBall)
             {
                 if (m_JobActive)
-                {
-                    // Should have been blocked by CheckLift; if forced, abort safely.
-                    AbortJob(null, null);
-                }
+                    AbortJob(null, "Job stopped — Dude Ball removed.");
 
                 if (m_ActiveBall != null)
                     m_ActiveBall.AssignedStation = null;
@@ -1025,7 +1175,7 @@ namespace Server.Items
         public override void Serialize(GenericWriter writer)
         {
             base.Serialize(writer);
-            writer.Write((int)0); // version
+            writer.Write((int)1); // version
 
             writer.Write(m_ActiveBall);
             writer.Write(m_Worker);
@@ -1040,6 +1190,8 @@ namespace Server.Items
             writer.Write(m_WorkDuration);
             writer.Write(m_ReturnDuration);
             writer.Write(m_PendingReward);
+            writer.Write(m_Placer);
+            writer.Write((int)m_SecureLevel);
         }
 
         public override void Deserialize(GenericReader reader)
@@ -1062,6 +1214,14 @@ namespace Server.Items
             m_WorkDuration = reader.ReadTimeSpan();
             m_ReturnDuration = reader.ReadTimeSpan();
             m_PendingReward = reader.ReadItem();
+
+            if (version >= 1)
+            {
+                m_Placer = reader.ReadMobile();
+                m_SecureLevel = (SecureLevel)reader.ReadInt();
+            }
+
+            m_SecureLevel = SecureLevel.Owner;
 
             if (m_ActiveBall != null)
                 m_ActiveBall.AssignedStation = this;

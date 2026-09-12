@@ -18,8 +18,11 @@ namespace Server.Items
         private DudeJobStation m_AssignedStation;
 
         private const int BallItemId = 0xE73; // BolaBall graphic
-        private const int EmptyHue = 2406; // steel gray
-        private const int FilledHue = 1161; // bright charged
+        private const int EmptyHue = 0x59; // bright green — easy to spot empty in pack
+        private const int FireHue = 0x21; // red
+        private const int WaterHue = 0x5A; // blue
+        private const int AirHue = 0x47E; // white
+        private const int EarthHue = 0x22C; // light brown
 
         [Constructable]
         public DudeBall()
@@ -91,7 +94,7 @@ namespace Server.Items
         public void StoreDude(DudeData data)
         {
             m_StoredDude = data;
-            Hue = data != null ? FilledHue : EmptyHue;
+            RefreshHue();
             InvalidateProperties();
         }
 
@@ -99,8 +102,34 @@ namespace Server.Items
         {
             RecallInternal(null, false);
             m_StoredDude = null;
-            Hue = EmptyHue;
+            RefreshHue();
             InvalidateProperties();
+        }
+
+        /// <summary>Empty = green; filled = Fire red / Water blue / Air white / Earth light brown.</summary>
+        public void RefreshHue()
+        {
+            Hue = GetHueForStoredDude(m_StoredDude);
+        }
+
+        public static int GetHueForStoredDude(DudeData data)
+        {
+            if (data == null)
+                return EmptyHue;
+
+            switch (data.Type)
+            {
+                case DudeType.Fire:
+                    return FireHue;
+                case DudeType.Water:
+                    return WaterHue;
+                case DudeType.Air:
+                    return AirHue;
+                case DudeType.Earth:
+                    return EarthHue;
+                default:
+                    return FireHue;
+            }
         }
 
         public override bool OnDragLift(Mobile from)
@@ -340,7 +369,7 @@ namespace Server.Items
             m_SummonedDude = reader.ReadMobile() as DudeCreature;
 
             ItemID = BallItemId; // migrate older ball art
-            Hue = m_StoredDude != null ? FilledHue : EmptyHue;
+            RefreshHue(); // migrate steel/charged hues to green / type colors
         }
 
         private class CatchTarget : Target
