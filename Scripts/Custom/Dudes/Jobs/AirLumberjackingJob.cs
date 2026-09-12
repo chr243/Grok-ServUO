@@ -27,7 +27,7 @@ namespace Server.Custom.Dudes.Jobs
 
         public override Type GetStoredRewardType()
         {
-            return typeof(Log);
+            return typeof(BaseLog);
         }
 
         public override int GetWorkAnimation(DudeData data)
@@ -42,7 +42,16 @@ namespace Server.Custom.Dudes.Jobs
 
         protected override Item CreateGatheredItem(DudeData data)
         {
+            double skill = DudeJobHarvest.GetEffectiveSkill(data);
+            Item item = DudeJobHarvest.CreateFromVeins(Lumberjacking.System.Definition, skill, 1);
+            if (item != null)
+                return item;
             return new Log(1);
+        }
+
+        public override bool CountsTowardStorage(Item item)
+        {
+            return item is BaseLog;
         }
 
         public override bool TryFindDestination(DudeJobStation station, DudeData data, out Point3D destination, out int distance)

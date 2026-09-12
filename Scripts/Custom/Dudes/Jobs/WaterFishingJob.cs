@@ -42,7 +42,17 @@ namespace Server.Custom.Dudes.Jobs
 
         protected override Item CreateGatheredItem(DudeData data)
         {
-            return new Fish(1);
+            double skill = DudeJobHarvest.GetEffectiveSkill(data);
+            return DudeJobHarvest.CreateFishingHaul(skill, 1);
+        }
+
+        public override bool CountsTowardStorage(Item item)
+        {
+            if (item == null)
+                return false;
+            if (item is Fish || item is Gold)
+                return true;
+            return item is IGem;
         }
 
         public override bool TryFindDestination(DudeJobStation station, DudeData data, out Point3D destination, out int distance)

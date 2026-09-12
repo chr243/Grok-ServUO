@@ -52,11 +52,18 @@ namespace Server.Custom.Dudes
         /// </summary>
         public static void AwardExperience(DudeBall ball, int amount)
         {
+            AwardExperience(ball, amount, null);
+        }
+
+        public static void AwardExperience(DudeBall ball, int amount, Mobile notify)
+        {
             if (ball == null || ball.StoredDude == null || amount <= 0)
                 return;
 
             DudeData data = ball.StoredDude;
-            Mobile owner = ball.RootParent as Mobile;
+            Mobile owner = notify;
+            if (owner == null)
+                owner = ball.RootParent as Mobile;
 
             data.CurrentEXP += amount;
 

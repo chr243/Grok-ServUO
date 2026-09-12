@@ -34,6 +34,15 @@ namespace Server.Custom.Dudes.Jobs
         /// <summary>Stop auto-loop when station holds at least this much of the job's primary resource.</summary>
         public static int MaxStoredResource = 1000;
 
+        /// <summary>EXP awarded to the working Dude each completed job cycle.</summary>
+        public static int JobCycleExp = 1;
+
+        /// <summary>Base effective gathering skill (%) for a level-0/1 Dude.</summary>
+        public static double BaseGatherSkill = 50.0;
+
+        /// <summary>Added to effective gathering skill per Dude level.</summary>
+        public static double GatherSkillPerLevel = 5.0;
+
         /// <summary>Legacy alias for MaxStoredResource (Iron Ore jobs).</summary>
         public static int MaxStoredOre
         {

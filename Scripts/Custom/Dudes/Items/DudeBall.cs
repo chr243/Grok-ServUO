@@ -9,7 +9,7 @@ namespace Server.Items
     /// <summary>
     /// Stores one Dude. Ball is the authoritative persistence container.
     /// Double-click: empty = catch target; filled + no summon = summon; filled + summoned = recall.
-    /// Classic crystal-ball ItemID for UOR clients.
+    /// Round gem ItemID (Star Sapphire art) for a ball-like look.
     /// </summary>
     public class DudeBall : Item
     {
@@ -22,7 +22,7 @@ namespace Server.Items
 
         [Constructable]
         public DudeBall()
-            : base(0xE2E)
+            : base(0xF0F) // Star Sapphire gem — round ball look
         {
             Name = "Dude Ball";
             Weight = 1.0;
@@ -327,6 +327,7 @@ namespace Server.Items
 
             m_SummonedDude = reader.ReadMobile() as DudeCreature;
 
+            ItemID = 0xF0F; // migrate older crystal-ball art
             Hue = m_StoredDude != null ? FilledHue : EmptyHue;
         }
 

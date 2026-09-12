@@ -22,17 +22,26 @@ namespace Server.Custom.Dudes.Jobs
 
         public override string GetResourceLabel()
         {
-            return "Iron Ore";
+            return "Ore";
         }
 
         public override Type GetStoredRewardType()
         {
-            return typeof(IronOre);
+            return typeof(BaseOre);
         }
 
         protected override Item CreateGatheredItem(DudeData data)
         {
+            double skill = DudeJobHarvest.GetEffectiveSkill(data);
+            Item item = DudeJobHarvest.CreateFromVeins(Mining.System.OreAndStone, skill, 1);
+            if (item != null)
+                return item;
             return new IronOre(1);
+        }
+
+        public override bool CountsTowardStorage(Item item)
+        {
+            return item is BaseOre;
         }
 
         public override bool TryFindDestination(DudeJobStation station, DudeData data, out Point3D destination, out int distance)

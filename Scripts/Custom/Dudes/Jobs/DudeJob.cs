@@ -56,6 +56,13 @@ namespace Server.Custom.Dudes.Jobs
         /// <summary>Primary stacked reward type used for station storage caps (null = no cap).</summary>
         public abstract System.Type GetStoredRewardType();
 
+        /// <summary>Whether an item counts toward this job's station storage cap.</summary>
+        public virtual bool CountsTowardStorage(Item item)
+        {
+            System.Type t = GetStoredRewardType();
+            return item != null && t != null && t.IsInstanceOfType(item);
+        }
+
         /// <summary>Estimate outbound/return travel time from distance.</summary>
         public virtual TimeSpan EstimateTravelTime(int distance)
         {

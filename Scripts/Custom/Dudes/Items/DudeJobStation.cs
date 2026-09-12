@@ -295,7 +295,15 @@ namespace Server.Items
             if (job == null)
                 return 0;
 
-            return GetStoredRewardCount(job.GetStoredRewardType());
+            int total = 0;
+            foreach (Item item in Items)
+            {
+                if (item == null || item.Deleted || item == m_ActiveBall)
+                    continue;
+                if (job.CountsTowardStorage(item))
+                    total += item.Amount;
+            }
+            return total;
         }
 
         public bool IsRewardStorageFull(DudeJob job)
@@ -303,11 +311,7 @@ namespace Server.Items
             if (job == null)
                 return false;
 
-            Type t = job.GetStoredRewardType();
-            if (t == null)
-                return false;
-
-            return GetStoredRewardCount(t) >= DudeJobConfig.MaxStoredResource;
+            return GetStoredRewardCount(job) >= DudeJobConfig.MaxStoredResource;
         }
 
         public bool IsOreStorageFull()
@@ -695,6 +699,20 @@ namespace Server.Items
             DespawnWorker();
             m_JobId = job != null ? job.Id : m_JobId;
 
+            DudeBall ball = ActiveBall;
+            if (ball != null && ball.HasDude && data != null)
+            {
+                int beforeLevel = data.Level;
+                DudeExperience.AwardExperience(ball, DudeJobConfig.JobCycleExp, null);
+                PublicOverheadMessage(MessageType.Regular, 0x59, false,
+                    string.Format("{0} +{1} EXP (gather ~{2:0})", data.DisplayName, DudeJobConfig.JobCycleExp, DudeJobHarvest.GetEffectiveSkill(data)));
+                if (data.Level > beforeLevel)
+                {
+                    PublicOverheadMessage(MessageType.Regular, 0x44, false,
+                        string.Format("{0} reached level {1}!", data.DisplayName, data.Level));
+                }
+            }
+
             // Auto-loop until stopped or resource cap reached.
             if (IsRewardStorageFull(job))
             {
@@ -771,14 +789,10 @@ namespace Server.Items
             if (reward == null || reward.Deleted)
                 return;
 
-            // Never push past the configured resource cap for this reward type.
-            Type rewardType = reward.GetType();
-            if (job != null && job.GetStoredRewardType() != null && job.GetStoredRewardType().IsInstanceOfType(reward))
-                rewardType = job.GetStoredRewardType();
-
-            if (rewardType != null && (reward is IronOre || reward is Log || reward is Fish))
+            // Never push past the configured resource cap for this job.
+            if (job != null && job.CountsTowardStorage(reward))
             {
-                int room = DudeJobConfig.MaxStoredResource - GetStoredRewardCount(rewardType);
+                int room = DudeJobConfig.MaxStoredResource - GetStoredRewardCount(job);
                 if (room <= 0)
                 {
                     reward.Delete();

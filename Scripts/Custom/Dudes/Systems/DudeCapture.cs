@@ -17,7 +17,7 @@ namespace Server.Custom.Dudes
         // Classic-friendly SFX: throw whoosh (snowball), catch flourish (Arcane Empowerment).
         private const int ThrowSound = 0x145;
         private const int CatchFanfareSound = 0x5C1;
-        private const int BallItemId = 0xE2E; // Dude Ball / crystal ball art
+        private const int BallItemId = 0xF0F; // round gem art
         private const int CatchParticles = 0x373A;
 
         /// <summary>

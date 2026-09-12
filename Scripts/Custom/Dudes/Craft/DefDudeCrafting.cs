@@ -1,3 +1,4 @@
+using Server;
 using System;
 using Server.Items;
 
@@ -92,6 +93,20 @@ namespace Server.Engines.Craft
 
             AddRes(index, typeof(DudeDust), "Dude Dust", 1, "You need Dude Dust (recycle a Dude in the Dude Mixer).");
             SetForceSuccess(index, 100);
+            ForceNonExceptional(index);
+
+            // Wooden Job Station — Carpentry 50+, consumes Logs (boards also count as logs).
+            index = AddCraft(
+                typeof(DudeJobStation),
+                "Stations",
+                "Dude Job Station",
+                SkillName.Carpentry,
+                50.0,
+                75.0,
+                typeof(Log),
+                "Log",
+                50,
+                "You need more logs.");
             ForceNonExceptional(index);
         }
     }
