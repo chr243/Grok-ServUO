@@ -30,7 +30,7 @@ namespace Server.Items
             if (station.ActiveBall != null && !station.JobActive)
             {
                 AddButton(20, y, 4005, 4007, 2, GumpButtonType.Reply, 0);
-                AddLabel(55, y, 0x480, "Start Job (loops)");
+                AddLabel(55, y, 0x480, "Start Job");
                 y += 25;
 
                 AddButton(20, y, 4005, 4007, 3, GumpButtonType.Reply, 0);
