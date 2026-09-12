@@ -60,7 +60,7 @@ namespace Server.Custom.Dudes.Jobs
         }
 
         /// <summary>
-        /// First registered job this Dude can perform (v1: only Earth Gathering).
+        /// First registered job this Dude can perform (Earth/Air/Water gathering; Fire later).
         /// </summary>
         public static DudeJob GetJobForDude(DudeData data)
         {
@@ -87,6 +87,8 @@ namespace Server.Custom.Dudes.Jobs
         private static void RegisterDefaults()
         {
             Register(new EarthGatheringJob());
+            Register(new AirLumberjackingJob());
+            Register(new WaterFishingJob());
         }
     }
 }

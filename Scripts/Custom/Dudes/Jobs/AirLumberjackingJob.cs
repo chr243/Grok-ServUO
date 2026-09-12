@@ -6,33 +6,43 @@ using Server.Mobiles;
 namespace Server.Custom.Dudes.Jobs
 {
     /// <summary>
-    /// First gathering job: Earth Dudes mine nearest valid ore tile (real world harvestables).
+    /// Air Dudes lumberjack nearest valid tree (static harvestables), same loop as Earth mining.
     /// </summary>
-    public sealed class EarthGatheringJob : GatheringJob
+    public sealed class AirLumberjackingJob : GatheringJob
     {
-        public EarthGatheringJob()
-            : base("earth_gather", "Earth Gathering")
+        public AirLumberjackingJob()
+            : base("air_lumber", "Air Lumberjacking")
         {
         }
 
         public override bool CanPerform(DudeData data)
         {
-            return data != null && data.Type == DudeType.Earth;
+            return data != null && data.Type == DudeType.Air;
         }
 
         public override string GetResourceLabel()
         {
-            return "Iron Ore";
+            return "Logs";
         }
 
         public override Type GetStoredRewardType()
         {
-            return typeof(IronOre);
+            return typeof(Log);
+        }
+
+        public override int GetWorkAnimation(DudeData data)
+        {
+            return 13; // chop
+        }
+
+        public override int GetWorkSound(DudeData data)
+        {
+            return 0x13E;
         }
 
         protected override Item CreateGatheredItem(DudeData data)
         {
-            return new IronOre(1);
+            return new Log(1);
         }
 
         public override bool TryFindDestination(DudeJobStation station, DudeData data, out Point3D destination, out int distance)
@@ -45,14 +55,13 @@ namespace Server.Custom.Dudes.Jobs
 
             Map map = station.Map;
             Point3D origin = station.Location;
-            HarvestDefinition def = Mining.System.OreAndStone;
+            HarvestDefinition def = Lumberjacking.System.Definition;
             int radius = DudeJobConfig.SearchRadius;
 
             Point3D best = Point3D.Zero;
             int bestDist = int.MaxValue;
             bool found = false;
 
-            // Expanding ring search — prefer nearer valid mineable land tiles.
             for (int r = 1; r <= radius; r++)
             {
                 for (int dx = -r; dx <= r; dx++)
@@ -65,21 +74,24 @@ namespace Server.Custom.Dudes.Jobs
                         int x = origin.X + dx;
                         int y = origin.Y + dy;
 
-                        LandTile lt = map.Tiles.GetLandTile(x, y);
-                        int tileId = lt.ID & 0x3FFF;
-
-                        if (!def.Validate(tileId) && !def.Validate(lt.ID))
-                            continue;
-
-                        int z = lt.Z;
-                        Point3D candidate = new Point3D(x, y, z);
-                        int dist = (int)Math.Sqrt((dx * dx) + (dy * dy));
-
-                        if (dist < bestDist)
+                        StaticTile[] tiles = map.Tiles.GetStaticTiles(x, y, false);
+                        for (int i = 0; i < tiles.Length; i++)
                         {
-                            bestDist = dist;
-                            best = candidate;
-                            found = true;
+                            StaticTile tile = tiles[i];
+                            int id = (tile.ID & 0x3FFF) | 0x4000;
+
+                            if (!def.Validate(id) && !def.Validate(tile.ID) && !def.Validate(tile.ID & 0x3FFF))
+                                continue;
+
+                            Point3D candidate = new Point3D(x, y, tile.Z);
+                            int dist = (int)Math.Sqrt((dx * dx) + (dy * dy));
+
+                            if (dist < bestDist)
+                            {
+                                bestDist = dist;
+                                best = candidate;
+                                found = true;
+                            }
                         }
                     }
                 }

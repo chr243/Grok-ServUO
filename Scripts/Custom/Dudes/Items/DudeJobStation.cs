@@ -110,7 +110,7 @@ namespace Server.Items
             {
                 list.Add("No Dude assigned");
                 list.Add("Drop a filled Dude Ball to start a job");
-                list.Add("Ore stored: {0}/{1}", GetStoredOreCount(), DudeJobConfig.MaxStoredOre);
+                list.Add("Cap: {0} per resource type", DudeJobConfig.MaxStoredResource);
             }
             else
             {
@@ -139,7 +139,10 @@ namespace Server.Items
                 }
             }
 
-            list.Add("Stored resources: {0} items", CountOutputItems());
+            DudeJob propJob = null;
+            if (ball != null && ball.HasDude)
+                propJob = ResolveCurrentJob(ball.StoredDude);
+            list.Add(FormatStorageLine(propJob));
         }
 
         public override void OnSingleClick(Mobile from)
@@ -265,6 +268,14 @@ namespace Server.Items
 
         public int GetStoredOreCount()
         {
+            return GetStoredRewardCount(typeof(IronOre));
+        }
+
+        public int GetStoredRewardCount(Type rewardType)
+        {
+            if (rewardType == null)
+                return 0;
+
             int total = 0;
 
             foreach (Item item in Items)
@@ -272,16 +283,52 @@ namespace Server.Items
                 if (item == null || item.Deleted || item == m_ActiveBall)
                     continue;
 
-                if (item is IronOre)
+                if (rewardType.IsInstanceOfType(item))
                     total += item.Amount;
             }
 
             return total;
         }
 
+        public int GetStoredRewardCount(DudeJob job)
+        {
+            if (job == null)
+                return 0;
+
+            return GetStoredRewardCount(job.GetStoredRewardType());
+        }
+
+        public bool IsRewardStorageFull(DudeJob job)
+        {
+            if (job == null)
+                return false;
+
+            Type t = job.GetStoredRewardType();
+            if (t == null)
+                return false;
+
+            return GetStoredRewardCount(t) >= DudeJobConfig.MaxStoredResource;
+        }
+
         public bool IsOreStorageFull()
         {
-            return GetStoredOreCount() >= DudeJobConfig.MaxStoredOre;
+            return GetStoredRewardCount(typeof(IronOre)) >= DudeJobConfig.MaxStoredResource;
+        }
+
+        private DudeJob ResolveCurrentJob(DudeData data)
+        {
+            DudeJob job = DudeJobRegistry.Get(m_JobId);
+            if (job == null && data != null)
+                job = DudeJobRegistry.GetJobForDude(data);
+            return job;
+        }
+
+        private string FormatStorageLine(DudeJob job)
+        {
+            if (job == null)
+                return string.Format("Stored: {0}/{1}", GetStoredOreCount(), DudeJobConfig.MaxStoredResource);
+
+            return string.Format("{0}: {1}/{2}", job.GetResourceLabel(), GetStoredRewardCount(job), DudeJobConfig.MaxStoredResource);
         }
 
         public bool TryStopJob(Mobile from)
@@ -313,18 +360,19 @@ namespace Server.Items
                 return false;
             }
 
-            if (IsOreStorageFull())
-            {
-                if (from != null)
-                    from.SendMessage("Station is full ({0} Iron Ore). Empty it before starting.", DudeJobConfig.MaxStoredOre);
-                return false;
-            }
-
             DudeBall ball = ActiveBall;
             if (ball == null || !ball.HasDude)
             {
                 if (from != null)
                     from.SendMessage("Assign a filled Dude Ball first.");
+                return false;
+            }
+
+            DudeJob startJobCheck = DudeJobRegistry.GetJobForDude(ball.StoredDude);
+            if (IsRewardStorageFull(startJobCheck))
+            {
+                if (from != null)
+                    from.SendMessage("Station is full ({0} {1}). Empty it before starting.", DudeJobConfig.MaxStoredResource, startJobCheck.GetResourceLabel());
                 return false;
             }
 
@@ -647,15 +695,15 @@ namespace Server.Items
             DespawnWorker();
             m_JobId = job != null ? job.Id : m_JobId;
 
-            // Auto-loop until stopped or ore cap reached.
-            if (IsOreStorageFull())
+            // Auto-loop until stopped or resource cap reached.
+            if (IsRewardStorageFull(job))
             {
                 m_JobActive = false;
                 m_Stage = DudeJobStage.Idle;
                 StopJobTimer();
                 InvalidateProperties();
                 PublicOverheadMessage(MessageType.Regular, 0x22, false,
-                    string.Format("Station full ({0}/{1} ore). Job stopped.", GetStoredOreCount(), DudeJobConfig.MaxStoredOre));
+                    string.Format("Station full ({0}). Job stopped.", FormatStorageLine(job)));
                 return;
             }
 
@@ -671,7 +719,7 @@ namespace Server.Items
 
             InvalidateProperties();
             PublicOverheadMessage(MessageType.Regular, 0x3B2, false,
-                string.Format("Cycle done ({0}/{1} ore). Continuing...", GetStoredOreCount(), DudeJobConfig.MaxStoredOre));
+                string.Format("Cycle done ({0}). Continuing...", FormatStorageLine(job)));
         }
 
         private bool BeginNextJobLoop(DudeJob job, DudeData data)
@@ -723,10 +771,14 @@ namespace Server.Items
             if (reward == null || reward.Deleted)
                 return;
 
-            // Never push past the configured ore cap.
-            if (reward is IronOre)
+            // Never push past the configured resource cap for this reward type.
+            Type rewardType = reward.GetType();
+            if (job != null && job.GetStoredRewardType() != null && job.GetStoredRewardType().IsInstanceOfType(reward))
+                rewardType = job.GetStoredRewardType();
+
+            if (rewardType != null && (reward is IronOre || reward is Log || reward is Fish))
             {
-                int room = DudeJobConfig.MaxStoredOre - GetStoredOreCount();
+                int room = DudeJobConfig.MaxStoredResource - GetStoredRewardCount(rewardType);
                 if (room <= 0)
                 {
                     reward.Delete();
@@ -806,12 +858,16 @@ namespace Server.Items
             DudeJob job = DudeJobRegistry.Get(m_JobId);
             string jobName = job != null ? job.Name : "none";
 
+            DudeData data = (ball != null && ball.HasDude) ? ball.StoredDude : null;
+            DudeJob statusJob = job != null ? job : ResolveCurrentJob(data);
+            string storage = FormatStorageLine(statusJob);
+
             if (!m_JobActive)
-                return string.Format("Station idle. Dude: {0}. Job: {1}. Ore: {2}/{3}.", dude, jobName, GetStoredOreCount(), DudeJobConfig.MaxStoredOre);
+                return string.Format("Station idle. Dude: {0}. Job: {1}. {2}.", dude, jobName, storage);
 
             return string.Format(
-                "Dude: {0}. Job: {1}. Status: {2}. Dest: {3} tiles. Ore: {4}/{5}. {6}",
-                dude, jobName, FormatStage(m_Stage), m_Distance, GetStoredOreCount(), DudeJobConfig.MaxStoredOre, GetTimingProperty());
+                "Dude: {0}. Job: {1}. Status: {2}. Dest: {3} tiles. {4}. {5}",
+                dude, jobName, FormatStage(m_Stage), m_Distance, storage, GetTimingProperty());
         }
 
         private string GetTimingProperty()

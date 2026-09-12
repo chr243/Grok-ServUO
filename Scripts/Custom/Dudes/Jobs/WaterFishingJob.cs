@@ -6,33 +6,43 @@ using Server.Mobiles;
 namespace Server.Custom.Dudes.Jobs
 {
     /// <summary>
-    /// First gathering job: Earth Dudes mine nearest valid ore tile (real world harvestables).
+    /// Water Dudes fish nearest valid water tile, same loop as Earth mining.
     /// </summary>
-    public sealed class EarthGatheringJob : GatheringJob
+    public sealed class WaterFishingJob : GatheringJob
     {
-        public EarthGatheringJob()
-            : base("earth_gather", "Earth Gathering")
+        public WaterFishingJob()
+            : base("water_fish", "Water Fishing")
         {
         }
 
         public override bool CanPerform(DudeData data)
         {
-            return data != null && data.Type == DudeType.Earth;
+            return data != null && data.Type == DudeType.Water;
         }
 
         public override string GetResourceLabel()
         {
-            return "Iron Ore";
+            return "Fish";
         }
 
         public override Type GetStoredRewardType()
         {
-            return typeof(IronOre);
+            return typeof(Fish);
+        }
+
+        public override int GetWorkAnimation(DudeData data)
+        {
+            return 12; // fish cast-ish
+        }
+
+        public override int GetWorkSound(DudeData data)
+        {
+            return 0x364;
         }
 
         protected override Item CreateGatheredItem(DudeData data)
         {
-            return new IronOre(1);
+            return new Fish(1);
         }
 
         public override bool TryFindDestination(DudeJobStation station, DudeData data, out Point3D destination, out int distance)
@@ -45,14 +55,13 @@ namespace Server.Custom.Dudes.Jobs
 
             Map map = station.Map;
             Point3D origin = station.Location;
-            HarvestDefinition def = Mining.System.OreAndStone;
+            HarvestDefinition def = Fishing.System.Definition;
             int radius = DudeJobConfig.SearchRadius;
 
             Point3D best = Point3D.Zero;
             int bestDist = int.MaxValue;
             bool found = false;
 
-            // Expanding ring search — prefer nearer valid mineable land tiles.
             for (int r = 1; r <= radius; r++)
             {
                 for (int dx = -r; dx <= r; dx++)

@@ -53,6 +53,9 @@ namespace Server.Custom.Dudes.Jobs
         /// <summary>Human-readable resource label for UI.</summary>
         public abstract string GetResourceLabel();
 
+        /// <summary>Primary stacked reward type used for station storage caps (null = no cap).</summary>
+        public abstract System.Type GetStoredRewardType();
+
         /// <summary>Estimate outbound/return travel time from distance.</summary>
         public virtual TimeSpan EstimateTravelTime(int distance)
         {

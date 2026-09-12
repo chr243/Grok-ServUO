@@ -22,7 +22,7 @@ namespace Server.Custom.Dudes.Jobs
         /// <summary>Default time spent performing the job at the resource.</summary>
         public static TimeSpan DefaultWorkDuration = TimeSpan.FromSeconds(12.0);
 
-        /// <summary>Default reward stack size for the Earth gathering job.</summary>
+        /// <summary>Default reward stack size for gathering jobs.</summary>
         public static int DefaultGatherRewardAmount = 3;
 
         /// <summary>Animation / action delay while working (visual only).</summary>
@@ -31,8 +31,14 @@ namespace Server.Custom.Dudes.Jobs
         /// <summary>Timer tick for station job processing.</summary>
         public static TimeSpan JobTickInterval = TimeSpan.FromSeconds(1.0);
 
-        /// <summary>Stop auto-loop when station holds at least this much Iron Ore.</summary>
-        public static int MaxStoredOre = 1000;
+        /// <summary>Stop auto-loop when station holds at least this much of the job's primary resource.</summary>
+        public static int MaxStoredResource = 1000;
+
+        /// <summary>Legacy alias for MaxStoredResource (Iron Ore jobs).</summary>
+        public static int MaxStoredOre
+        {
+            get { return MaxStoredResource; }
+            set { MaxStoredResource = value; }
+        }
     }
 }
-
