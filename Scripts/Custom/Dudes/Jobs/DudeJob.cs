@@ -50,6 +50,15 @@ namespace Server.Custom.Dudes.Jobs
         /// <summary>Create the reward item(s) deposited into the station. May return null.</summary>
         public abstract Item CreateReward(DudeData data);
 
+        /// <summary>
+        /// Create reward at a world location (gathering jobs deplete the harvest bank here).
+        /// Default ignores location and calls <see cref="CreateReward(DudeData)"/>.
+        /// </summary>
+        public virtual Item CreateReward(DudeData data, Map map, Point3D loc, Mobile harvester)
+        {
+            return CreateReward(data);
+        }
+
         /// <summary>Human-readable resource label for UI.</summary>
         public abstract string GetResourceLabel();
 

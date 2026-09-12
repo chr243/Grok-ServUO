@@ -30,13 +30,27 @@ namespace Server.Custom.Dudes.Jobs
             return typeof(BaseOre);
         }
 
-        protected override Item CreateGatheredItem(DudeData data)
+        protected override HarvestDefinition GetHarvestDefinition()
+        {
+            return Mining.System.OreAndStone;
+        }
+
+        protected override Item CreateGatheredItem(DudeData data, Map map, Point3D loc, Mobile harvester)
         {
             double skill = DudeJobHarvest.GetEffectiveSkill(data);
-            Item item = DudeJobHarvest.CreateFromVeins(Mining.System.OreAndStone, skill, 1);
+            HarvestDefinition def = GetHarvestDefinition();
+
+            if (map != null && map != Map.Internal && harvester != null)
+            {
+                Item harvested = DudeJobHarvest.HarvestAt(def, map, loc, harvester, skill, DudeJobConfig.DefaultGatherRewardAmount);
+                if (harvested != null)
+                    return harvested;
+            }
+
+            Item item = DudeJobHarvest.CreateFromVeins(def, skill, DudeJobConfig.DefaultGatherRewardAmount);
             if (item != null)
                 return item;
-            return new IronOre(1);
+            return new IronOre(DudeJobConfig.DefaultGatherRewardAmount);
         }
 
         public override bool CountsTowardStorage(Item item)
@@ -54,14 +68,13 @@ namespace Server.Custom.Dudes.Jobs
 
             Map map = station.Map;
             Point3D origin = station.Location;
-            HarvestDefinition def = Mining.System.OreAndStone;
+            HarvestDefinition def = GetHarvestDefinition();
             int radius = DudeJobConfig.SearchRadius;
 
             Point3D best = Point3D.Zero;
             int bestDist = int.MaxValue;
             bool found = false;
 
-            // Expanding ring search — prefer nearer valid mineable land tiles.
             for (int r = 1; r <= radius; r++)
             {
                 for (int dx = -r; dx <= r; dx++)
@@ -78,6 +91,9 @@ namespace Server.Custom.Dudes.Jobs
                         int tileId = lt.ID & 0x3FFF;
 
                         if (!def.Validate(tileId) && !def.Validate(lt.ID))
+                            continue;
+
+                        if (!DudeJobHarvest.HasResources(def, map, x, y))
                             continue;
 
                         int z = lt.Z;

@@ -632,7 +632,30 @@ namespace Server.Items
             return true;
         }
 
-        private Point3D GetSpawnLocation()
+        
+        private Mobile GetHarvester()
+        {
+            DudeJobWorker worker = Worker;
+            if (worker != null && !worker.Deleted)
+                return worker;
+            if (m_Placer != null && !m_Placer.Deleted)
+                return m_Placer;
+            return null;
+        }
+
+        private Item CreateJobReward(DudeJob job, DudeData data)
+        {
+            if (job == null)
+                return null;
+
+            Mobile harvester = GetHarvester();
+            if (harvester != null && Map != null && Map != Map.Internal)
+                return job.CreateReward(data, Map, m_Destination, harvester);
+
+            return job.CreateReward(data);
+        }
+
+private Point3D GetSpawnLocation()
         {
             // Use the station's own location/Z so house interiors work.
             // Pathfinding into houses often fails; return teleports land here.
@@ -826,7 +849,7 @@ namespace Server.Items
             {
                 // Create reward now; deposit on return/complete so full-container is handled at station.
                 if (m_PendingReward == null || m_PendingReward.Deleted)
-                    m_PendingReward = job.CreateReward(data);
+                    m_PendingReward = CreateJobReward(job, data);
 
                 m_Stage = DudeJobStage.TravelingBack;
                 m_StageStartUtc = DateTime.UtcNow;
@@ -963,7 +986,7 @@ namespace Server.Items
             if (reward == null || reward.Deleted)
             {
                 if (job != null && ActiveBall != null && ActiveBall.HasDude)
-                    reward = job.CreateReward(ActiveBall.StoredDude);
+                    reward = CreateJobReward(job, ActiveBall.StoredDude);
             }
 
             if (reward == null || reward.Deleted)
@@ -1300,7 +1323,7 @@ namespace Server.Items
             {
                 // Finished while offline — same completion path as a live cycle (EXP, dust, loop).
                 if (m_PendingReward == null || m_PendingReward.Deleted)
-                    m_PendingReward = job.CreateReward(ball.StoredDude);
+                    m_PendingReward = CreateJobReward(job, ball.StoredDude);
 
                 CompleteJob(job, ball.StoredDude);
                 return;
@@ -1316,14 +1339,14 @@ namespace Server.Items
                 m_Stage = DudeJobStage.Working;
                 m_StageStartUtc = m_JobStartUtc + t1;
                 if (m_PendingReward == null || m_PendingReward.Deleted)
-                    m_PendingReward = job.CreateReward(ball.StoredDude);
+                    m_PendingReward = CreateJobReward(job, ball.StoredDude);
             }
             else
             {
                 m_Stage = DudeJobStage.TravelingBack;
                 m_StageStartUtc = m_JobStartUtc + t2;
                 if (m_PendingReward == null || m_PendingReward.Deleted)
-                    m_PendingReward = job.CreateReward(ball.StoredDude);
+                    m_PendingReward = CreateJobReward(job, ball.StoredDude);
             }
 
             if (Worker == null)

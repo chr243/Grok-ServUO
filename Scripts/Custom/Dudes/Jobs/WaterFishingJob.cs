@@ -40,10 +40,39 @@ namespace Server.Custom.Dudes.Jobs
             return 0x364;
         }
 
-        protected override Item CreateGatheredItem(DudeData data)
+        protected override HarvestDefinition GetHarvestDefinition()
+        {
+            return Fishing.System.Definition;
+        }
+
+        protected override Item CreateGatheredItem(DudeData data, Map map, Point3D loc, Mobile harvester)
         {
             double skill = DudeJobHarvest.GetEffectiveSkill(data);
-            return DudeJobHarvest.CreateFishingHaul(skill, 1);
+            HarvestDefinition def = GetHarvestDefinition();
+
+            // Rare gold/gem still depletes the fishing bank at this spot.
+            if (map != null && map != Map.Internal && harvester != null)
+            {
+                if (!DudeJobHarvest.HasResources(def, map, loc.X, loc.Y))
+                    return null;
+
+                HarvestBank bank = def.GetBank(map, loc.X, loc.Y);
+                if (bank == null)
+                    return null;
+
+                int consume = def.ConsumedPerHarvest;
+                if (consume > bank.Current)
+                    consume = bank.Current;
+                if (consume < 1)
+                    return null;
+
+                bank.Consume(consume, harvester);
+
+                Item special = DudeJobHarvest.CreateFishingHaul(skill, Math.Max(1, DudeJobConfig.DefaultGatherRewardAmount));
+                return special;
+            }
+
+            return DudeJobHarvest.CreateFishingHaul(skill, DudeJobConfig.DefaultGatherRewardAmount);
         }
 
         public override bool CountsTowardStorage(Item item)
@@ -65,7 +94,7 @@ namespace Server.Custom.Dudes.Jobs
 
             Map map = station.Map;
             Point3D origin = station.Location;
-            HarvestDefinition def = Fishing.System.Definition;
+            HarvestDefinition def = GetHarvestDefinition();
             int radius = DudeJobConfig.SearchRadius;
 
             Point3D best = Point3D.Zero;
@@ -88,6 +117,9 @@ namespace Server.Custom.Dudes.Jobs
                         int tileId = lt.ID & 0x3FFF;
 
                         if (!def.Validate(tileId) && !def.Validate(lt.ID))
+                            continue;
+
+                        if (!DudeJobHarvest.HasResources(def, map, x, y))
                             continue;
 
                         int z = lt.Z;

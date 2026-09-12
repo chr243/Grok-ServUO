@@ -1,5 +1,7 @@
 using System;
+using Server.Engines.Harvest;
 using Server.Items;
+using Server.Mobiles;
 
 namespace Server.Custom.Dudes.Jobs
 {
@@ -18,20 +20,33 @@ namespace Server.Custom.Dudes.Jobs
             return 11;
         }
 
+        /// <summary>Harvest definition whose banks this job depletes (mining/lumber/fish).</summary>
+        protected abstract HarvestDefinition GetHarvestDefinition();
+
         public override Item CreateReward(DudeData data)
         {
-            Item reward = CreateGatheredItem(data);
+            return CreateReward(data, null, Point3D.Zero, null);
+        }
+
+        public override Item CreateReward(DudeData data, Map map, Point3D loc, Mobile harvester)
+        {
+            Item reward = CreateGatheredItem(data, map, loc, harvester);
             if (reward == null)
                 return null;
 
-            int amount = GetRewardAmount(data);
-            if (reward.Stackable && amount > 1)
-                reward.Amount = amount;
+            // HarvestAt already sets stack size from the bank; only bump if still at 1 and config wants more
+            // and we did not go through a bank (fallback path).
+            if (map == null || map == Map.Internal || harvester == null)
+            {
+                int amount = GetRewardAmount(data);
+                if (reward.Stackable && amount > reward.Amount)
+                    reward.Amount = amount;
+            }
 
             return reward;
         }
 
-        protected abstract Item CreateGatheredItem(DudeData data);
+        protected abstract Item CreateGatheredItem(DudeData data, Map map, Point3D loc, Mobile harvester);
 
         protected virtual int GetRewardAmount(DudeData data)
         {
