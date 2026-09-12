@@ -9,6 +9,11 @@ namespace Server.Custom.Dudes
     /// </summary>
     public static class DudeExperience
     {
+        /// <summary>
+        /// Soft max level for now (evolution will raise effective power later).
+        /// </summary>
+        public static int MaxLevel = 10;
+
         /// <summary>Base EXP granted per kill before level scaling.</summary>
         public static int BaseKillExp = 25;
 
@@ -87,12 +92,16 @@ namespace Server.Custom.Dudes
                 owner.SendMessage(0x59, "{0} gained {1} EXP.", data.DisplayName, amount);
 
             int safety = 0;
-            while (data.CurrentEXP >= data.EXPToNext && data.Level < 100 && safety < 50)
+            while (data.CurrentEXP >= data.EXPToNext && data.Level < MaxLevel && safety < 50)
             {
                 data.CurrentEXP -= data.EXPToNext;
                 LevelUp(data, owner);
                 safety++;
             }
+
+            // At cap: keep the bar filled (future evolution gate) but do not overflow endlessly.
+            if (data.Level >= MaxLevel && data.CurrentEXP > data.EXPToNext)
+                data.CurrentEXP = data.EXPToNext;
 
             ball.InvalidateProperties();
 
@@ -104,6 +113,9 @@ namespace Server.Custom.Dudes
         public static void LevelUp(DudeData data, Mobile owner)
         {
             if (data == null)
+                return;
+
+            if (data.Level >= MaxLevel)
                 return;
 
             data.Level++;

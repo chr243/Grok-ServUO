@@ -709,6 +709,7 @@ namespace Server.Items
         private void CompleteJob(DudeJob job, DudeData data)
         {
             DepositReward(job);
+            TryDepositBonusDust();
 
             DespawnWorker();
             m_JobId = job != null ? job.Id : m_JobId;
@@ -787,6 +788,43 @@ namespace Server.Items
             m_Worker.SetGoal(m_Destination);
             StartJobTimer();
             return true;
+        }
+
+        /// <summary>
+        /// 1% (configurable) chance each cycle to also deposit Dude Dust into the station.
+        /// </summary>
+        private void TryDepositBonusDust()
+        {
+            if (DudeJobConfig.JobDustChance <= 0.0 || DudeJobConfig.JobDustAmount <= 0)
+                return;
+
+            if (Utility.RandomDouble() >= DudeJobConfig.JobDustChance)
+                return;
+
+            DudeDust dust = new DudeDust(DudeJobConfig.JobDustAmount);
+
+            // Stack onto existing dust in the station when possible.
+            foreach (Item item in Items)
+            {
+                if (item == null || item.Deleted || item == m_ActiveBall)
+                    continue;
+
+                DudeDust existing = item as DudeDust;
+                if (existing != null && existing.Amount + dust.Amount <= 60000)
+                {
+                    existing.Amount += dust.Amount;
+                    dust.Delete();
+                    PublicOverheadMessage(MessageType.Regular, 0x59, false,
+                        string.Format("+{0} Dude Dust!", DudeJobConfig.JobDustAmount));
+                    return;
+                }
+            }
+
+            if (!TryDropReward(dust))
+                dust.MoveToWorld(GetSpawnLocation(), Map);
+
+            PublicOverheadMessage(MessageType.Regular, 0x59, false,
+                string.Format("+{0} Dude Dust!", DudeJobConfig.JobDustAmount));
         }
 
         private void DepositReward(DudeJob job)
@@ -1097,49 +1135,11 @@ namespace Server.Items
 
             if (elapsed >= t3)
             {
-                // Finished while offline — deposit, grant cycle EXP, then keep looping
-                // the same way a live CompleteJob would (unless storage is full / can't continue).
+                // Finished while offline — same completion path as a live cycle (EXP, dust, loop).
                 if (m_PendingReward == null || m_PendingReward.Deleted)
                     m_PendingReward = job.CreateReward(ball.StoredDude);
 
-                DepositReward(job);
-                DespawnWorker();
-
-                DudeData data = ball.StoredDude;
-                if (data != null)
-                {
-                    DudeExperience.AwardExperience(ball, DudeJobConfig.JobCycleExp, null);
-                    PublicOverheadMessage(MessageType.Regular, 0x59, false,
-                        string.Format("{0} +{1} EXP", data.DisplayName, DudeJobConfig.JobCycleExp));
-                }
-
-                if (data != null && data.IsFainted)
-                {
-                    m_JobActive = false;
-                    m_Stage = DudeJobStage.Idle;
-                    PublicOverheadMessage(MessageType.Regular, 0x22, false, "Dude fainted. Job stopped.");
-                    return;
-                }
-
-                if (IsRewardStorageFull(job))
-                {
-                    m_JobActive = false;
-                    m_Stage = DudeJobStage.Idle;
-                    PublicOverheadMessage(MessageType.Regular, 0x22, false,
-                        string.Format("Station full ({0}). Job stopped.", FormatStorageLine(job)));
-                    return;
-                }
-
-                if (!BeginNextJobLoop(job, data))
-                {
-                    m_JobActive = false;
-                    m_Stage = DudeJobStage.Idle;
-                    PublicOverheadMessage(MessageType.Regular, 0x22, false, "Could not continue job after restart.");
-                    return;
-                }
-
-                PublicOverheadMessage(MessageType.Regular, 0x3B2, false,
-                    string.Format("Resumed after restart ({0}).", FormatStorageLine(job)));
+                CompleteJob(job, ball.StoredDude);
                 return;
             }
 

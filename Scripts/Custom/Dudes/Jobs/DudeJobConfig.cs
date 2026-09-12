@@ -37,6 +37,12 @@ namespace Server.Custom.Dudes.Jobs
         /// <summary>EXP awarded to the working Dude each completed job cycle.</summary>
         public static int JobCycleExp = 1;
 
+        /// <summary>Chance (0–1) each completed cycle also yields Dude Dust (default 1%).</summary>
+        public static double JobDustChance = 0.01;
+
+        /// <summary>Dude Dust amount granted when the bonus roll succeeds.</summary>
+        public static int JobDustAmount = 1;
+
         /// <summary>Base effective gathering skill (%) for a level-0/1 Dude.</summary>
         public static double BaseGatherSkill = 50.0;
 
