@@ -95,7 +95,7 @@ namespace Server.Engines.Craft
             SetForceSuccess(index, 100);
             ForceNonExceptional(index);
 
-            // Utility: Job Station + Mixer — Carpentry 50+, logs (boards count as logs).
+            // Utility: Job Station (Carpentry 50+, logs); Mixer (Tinkering 50+, 20 iron ingots).
             index = AddCraft(
                 typeof(DudeJobStation),
                 "Utility",
@@ -113,13 +113,13 @@ namespace Server.Engines.Craft
                 typeof(DudeMixer),
                 "Utility",
                 "Dude Mixer",
-                SkillName.Carpentry,
+                SkillName.Tinkering,
                 50.0,
                 75.0,
-                typeof(Log),
-                "Log",
-                25,
-                "You need more logs.");
+                typeof(IronIngot),
+                "Iron Ingot",
+                20,
+                "You need more iron ingots.");
             ForceNonExceptional(index);
 
             // Revival potion — Alchemy 50, empty bottle + ginseng.

@@ -1,6 +1,7 @@
 using System;
 using Server.Custom.Dudes;
 using Server.Gumps;
+using Server.Multis;
 using Server.Network;
 using Server.Targeting;
 
@@ -8,11 +9,12 @@ namespace Server.Items
 {
     /// <summary>
     /// Converts a filled Dude Ball into DudeDust and empties the ball.
-    /// Accepts filled balls only; confirms before destroying the Dude.
+    /// Must be placed inside a house and secured; anyone may use it once secured.
     /// </summary>
-    public class DudeMixer : Item
+    public class DudeMixer : Item, ISecurable
     {
         private const int MixerItemId = 0x974; // classic cauldron
+        private SecureLevel m_SecureLevel = SecureLevel.Anyone;
 
         [Constructable]
         public DudeMixer()
@@ -22,6 +24,7 @@ namespace Server.Items
             Weight = 5.0;
             Hue = 0;
             LootType = LootType.Blessed;
+            Movable = true;
         }
 
         public DudeMixer(Serial serial)
@@ -29,11 +32,87 @@ namespace Server.Items
         {
         }
 
+        /// <summary>House secure access — Anyone so any visitor can recycle once secured.</summary>
+        [CommandProperty(AccessLevel.GameMaster)]
+        public SecureLevel Level
+        {
+            get { return m_SecureLevel; }
+            set { m_SecureLevel = value; InvalidateProperties(); }
+        }
+
         public override void GetProperties(ObjectPropertyList list)
         {
             base.GetProperties(list);
             list.Add("Converts a filled Dude Ball into Dude Dust");
-            list.Add("Double-click to select a Dude Ball");
+            list.Add("Anyone may use when secured in a house");
+
+            BaseHouse house = BaseHouse.FindHouseAt(this);
+            if (house == null || !house.IsInside(this))
+                list.Add("Requires: house placement");
+            else if (!IsSecure)
+                list.Add("Requires: secure (house)");
+            else
+                list.Add("Secured in house");
+        }
+
+        public override bool OnDroppedToWorld(Mobile from, Point3D p)
+        {
+            if (!base.OnDroppedToWorld(from, p))
+                return false;
+
+            if (from == null || from.Map == null)
+                return false;
+
+            BaseHouse house = BaseHouse.FindHouseAt(p, from.Map, ItemData.Height);
+            if (house == null || !house.IsInside(p, ItemData.Height))
+            {
+                from.SendMessage("A Dude Mixer can only be placed inside a house.");
+                return false;
+            }
+
+            if (from.AccessLevel < AccessLevel.GameMaster && !house.IsCoOwner(from))
+            {
+                from.SendMessage("You must be a house owner or co-owner to place a Dude Mixer.");
+                return false;
+            }
+
+            from.SendMessage("Dude Mixer placed. Secure it in the house — then anyone can use it.");
+            return true;
+        }
+
+        /// <summary>Must sit inside a house and be secured. No owner check — anyone can use.</summary>
+        public bool ValidateHouseSecureUse(Mobile from, bool message)
+        {
+            if (Deleted)
+                return false;
+
+            if (from != null && from.AccessLevel >= AccessLevel.GameMaster)
+                return true;
+
+            // Not usable from backpack / bank / other containers.
+            if (RootParent is Mobile || Parent is Container)
+            {
+                if (message && from != null)
+                    from.SendMessage("The Dude Mixer must be secured in a house to use.");
+                return false;
+            }
+
+            BaseHouse house = BaseHouse.FindHouseAt(this);
+            if (house == null || !house.IsInside(this))
+            {
+                if (message && from != null)
+                    from.SendMessage("The Dude Mixer must be placed inside a house.");
+                return false;
+            }
+
+            if (!IsSecure)
+            {
+                if (message && from != null)
+                    from.SendMessage("The Dude Mixer must be secured in the house first.");
+                return false;
+            }
+
+            return true;
         }
 
         public override void OnDoubleClick(Mobile from)
@@ -41,14 +120,14 @@ namespace Server.Items
             if (from == null)
                 return;
 
-            bool inPack = IsChildOf(from.Backpack) || RootParent == from;
-            bool inRange = from.InRange(GetWorldLocation(), 2);
-
-            if (!inPack && !inRange)
+            if (!from.InRange(GetWorldLocation(), 2))
             {
                 from.SendLocalizedMessage(500446); // That is too far away.
                 return;
             }
+
+            if (!ValidateHouseSecureUse(from, true))
+                return;
 
             from.SendMessage("Select a filled Dude Ball to recycle into Dude Dust.");
             from.Target = new MixerTarget(this);
@@ -56,6 +135,9 @@ namespace Server.Items
 
         public override bool OnDragDrop(Mobile from, Item dropped)
         {
+            if (!ValidateHouseSecureUse(from, true))
+                return false;
+
             DudeBall ball = dropped as DudeBall;
 
             if (ball == null)
@@ -64,7 +146,6 @@ namespace Server.Items
                 return false;
             }
 
-            // Open confirm gump; do not consume the ball until confirmed.
             TryBeginMix(from, ball);
             return false;
         }
@@ -72,6 +153,9 @@ namespace Server.Items
         public bool TryBeginMix(Mobile from, DudeBall ball)
         {
             if (from == null || ball == null || ball.Deleted || Deleted)
+                return false;
+
+            if (!ValidateHouseSecureUse(from, true))
                 return false;
 
             string error;
@@ -160,6 +244,15 @@ namespace Server.Items
                 return;
             }
 
+            if (!mixer.ValidateHouseSecureUse(from, true))
+                return;
+
+            if (!from.InRange(mixer.GetWorldLocation(), 2))
+            {
+                from.SendLocalizedMessage(500446);
+                return;
+            }
+
             string error;
             if (!CanMix(from, ball, out error))
             {
@@ -202,13 +295,20 @@ namespace Server.Items
         public override void Serialize(GenericWriter writer)
         {
             base.Serialize(writer);
-            writer.Write((int)0);
+            writer.Write((int)1); // version
+
+            writer.Write((int)m_SecureLevel);
         }
 
         public override void Deserialize(GenericReader reader)
         {
             base.Deserialize(reader);
             int version = reader.ReadInt();
+
+            if (version >= 1)
+                m_SecureLevel = (SecureLevel)reader.ReadInt();
+            else
+                m_SecureLevel = SecureLevel.Anyone;
 
             // Migrate older mortar & pestle art to cauldron.
             if (ItemID == 0xE27)
@@ -232,6 +332,9 @@ namespace Server.Items
             protected override void OnTarget(Mobile from, object targeted)
             {
                 if (m_Mixer == null || m_Mixer.Deleted)
+                    return;
+
+                if (!m_Mixer.ValidateHouseSecureUse(from, true))
                     return;
 
                 DudeBall ball = targeted as DudeBall;

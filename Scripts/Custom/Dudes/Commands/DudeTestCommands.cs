@@ -30,6 +30,38 @@ namespace Server.Custom.Dudes.Commands
             CommandSystem.Register("CreateDudeRevivalPotion", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeRevivalPotion_OnCommand));
             CommandSystem.Register("CreateDudeHealingPotion", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeHealingPotion_OnCommand));
             CommandSystem.Register("CreateBeginnersBall", AccessLevel.GameMaster, new CommandEventHandler(CreateBeginnersBall_OnCommand));
+            CommandSystem.Register("CreateDudeSpawners", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeSpawners_OnCommand));
+        }
+
+
+        [Usage("CreateDudeSpawners")]
+        [Description("TEST: Places Fire/Water/Earth/Air DudeSpawners at your feet and fills them.")]
+        private static void CreateDudeSpawners_OnCommand(CommandEventArgs e)
+        {
+            Mobile from = e.Mobile;
+            if (from == null || from.Map == null)
+                return;
+
+            Item[] spawners = new Item[]
+            {
+                new FireDudeSpawner(),
+                new WaterDudeSpawner(),
+                new EarthDudeSpawner(),
+                new AirDudeSpawner()
+            };
+
+            for (int i = 0; i < spawners.Length; i++)
+            {
+                Item s = spawners[i];
+                Point3D loc = new Point3D(from.X + (i % 2), from.Y + (i / 2), from.Z);
+                s.MoveToWorld(loc, from.Map);
+
+                DudeSpawner ds = s as DudeSpawner;
+                if (ds != null)
+                    ds.DoSpawn();
+            }
+
+            from.SendMessage(0x59, "TEST: Placed Fire/Water/Earth/Air Dude spawners.");
         }
 
         [Usage("CreateDudeBall")]

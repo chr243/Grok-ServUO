@@ -380,6 +380,7 @@ namespace Server.Items
 
             m_ActiveBall = ball;
             ball.AssignedStation = this;
+            ball.Visible = false; // hidden in station — retrieve via gump only
             InvalidateProperties();
 
             from.SendMessage(0x59, "{0} assigned. Starting {1}...", ball.StoredDude.DisplayName, job.Name);
@@ -596,6 +597,7 @@ namespace Server.Items
                 AbortJob(from, "Job stopped — Dude Ball retrieved.");
 
             ball.AssignedStation = null;
+            ball.Visible = true;
             m_ActiveBall = null;
 
             if (from.Backpack != null && from.Backpack.TryDropItem(from, ball, false))
@@ -1121,6 +1123,7 @@ namespace Server.Items
             {
                 DudeBall ball = m_ActiveBall;
                 ball.AssignedStation = null;
+                ball.Visible = true;
                 m_ActiveBall = null;
 
                 if (ball.Parent == this)
@@ -1157,7 +1160,10 @@ namespace Server.Items
                     AbortJob(null, "Job stopped — Dude Ball removed.");
 
                 if (m_ActiveBall != null)
+                {
                     m_ActiveBall.AssignedStation = null;
+                    m_ActiveBall.Visible = true;
+                }
 
                 m_ActiveBall = null;
                 InvalidateProperties();
@@ -1216,7 +1222,10 @@ namespace Server.Items
             m_SecureLevel = SecureLevel.Owner;
 
             if (m_ActiveBall != null)
+            {
                 m_ActiveBall.AssignedStation = this;
+                m_ActiveBall.Visible = false;
+            }
 
             if (m_Worker != null)
             {
@@ -1235,7 +1244,10 @@ namespace Server.Items
                 return;
 
             if (m_ActiveBall != null && !m_ActiveBall.Deleted)
+            {
                 m_ActiveBall.AssignedStation = this;
+                m_ActiveBall.Visible = false;
+            }
 
             RecoverJobAfterLoad();
 
