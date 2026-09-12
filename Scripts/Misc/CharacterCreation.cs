@@ -65,6 +65,8 @@ namespace Server.Misc
 			PackItem(new Gold(1000)); // Starting gold can be customized here
 			PackItem(new Candle());
 			PackItem(new BeginnersBall()); // first Dude picker for new characters
+			PackItem(new TrainersManual());
+			PackItem(new DudeCraftingKit());
 
 			if (m.Race != Race.Gargoyle)
 				PackItem(new Dagger());
