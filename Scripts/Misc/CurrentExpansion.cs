@@ -41,6 +41,18 @@ namespace Server
 				Mobile.GuildClickMessage = false;
 				Mobile.AsciiClickMessage = false;
 				PacketHandlers.SingleClickProps = true;
+
+				// Classic client only draws OPL when the AOS feature bit is advertised.
+				// OR it onto UOR (etc.) without enabling Core.AOS combat/loot systems.
+				if (ForceTooltips && !Core.AOS)
+				{
+					ExpansionInfo info = ExpansionInfo.CoreExpansion;
+					if (info != null)
+					{
+						info.SupportedFeatures |= FeatureFlags.AOS;
+						info.CharacterListFlags |= CharacterListFlags.AOS;
+					}
+				}
 			}
 			else
 			{
