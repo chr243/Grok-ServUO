@@ -29,6 +29,7 @@ namespace Server.Custom.Dudes.Commands
             CommandSystem.Register("CreateTrainersManual", AccessLevel.GameMaster, new CommandEventHandler(CreateTrainersManual_OnCommand));
             CommandSystem.Register("CreateDudeRevivalPotion", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeRevivalPotion_OnCommand));
             CommandSystem.Register("CreateDudeHealingPotion", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeHealingPotion_OnCommand));
+            CommandSystem.Register("CreateBeginnersBall", AccessLevel.GameMaster, new CommandEventHandler(CreateBeginnersBall_OnCommand));
         }
 
         [Usage("CreateDudeBall")]
@@ -42,6 +43,19 @@ namespace Server.Custom.Dudes.Commands
             DudeBall ball = new DudeBall();
             from.Backpack.DropItem(ball);
             from.SendMessage(0x59, "TEST: Empty Dude Ball created.");
+        }
+
+
+        [Usage("CreateBeginnersBall")]
+        [Description("TEST: Creates a Beginner's Ball in your backpack.")]
+        private static void CreateBeginnersBall_OnCommand(CommandEventArgs e)
+        {
+            Mobile from = e.Mobile;
+            if (from == null || from.Backpack == null)
+                return;
+
+            from.Backpack.DropItem(new BeginnersBall());
+            from.SendMessage(0x59, "TEST: Beginner's Ball created.");
         }
 
         [Usage("SpawnTestDude [definitionId]")]
