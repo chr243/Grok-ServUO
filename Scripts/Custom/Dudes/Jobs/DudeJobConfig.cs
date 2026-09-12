@@ -14,7 +14,7 @@ namespace Server.Custom.Dudes.Jobs
         public static double TravelTilesPerSecond = 2.0;
 
         /// <summary>If the worker makes no progress for this long, teleport toward goal.</summary>
-        public static TimeSpan StuckTimeout = TimeSpan.FromSeconds(8.0);
+        public static TimeSpan StuckTimeout = TimeSpan.FromSeconds(3.0);
 
         /// <summary>Hard cap — never leave the station blocked longer than this for one leg.</summary>
         public static TimeSpan MaxTravelDuration = TimeSpan.FromMinutes(3.0);

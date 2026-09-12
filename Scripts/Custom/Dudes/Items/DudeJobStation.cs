@@ -773,20 +773,19 @@ namespace Server.Items
             TimeSpan stageElapsed = DateTime.UtcNow - m_StageStartUtc;
             TimeSpan expected = outbound ? m_OutboundDuration : m_ReturnDuration;
 
-            // Houses block pathing — teleport when no path, stuck, or overdue.
-            // Return legs get a shorter overdue grace (common house entry fail).
-            TimeSpan overdueGrace = outbound ? TimeSpan.FromSeconds(15.0) : TimeSpan.FromSeconds(5.0);
-            bool noPath = !arrived && !worker.CanPathToGoal();
+            // Walk first. Teleport only if stuck (no movement), overdue, or max travel.
+            // Do NOT teleport just because MovementPath fails — that skips walking outdoors.
+            TimeSpan overdueGrace = outbound ? TimeSpan.FromSeconds(30.0) : TimeSpan.FromSeconds(15.0);
             bool stuck = worker.IsStuck(DudeJobConfig.StuckTimeout);
             bool overdue = stageElapsed >= expected + overdueGrace;
             bool maxed = stageElapsed >= DudeJobConfig.MaxTravelDuration;
 
-            if (!arrived && (noPath || stuck || overdue || maxed))
+            if (!arrived && (stuck || overdue || maxed))
             {
                 if (outbound)
                     worker.TeleportToGoal();
                 else
-                    worker.TeleportTo(GetSpawnLocation(), Map); // preserve house Z
+                    worker.TeleportTo(GetSpawnLocation(), Map); // house Z for return
 
                 arrived = true;
             }
