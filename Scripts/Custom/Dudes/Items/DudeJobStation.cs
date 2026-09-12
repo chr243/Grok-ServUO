@@ -87,7 +87,8 @@ namespace Server.Items
 
         public override int DefaultMaxWeight
         {
-            get { return 400; }
+            // Enough headroom for MaxStoredOre stacks of Iron Ore.
+            get { return 100000; }
         }
 
         public override int DefaultMaxItems
@@ -109,6 +110,7 @@ namespace Server.Items
             {
                 list.Add("No Dude assigned");
                 list.Add("Drop a filled Dude Ball to start a job");
+                list.Add("Ore stored: {0}/{1}", GetStoredOreCount(), DudeJobConfig.MaxStoredOre);
             }
             else
             {
@@ -260,6 +262,42 @@ namespace Server.Items
             return true;
         }
 
+
+        public int GetStoredOreCount()
+        {
+            int total = 0;
+
+            foreach (Item item in Items)
+            {
+                if (item == null || item.Deleted || item == m_ActiveBall)
+                    continue;
+
+                if (item is IronOre)
+                    total += item.Amount;
+            }
+
+            return total;
+        }
+
+        public bool IsOreStorageFull()
+        {
+            return GetStoredOreCount() >= DudeJobConfig.MaxStoredOre;
+        }
+
+        public bool TryStopJob(Mobile from)
+        {
+            if (!m_JobActive)
+            {
+                if (from != null)
+                    from.SendMessage("No job is running.");
+                return false;
+            }
+
+            AbortJob(from, "Job stopped.");
+            PublicOverheadMessage(MessageType.Regular, 0x3B2, false, "Job stopped.");
+            return true;
+        }
+
         public bool TryStartJob(Mobile from)
         {
             if (from != null && !from.InRange(GetWorldLocation(), 2))
@@ -272,6 +310,13 @@ namespace Server.Items
             {
                 if (from != null)
                     from.SendMessage("A job is already running.");
+                return false;
+            }
+
+            if (IsOreStorageFull())
+            {
+                if (from != null)
+                    from.SendMessage("Station is full ({0} Iron Ore). Empty it before starting.", DudeJobConfig.MaxStoredOre);
                 return false;
             }
 
@@ -600,13 +645,68 @@ namespace Server.Items
             DepositReward(job);
 
             DespawnWorker();
-            m_JobActive = false;
-            m_Stage = DudeJobStage.Idle;
             m_JobId = job != null ? job.Id : m_JobId;
-            StopJobTimer();
-            InvalidateProperties();
 
-            PublicOverheadMessage(MessageType.Regular, 0x3B2, false, "Job complete.");
+            // Auto-loop until stopped or ore cap reached.
+            if (IsOreStorageFull())
+            {
+                m_JobActive = false;
+                m_Stage = DudeJobStage.Idle;
+                StopJobTimer();
+                InvalidateProperties();
+                PublicOverheadMessage(MessageType.Regular, 0x22, false,
+                    string.Format("Station full ({0}/{1} ore). Job stopped.", GetStoredOreCount(), DudeJobConfig.MaxStoredOre));
+                return;
+            }
+
+            if (!BeginNextJobLoop(job, data))
+            {
+                m_JobActive = false;
+                m_Stage = DudeJobStage.Idle;
+                StopJobTimer();
+                InvalidateProperties();
+                PublicOverheadMessage(MessageType.Regular, 0x22, false, "Could not continue job.");
+                return;
+            }
+
+            InvalidateProperties();
+            PublicOverheadMessage(MessageType.Regular, 0x3B2, false,
+                string.Format("Cycle done ({0}/{1} ore). Continuing...", GetStoredOreCount(), DudeJobConfig.MaxStoredOre));
+        }
+
+        private bool BeginNextJobLoop(DudeJob job, DudeData data)
+        {
+            if (job == null || data == null)
+                return false;
+
+            DudeBall ball = ActiveBall;
+            if (ball == null || !ball.HasDude || ball.IsSummoned)
+                return false;
+
+            Point3D dest;
+            int dist;
+            if (!job.TryFindDestination(this, data, out dest, out dist))
+                return false;
+
+            m_JobId = job.Id;
+            m_Destination = dest;
+            m_Distance = dist;
+            m_OutboundDuration = job.EstimateTravelTime(dist);
+            m_WorkDuration = job.GetWorkDuration(data);
+            m_ReturnDuration = m_OutboundDuration;
+            m_JobStartUtc = DateTime.UtcNow;
+            m_StageStartUtc = DateTime.UtcNow;
+            m_Stage = DudeJobStage.TravelingOut;
+            m_JobActive = true;
+            m_NextWorkAnim = DateTime.UtcNow;
+            m_PendingReward = null;
+
+            if (!SpawnWorker(data))
+                return false;
+
+            m_Worker.SetGoal(m_Destination);
+            StartJobTimer();
+            return true;
         }
 
         private void DepositReward(DudeJob job)
@@ -622,6 +722,20 @@ namespace Server.Items
 
             if (reward == null || reward.Deleted)
                 return;
+
+            // Never push past the configured ore cap.
+            if (reward is IronOre)
+            {
+                int room = DudeJobConfig.MaxStoredOre - GetStoredOreCount();
+                if (room <= 0)
+                {
+                    reward.Delete();
+                    return;
+                }
+
+                if (reward.Amount > room)
+                    reward.Amount = room;
+            }
 
             // Try stack into existing piles first.
             if (reward.Stackable)
@@ -693,11 +807,11 @@ namespace Server.Items
             string jobName = job != null ? job.Name : "none";
 
             if (!m_JobActive)
-                return string.Format("Station idle. Dude: {0}. Job: {1}.", dude, jobName);
+                return string.Format("Station idle. Dude: {0}. Job: {1}. Ore: {2}/{3}.", dude, jobName, GetStoredOreCount(), DudeJobConfig.MaxStoredOre);
 
             return string.Format(
-                "Dude: {0}. Job: {1}. Status: {2}. Dest distance: {3}. {4}",
-                dude, jobName, FormatStage(m_Stage), m_Distance, GetTimingProperty());
+                "Dude: {0}. Job: {1}. Status: {2}. Dest: {3} tiles. Ore: {4}/{5}. {6}",
+                dude, jobName, FormatStage(m_Stage), m_Distance, GetStoredOreCount(), DudeJobConfig.MaxStoredOre, GetTimingProperty());
         }
 
         private string GetTimingProperty()

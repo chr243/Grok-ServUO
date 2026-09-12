@@ -30,5 +30,9 @@ namespace Server.Custom.Dudes.Jobs
 
         /// <summary>Timer tick for station job processing.</summary>
         public static TimeSpan JobTickInterval = TimeSpan.FromSeconds(1.0);
+
+        /// <summary>Stop auto-loop when station holds at least this much Iron Ore.</summary>
+        public static int MaxStoredOre = 1000;
     }
 }
+
