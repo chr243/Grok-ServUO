@@ -1034,11 +1034,23 @@ namespace Server.Items
                 m_Worker.BoundBall = m_ActiveBall;
             }
 
+            // Delay resume until the world is fully loaded (ball/map refs ready).
             if (m_JobActive)
-            {
-                RecoverJobAfterLoad();
+                Timer.DelayCall(TimeSpan.FromSeconds(1.0), new TimerCallback(ResumeJobAfterWorldLoad));
+        }
+
+        private void ResumeJobAfterWorldLoad()
+        {
+            if (Deleted || !m_JobActive)
+                return;
+
+            if (m_ActiveBall != null && !m_ActiveBall.Deleted)
+                m_ActiveBall.AssignedStation = this;
+
+            RecoverJobAfterLoad();
+
+            if (m_JobActive)
                 StartJobTimer();
-            }
         }
 
         /// <summary>
@@ -1049,6 +1061,14 @@ namespace Server.Items
         {
             DudeBall ball = ActiveBall;
             if (ball == null || !ball.HasDude)
+            {
+                m_JobActive = false;
+                m_Stage = DudeJobStage.Idle;
+                DespawnWorker();
+                return;
+            }
+
+            if (ball.StoredDude != null && ball.StoredDude.IsFainted)
             {
                 m_JobActive = false;
                 m_Stage = DudeJobStage.Idle;
@@ -1077,14 +1097,49 @@ namespace Server.Items
 
             if (elapsed >= t3)
             {
-                // Finished while offline — deposit and clear.
+                // Finished while offline — deposit, grant cycle EXP, then keep looping
+                // the same way a live CompleteJob would (unless storage is full / can't continue).
                 if (m_PendingReward == null || m_PendingReward.Deleted)
                     m_PendingReward = job.CreateReward(ball.StoredDude);
 
                 DepositReward(job);
                 DespawnWorker();
-                m_JobActive = false;
-                m_Stage = DudeJobStage.Idle;
+
+                DudeData data = ball.StoredDude;
+                if (data != null)
+                {
+                    DudeExperience.AwardExperience(ball, DudeJobConfig.JobCycleExp, null);
+                    PublicOverheadMessage(MessageType.Regular, 0x59, false,
+                        string.Format("{0} +{1} EXP", data.DisplayName, DudeJobConfig.JobCycleExp));
+                }
+
+                if (data != null && data.IsFainted)
+                {
+                    m_JobActive = false;
+                    m_Stage = DudeJobStage.Idle;
+                    PublicOverheadMessage(MessageType.Regular, 0x22, false, "Dude fainted. Job stopped.");
+                    return;
+                }
+
+                if (IsRewardStorageFull(job))
+                {
+                    m_JobActive = false;
+                    m_Stage = DudeJobStage.Idle;
+                    PublicOverheadMessage(MessageType.Regular, 0x22, false,
+                        string.Format("Station full ({0}). Job stopped.", FormatStorageLine(job)));
+                    return;
+                }
+
+                if (!BeginNextJobLoop(job, data))
+                {
+                    m_JobActive = false;
+                    m_Stage = DudeJobStage.Idle;
+                    PublicOverheadMessage(MessageType.Regular, 0x22, false, "Could not continue job after restart.");
+                    return;
+                }
+
+                PublicOverheadMessage(MessageType.Regular, 0x3B2, false,
+                    string.Format("Resumed after restart ({0}).", FormatStorageLine(job)));
                 return;
             }
 

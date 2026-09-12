@@ -95,10 +95,10 @@ namespace Server.Engines.Craft
             SetForceSuccess(index, 100);
             ForceNonExceptional(index);
 
-            // Wooden Job Station — Carpentry 50+, consumes Logs (boards also count as logs).
+            // Utility: Job Station + Mixer — Carpentry 50+, logs (boards count as logs).
             index = AddCraft(
                 typeof(DudeJobStation),
-                "Stations",
+                "Utility",
                 "Dude Job Station",
                 SkillName.Carpentry,
                 50.0,
@@ -106,6 +106,19 @@ namespace Server.Engines.Craft
                 typeof(Log),
                 "Log",
                 50,
+                "You need more logs.");
+            ForceNonExceptional(index);
+
+            index = AddCraft(
+                typeof(DudeMixer),
+                "Utility",
+                "Dude Mixer",
+                SkillName.Carpentry,
+                50.0,
+                75.0,
+                typeof(Log),
+                "Log",
+                25,
                 "You need more logs.");
             ForceNonExceptional(index);
 

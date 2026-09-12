@@ -8,6 +8,9 @@ namespace Server.Items
     /// </summary>
     public class DudeDust : Item
     {
+        private const int DustItemId = 0x4C09; // GoldDust graphic
+        private const int DustHue = 1177; // match GoldDust
+
         [Constructable]
         public DudeDust()
             : this(1)
@@ -16,10 +19,10 @@ namespace Server.Items
 
         [Constructable]
         public DudeDust(int amount)
-            : base(0xF8C) // classic ash/powder graphic (UOR-friendly)
+            : base(DustItemId)
         {
             Name = "Dude Dust";
-            Hue = 2413;
+            Hue = DustHue;
             Stackable = true;
             Amount = amount;
             Weight = 0.1;
@@ -47,6 +50,13 @@ namespace Server.Items
         {
             base.Deserialize(reader);
             int version = reader.ReadInt();
+
+            // Migrate older ash / CrystalDust art to GoldDust graphic.
+            if (ItemID == 0xF8C || ItemID == 16393)
+            {
+                ItemID = DustItemId;
+                Hue = DustHue;
+            }
         }
     }
 }

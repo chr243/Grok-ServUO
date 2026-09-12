@@ -12,13 +12,15 @@ namespace Server.Items
     /// </summary>
     public class DudeMixer : Item
     {
+        private const int MixerItemId = 0x974; // classic cauldron
+
         [Constructable]
         public DudeMixer()
-            : base(0xE27) // mortar & pestle
+            : base(MixerItemId)
         {
             Name = "Dude Mixer";
-            Weight = 2.0;
-            Hue = 1150;
+            Weight = 5.0;
+            Hue = 0;
             LootType = LootType.Blessed;
         }
 
@@ -207,6 +209,14 @@ namespace Server.Items
         {
             base.Deserialize(reader);
             int version = reader.ReadInt();
+
+            // Migrate older mortar & pestle art to cauldron.
+            if (ItemID == 0xE27)
+            {
+                ItemID = MixerItemId;
+                Hue = 0;
+                Weight = 5.0;
+            }
         }
 
         private class MixerTarget : Target
