@@ -31,8 +31,11 @@ namespace Server.Custom.Dudes.Jobs
         /// <summary>Timer tick for station job processing.</summary>
         public static TimeSpan JobTickInterval = TimeSpan.FromSeconds(1.0);
 
-        /// <summary>Stop auto-loop when station holds at least this much of the job's primary resource.</summary>
-        public static int MaxStoredResource = 1000;
+        /// <summary>
+        /// Stop auto-loop when station holds at least this much of the job's primary resource.
+        /// 0 or less = unlimited (job runs until stopped).
+        /// </summary>
+        public static int MaxStoredResource = 0;
 
         /// <summary>EXP awarded to the working Dude each completed job cycle.</summary>
         public static int JobCycleExp = 1;

@@ -130,7 +130,10 @@ namespace Server.Items
             {
                 list.Add("No Dude assigned");
                 list.Add("Drop a filled Dude Ball to start a job");
-                list.Add("Cap: {0} per resource type", DudeJobConfig.MaxStoredResource);
+                if (DudeJobConfig.MaxStoredResource > 0)
+                    list.Add("Cap: {0} per resource type", DudeJobConfig.MaxStoredResource);
+                else
+                    list.Add("Cap: unlimited");
             }
             else
             {
@@ -437,7 +440,7 @@ namespace Server.Items
 
         public bool IsRewardStorageFull(DudeJob job)
         {
-            if (job == null)
+            if (job == null || DudeJobConfig.MaxStoredResource <= 0)
                 return false;
 
             return GetStoredRewardCount(job) >= DudeJobConfig.MaxStoredResource;
@@ -445,6 +448,9 @@ namespace Server.Items
 
         public bool IsOreStorageFull()
         {
+            if (DudeJobConfig.MaxStoredResource <= 0)
+                return false;
+
             return GetStoredRewardCount(typeof(IronOre)) >= DudeJobConfig.MaxStoredResource;
         }
 
@@ -458,10 +464,14 @@ namespace Server.Items
 
         private string FormatStorageLine(DudeJob job)
         {
-            if (job == null)
-                return string.Format("Stored: {0}/{1}", GetStoredOreCount(), DudeJobConfig.MaxStoredResource);
+            string cap = DudeJobConfig.MaxStoredResource > 0
+                ? DudeJobConfig.MaxStoredResource.ToString()
+                : "∞";
 
-            return string.Format("{0}: {1}/{2}", job.GetResourceLabel(), GetStoredRewardCount(job), DudeJobConfig.MaxStoredResource);
+            if (job == null)
+                return string.Format("Stored: {0}/{1}", GetStoredOreCount(), cap);
+
+            return string.Format("{0}: {1}/{2}", job.GetResourceLabel(), GetStoredRewardCount(job), cap);
         }
 
         public bool TryStopJob(Mobile from)
@@ -992,8 +1002,8 @@ private Point3D GetSpawnLocation()
             if (reward == null || reward.Deleted)
                 return;
 
-            // Never push past the configured resource cap for this job.
-            if (job != null && job.CountsTowardStorage(reward))
+            // Cap deposits only when MaxStoredResource is enabled (> 0).
+            if (DudeJobConfig.MaxStoredResource > 0 && job != null && job.CountsTowardStorage(reward))
             {
                 int room = DudeJobConfig.MaxStoredResource - GetStoredRewardCount(job);
                 if (room <= 0)
