@@ -1,3 +1,4 @@
+using Server.Custom.Dudes;
 using System;
 using Server.Engines.Harvest;
 using Server.Items;
@@ -26,16 +27,14 @@ namespace Server.Custom.Dudes.Jobs
         public static double GetEffectiveSkill(DudeData data)
         {
             if (data == null)
-                return DudeJobConfig.BaseGatherSkill;
+                return DudeExperience.GetSkillCapForLevel(1);
 
-            double skill = DudeJobConfig.BaseGatherSkill + (data.Level * DudeJobConfig.GatherSkillPerLevel);
+            return DudeExperience.GetSkillCapForLevel(data.Level);
+        }
 
-            if (skill < 0.0)
-                skill = 0.0;
-            else if (skill > 120.0)
-                skill = 120.0;
-
-            return skill;
+        public static string FormatSkillLabel(DudeData data)
+        {
+            return string.Format("{0:0.#}", GetEffectiveSkill(data));
         }
 
         public static Item CreateFromVeins(HarvestDefinition def, double skill, int amount)

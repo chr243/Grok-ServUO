@@ -108,6 +108,35 @@ namespace Server.Engines.Craft
                 50,
                 "You need more logs.");
             ForceNonExceptional(index);
+
+            // Revival potion — Alchemy 50, empty bottle + ginseng.
+            index = AddCraft(
+                typeof(DudeRevivalPotion),
+                "Potions",
+                "Dude Revival Potion",
+                SkillName.Alchemy,
+                50.0,
+                75.0,
+                typeof(Bottle),
+                "Empty Bottle",
+                1,
+                "You need an empty bottle.");
+            AddRes(index, typeof(Ginseng), "Ginseng", 5, "You need more ginseng.");
+            ForceNonExceptional(index);
+
+            index = AddCraft(
+                typeof(DudeHealingPotion),
+                "Potions",
+                "Dude Healing Potion",
+                SkillName.Alchemy,
+                50.0,
+                75.0,
+                typeof(Bottle),
+                "Empty Bottle",
+                1,
+                "You need an empty bottle.");
+            AddRes(index, typeof(Ginseng), "Ginseng", 5, "You need more ginseng.");
+            ForceNonExceptional(index);
         }
     }
 }

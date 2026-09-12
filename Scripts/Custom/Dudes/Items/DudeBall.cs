@@ -9,7 +9,7 @@ namespace Server.Items
     /// <summary>
     /// Stores one Dude. Ball is the authoritative persistence container.
     /// Double-click: empty = catch target; filled + no summon = summon; filled + summoned = recall.
-    /// Round gem ItemID (Star Sapphire art) for a ball-like look.
+    /// BolaBall ItemID with distinct empty/full hues.
     /// </summary>
     public class DudeBall : Item
     {
@@ -17,12 +17,13 @@ namespace Server.Items
         private DudeCreature m_SummonedDude;
         private DudeJobStation m_AssignedStation;
 
-        private const int EmptyHue = 0;
-        private const int FilledHue = 1153;
+        private const int BallItemId = 0xE73; // BolaBall graphic
+        private const int EmptyHue = 2406; // steel gray
+        private const int FilledHue = 1161; // bright charged
 
         [Constructable]
         public DudeBall()
-            : base(0xF0F) // Star Sapphire gem — round ball look
+            : base(BallItemId)
         {
             Name = "Dude Ball";
             Weight = 1.0;
@@ -139,7 +140,10 @@ namespace Server.Items
                 if (IsAssignedToJob)
                     list.Add("Status: At Job Station");
                 else if (m_StoredDude.IsFainted)
+                {
                     list.Add("Status: Fainted");
+                    list.Add("Use a Dude Revival Potion to revive.");
+                }
                 else if (IsSummoned)
                     list.Add("Status: Summoned");
                 else
@@ -205,6 +209,12 @@ namespace Server.Items
                 return;
             }
 
+            if (m_StoredDude.IsFainted)
+            {
+                from.SendMessage("{0} is fainted. Use a Dude Revival Potion first.", m_StoredDude.DisplayName);
+                return;
+            }
+
             DudeDefinition def = DudeRegistry.Get(m_StoredDude.DefinitionId);
             int slots = def != null ? def.ControlSlots : 1;
 
@@ -222,10 +232,8 @@ namespace Server.Items
 
             DudeCreature dude = new DudeCreature(m_StoredDude.DefinitionId, false);
             dude.BoundBall = this;
-            dude.ApplyData(m_StoredDude, m_StoredDude.IsFainted);
+            dude.ApplyData(m_StoredDude, false);
 
-            // Clear fainted on successful summon (revive).
-            m_StoredDude.IsFainted = false;
             m_StoredDude.Hits = dude.Hits;
 
             dude.MoveToWorld(loc, map);
@@ -236,6 +244,10 @@ namespace Server.Items
                 dude.Delete();
                 return;
             }
+
+            // Match owner standing for karma-based systems; staff pets use ForceNotoriety above.
+            dude.Karma = from.Karma;
+            dude.Fame = from.Fame;
 
             dude.ControlTarget = from;
             dude.ControlOrder = OrderType.Follow;
@@ -327,7 +339,7 @@ namespace Server.Items
 
             m_SummonedDude = reader.ReadMobile() as DudeCreature;
 
-            ItemID = 0xF0F; // migrate older crystal-ball art
+            ItemID = BallItemId; // migrate older ball art
             Hue = m_StoredDude != null ? FilledHue : EmptyHue;
         }
 

@@ -23,8 +23,8 @@ namespace Server.Items
             Resizable = false;
 
             AddPage(0);
-            AddBackground(0, 0, 360, 340, 9270);
-            AddAlphaRegion(10, 10, 340, 320);
+            AddBackground(0, 0, 360, 380, 9270);
+            AddAlphaRegion(10, 10, 340, 360);
 
             AddHtml(20, 18, 320, 22, "<CENTER><BASEFONT COLOR=#FFFFFF>Trainer's Manual</BASEFONT></CENTER>", false, false);
 
@@ -50,6 +50,14 @@ namespace Server.Items
 
             AddLabel(24, y, labelHue, "EXP:");
             AddLabel(110, y, valueHue, view.ExpText);
+            y += 22;
+
+            AddLabel(24, y, labelHue, "Job skill:");
+            AddLabel(110, y, valueHue, view.JobSkillText);
+            y += 22;
+
+            AddLabel(24, y, labelHue, "Combat:");
+            AddLabel(110, y, valueHue, view.CombatSkillText);
             y += 26;
 
             AddHtml(24, y, 312, 18, "<BASEFONT COLOR=#FFFFFF>Combat Stats</BASEFONT>", false, false);
@@ -78,7 +86,7 @@ namespace Server.Items
             if (!string.IsNullOrEmpty(view.AbilityDescription))
                 AddHtml(24, y, 312, 36, string.Format("<BASEFONT COLOR=#C0C0C0>{0}</BASEFONT>", view.AbilityDescription), false, false);
 
-            y = 300;
+            y = 340;
 
             if (!string.IsNullOrEmpty(view.OwnerText))
             {
@@ -86,7 +94,7 @@ namespace Server.Items
                 AddLabel(110, y, valueHue, Truncate(view.OwnerText, 28));
             }
 
-            AddButton(300, 305, 4017, 4019, 0, GumpButtonType.Reply, 0);
+            AddButton(300, 345, 4017, 4019, 0, GumpButtonType.Reply, 0);
         }
 
         public override void OnResponse(NetState sender, RelayInfo info)
@@ -118,6 +126,8 @@ namespace Server.Items
             Status = "N/A",
             LevelText = "N/A",
             ExpText = "N/A",
+            JobSkillText = "N/A",
+            CombatSkillText = "N/A",
             AbilityName = "None",
             AbilityDescription = null,
             OwnerText = null
@@ -128,6 +138,8 @@ namespace Server.Items
         public string Status { get; set; }
         public string LevelText { get; set; }
         public string ExpText { get; set; }
+        public string JobSkillText { get; set; }
+        public string CombatSkillText { get; set; }
         public int Str { get; set; }
         public int Dex { get; set; }
         public int Int { get; set; }
@@ -139,6 +151,14 @@ namespace Server.Items
         public string AbilityName { get; set; }
         public string AbilityDescription { get; set; }
         public string OwnerText { get; set; }
+
+
+        private static void FillSkillTexts(DudeInfoView view, int level)
+        {
+            string cap = string.Format("{0:0.#}", DudeExperience.GetSkillCapForLevel(level));
+            view.JobSkillText = cap;
+            view.CombatSkillText = string.Format("Wrest/Tact/Resist {0}", cap);
+        }
 
         public static DudeInfoView FromDudeData(DudeData data, string statusOverride)
         {
@@ -153,6 +173,7 @@ namespace Server.Items
             view.Status = !string.IsNullOrEmpty(statusOverride) ? statusOverride : BuildCapturedStatus(data);
             view.LevelText = data.Level.ToString();
             view.ExpText = string.Format("{0} / {1}", data.CurrentEXP, data.EXPToNext);
+            FillSkillTexts(view, data.Level);
             view.Str = data.Str;
             view.Dex = data.Dex;
             view.Int = data.Int;
@@ -197,6 +218,7 @@ namespace Server.Items
             view.Status = dude.IsWild ? "Wild" : "Summoned";
             view.LevelText = dude.DudeLevel > 0 ? dude.DudeLevel.ToString() : "1";
             view.ExpText = dude.IsWild ? "N/A (wild)" : "N/A";
+            FillSkillTexts(view, dude.DudeLevel > 0 ? dude.DudeLevel : 1);
             view.Str = dude.RawStr;
             view.Dex = dude.RawDex;
             view.Int = dude.RawInt;
@@ -230,6 +252,8 @@ namespace Server.Items
             view.Status = "Boss (uncatchable)";
             view.LevelText = "Boss";
             view.ExpText = "N/A";
+            view.JobSkillText = "N/A";
+            view.CombatSkillText = "N/A";
             view.Str = boss.RawStr;
             view.Dex = boss.RawDex;
             view.Int = boss.RawInt;

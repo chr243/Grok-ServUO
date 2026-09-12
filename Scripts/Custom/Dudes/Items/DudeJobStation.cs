@@ -126,12 +126,13 @@ namespace Server.Items
                 else
                     list.Add("Job: none available");
 
+                list.Add("Job skill: {0}", DudeJobHarvest.FormatSkillLabel(data));
+
                 if (m_JobActive)
                 {
                     list.Add("Status: {0}", FormatStage(m_Stage));
                     if (m_Distance > 0)
                         list.Add("Destination: {0} tiles away", m_Distance);
-                    list.Add(GetTimingProperty());
                 }
                 else
                 {
@@ -231,6 +232,12 @@ namespace Server.Items
             if (ball.IsSummoned)
             {
                 from.SendMessage("Recall the Dude before assigning it to a Job Station.");
+                return false;
+            }
+
+            if (ball.StoredDude.IsFainted)
+            {
+                from.SendMessage("{0} is fainted and cannot work. Revive it first.", ball.StoredDude.DisplayName);
                 return false;
             }
 
@@ -384,6 +391,13 @@ namespace Server.Items
             {
                 if (from != null)
                     from.SendMessage("Recall the Dude before starting a job.");
+                return false;
+            }
+
+            if (ball.StoredDude != null && ball.StoredDude.IsFainted)
+            {
+                if (from != null)
+                    from.SendMessage("{0} is fainted and cannot work. Revive it first.", ball.StoredDude.DisplayName);
                 return false;
             }
 
@@ -705,7 +719,7 @@ namespace Server.Items
                 int beforeLevel = data.Level;
                 DudeExperience.AwardExperience(ball, DudeJobConfig.JobCycleExp, null);
                 PublicOverheadMessage(MessageType.Regular, 0x59, false,
-                    string.Format("{0} +{1} EXP (gather ~{2:0})", data.DisplayName, DudeJobConfig.JobCycleExp, DudeJobHarvest.GetEffectiveSkill(data)));
+                    string.Format("{0} +{1} EXP", data.DisplayName, DudeJobConfig.JobCycleExp));
                 if (data.Level > beforeLevel)
                 {
                     PublicOverheadMessage(MessageType.Regular, 0x44, false,
@@ -880,22 +894,8 @@ namespace Server.Items
                 return string.Format("Station idle. Dude: {0}. Job: {1}. {2}.", dude, jobName, storage);
 
             return string.Format(
-                "Dude: {0}. Job: {1}. Status: {2}. Dest: {3} tiles. {4}. {5}",
-                dude, jobName, FormatStage(m_Stage), m_Distance, storage, GetTimingProperty());
-        }
-
-        private string GetTimingProperty()
-        {
-            TimeSpan outbound = m_OutboundDuration;
-            TimeSpan work = m_WorkDuration;
-            TimeSpan ret = m_ReturnDuration;
-            TimeSpan elapsed = DateTime.UtcNow - m_JobStartUtc;
-            TimeSpan total = outbound + work + ret;
-            TimeSpan remaining = total - elapsed;
-            if (remaining < TimeSpan.Zero)
-                remaining = TimeSpan.Zero;
-
-            return string.Format("ETA ~{0:0}s (elapsed {1:0}s)", remaining.TotalSeconds, elapsed.TotalSeconds);
+                "Dude: {0}. Job: {1}. Status: {2}. Dest: {3} tiles. {4}.",
+                dude, jobName, FormatStage(m_Stage), m_Distance, storage);
         }
 
         private static string FormatStage(DudeJobStage stage)

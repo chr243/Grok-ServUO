@@ -46,6 +46,22 @@ namespace Server.Custom.Dudes
             return exp;
         }
 
+
+        /// <summary>
+        /// Combat / job skill cap from Dude level: level 1 = 50, level 10 = 100 (~+5.56 per level).
+        /// </summary>
+        public static double GetSkillCapForLevel(int level)
+        {
+            if (level < 1)
+                level = 1;
+
+            // Level 1 → 50, Level 10 → 100.
+            double skill = 50.0 + ((level - 1) * (50.0 / 9.0));
+            if (skill > 100.0)
+                skill = 100.0;
+            return skill;
+        }
+
         /// <summary>
         /// Awards EXP to the Dude stored in the ball (and live creature if present).
         /// Handles multi-level-ups and classic Str/Dex/Int/Hits bumps.

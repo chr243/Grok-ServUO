@@ -120,6 +120,23 @@ namespace Server.Mobiles
             get { return m_IsWild; }
         }
 
+        /// <summary>
+        /// Summoned Dudes are treated as innocent pets (not wild gray attackables).
+        /// </summary>
+        public override bool InitialInnocent
+        {
+            get { return !m_IsWild; }
+        }
+
+        /// <summary>
+        /// Staff/Owner characters resolve as gray in ServUO notoriety; skip inheriting that
+        /// so summoned Dudes stay blue. Normal players still use ControlMaster notoriety.
+        /// </summary>
+        public override bool ForceNotoriety
+        {
+            get { return !m_IsWild && ControlMaster != null && ControlMaster.AccessLevel > AccessLevel.Player; }
+        }
+
         public override bool IsDispellable
         {
             get { return false; }
@@ -153,9 +170,7 @@ namespace Server.Mobiles
             // Light classic resists — VirtualArmor is the UOR-era primary mitigation.
             SetResistance(ResistanceType.Physical, 10, 20);
 
-            SetSkill(SkillName.MagicResist, 25.0, 40.0);
-            SetSkill(SkillName.Tactics, 30.0, 50.0);
-            SetSkill(SkillName.Wrestling, 30.0, 50.0);
+            ApplyLevelSkills(m_DudeLevel > 0 ? m_DudeLevel : 1);
 
             Fame = m_IsWild ? 500 : 0;
             Karma = m_IsWild ? -500 : 0;
@@ -203,14 +218,18 @@ namespace Server.Mobiles
             SetDamage(data.MinDamage, data.MaxDamage);
             VirtualArmor = data.VirtualArmor;
 
-            // Scale combat skills lightly with level (classic Wrestling/Tactics).
-            double skill = 30.0 + (data.Level * 2.5);
-            if (skill > 100.0)
-                skill = 100.0;
+            ApplyLevelSkills(data.Level);
+        }
 
+        /// <summary>
+        /// Wrestling / Tactics / MagicResist capped by Dude level (50 at L1 → 100 at L10).
+        /// </summary>
+        public void ApplyLevelSkills(int level)
+        {
+            double skill = DudeExperience.GetSkillCapForLevel(level);
             SetSkill(SkillName.Tactics, skill);
             SetSkill(SkillName.Wrestling, skill);
-            SetSkill(SkillName.MagicResist, 25.0 + data.Level);
+            SetSkill(SkillName.MagicResist, skill);
         }
 
         public void SyncToBall()
