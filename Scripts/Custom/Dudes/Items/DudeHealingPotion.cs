@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Server.Mobiles;
 using Server.Network;
 using Server.Targeting;
@@ -6,29 +7,66 @@ using Server.Targeting;
 namespace Server.Items
 {
     /// <summary>
-    /// Heals a summoned Dude for 20% of HitsMax. Double-click, then target the live Dude.
+    /// Base throwable Dude heal. Dclick → target Dude → potion flies, then heals.
+    /// Shared 10s per-player cooldown with [healdude].
     /// </summary>
-    public class DudeHealingPotion : Item
+    public abstract class BaseDudeHealingPotion : Item
     {
-        [Constructable]
-        public DudeHealingPotion()
-            : base(0xF0C) // heal potion bottle
+        public static readonly TimeSpan HealCooldown = TimeSpan.FromSeconds(10.0);
+
+        private static readonly Dictionary<Mobile, DateTime> m_NextHealAllowed = new Dictionary<Mobile, DateTime>();
+
+        public abstract double HealFraction { get; }
+        public abstract string PotionLabel { get; }
+
+        public BaseDudeHealingPotion(int itemID)
+            : base(itemID)
         {
-            Name = "Dude Healing Potion";
-            Hue = 0x21; // warm red-pink
             Weight = 1.0;
             Stackable = false;
         }
 
-        public DudeHealingPotion(Serial serial)
+        public BaseDudeHealingPotion(Serial serial)
             : base(serial)
         {
+        }
+
+        public static bool CheckHealCooldown(Mobile from, bool message)
+        {
+            if (from == null)
+                return false;
+
+            DateTime next;
+            if (m_NextHealAllowed.TryGetValue(from, out next) && DateTime.UtcNow < next)
+            {
+                if (message)
+                {
+                    double secs = (next - DateTime.UtcNow).TotalSeconds;
+                    if (secs < 0.1)
+                        secs = 0.1;
+                    from.SendMessage("You must wait {0:0.#} more seconds before healing a Dude.", secs);
+                }
+                return false;
+            }
+
+            return true;
+        }
+
+        public static void MarkHealCooldown(Mobile from)
+        {
+            if (from == null)
+                return;
+
+            m_NextHealAllowed[from] = DateTime.UtcNow + HealCooldown;
         }
 
         public override void GetProperties(ObjectPropertyList list)
         {
             base.GetProperties(list);
-            list.Add("Double-click and target a summoned Dude to heal 20% HP.");
+            int pct = (int)(HealFraction * 100.0 + 0.5);
+            list.Add("Double-click and target a summoned Dude (8 tiles).");
+            list.Add("Throws like an explosion potion, then heals {0}% HP.", pct);
+            list.Add("10 second cooldown (shared with [healdude]).");
         }
 
         public override void OnDoubleClick(Mobile from)
@@ -42,57 +80,127 @@ namespace Server.Items
                 return;
             }
 
+            if (!CheckHealCooldown(from, true))
+                return;
+
             from.SendMessage("Target a summoned Dude to heal.");
-            from.Target = new HealTarget(this);
+            from.Target = new ThrowHealTarget(this);
         }
 
-        public bool TryHeal(Mobile from, DudeCreature dude)
+        public bool CanHeal(Mobile from, DudeCreature dude, bool message)
         {
             if (from == null || Deleted || dude == null || dude.Deleted)
                 return false;
 
-            if (!IsChildOf(from.Backpack))
+            if (!IsChildOf(from.Backpack) && Map != Map.Internal)
             {
-                from.SendLocalizedMessage(1042001);
+                if (message)
+                    from.SendLocalizedMessage(1042001);
                 return false;
             }
 
             if (dude.IsWild)
             {
-                from.SendMessage("That Dude is wild.");
+                if (message)
+                    from.SendMessage("That Dude is wild.");
                 return false;
             }
 
             if (dude.BoundBall == null || dude.BoundBall.Deleted)
             {
-                from.SendMessage("That Dude is not bound to a Dude Ball.");
+                if (message)
+                    from.SendMessage("That Dude is not bound to a Dude Ball.");
                 return false;
             }
 
             if (dude.ControlMaster != from && from.AccessLevel < AccessLevel.GameMaster)
             {
-                from.SendMessage("That is not your Dude.");
+                if (message)
+                    from.SendMessage("That is not your Dude.");
                 return false;
             }
 
-            if (!from.InRange(dude, 8) || !from.CanSee(dude))
+            if (dude.Map == null || dude.Map == Map.Internal)
             {
-                from.SendMessage("You cannot reach that Dude.");
+                if (message)
+                    from.SendMessage("That Dude is not summoned.");
+                return false;
+            }
+
+            if (!from.InRange(dude, 8) || !from.CanSee(dude) || !from.InLOS(dude))
+            {
+                if (message)
+                    from.SendMessage("You cannot reach that Dude.");
                 return false;
             }
 
             if (dude.Hits >= dude.HitsMax)
             {
-                from.SendMessage("{0} is already at full health.", dude.Name);
+                if (message)
+                    from.SendMessage("{0} is already at full health.", dude.Name);
                 return false;
             }
 
-            int heal = Math.Max(1, dude.HitsMax / 5); // 20%
+            return true;
+        }
+
+        public void BeginThrow(Mobile from, DudeCreature dude)
+        {
+            if (!CanHeal(from, dude, true))
+                return;
+
+            if (!CheckHealCooldown(from, true))
+                return;
+
+            MarkHealCooldown(from);
+
+            from.RevealingAction();
+            Effects.SendMovingEffect(from, dude, ItemID, 7, 0, false, false, Hue, 0);
+
+            // Consume from pack immediately so it can't be reused mid-flight.
+            Internalize();
+            Timer.DelayCall(TimeSpan.FromSeconds(1.0), () => FinishHeal(from, dude));
+        }
+
+        private void FinishHeal(Mobile from, DudeCreature dude)
+        {
+            if (Deleted)
+                return;
+
+            if (from == null || from.Deleted || dude == null || dude.Deleted || !dude.Alive)
+            {
+                Delete();
+                return;
+            }
+
+            // Re-validate loosely after flight (range can drift a little).
+            if (dude.IsWild || dude.BoundBall == null || dude.BoundBall.Deleted)
+            {
+                if (from != null)
+                    from.SendMessage("The potion fails to take effect.");
+                Delete();
+                return;
+            }
+
+            if (dude.ControlMaster != from && from.AccessLevel < AccessLevel.GameMaster)
+            {
+                Delete();
+                return;
+            }
+
+            if (dude.Hits >= dude.HitsMax)
+            {
+                from.SendMessage("{0} is already at full health.", dude.Name);
+                Delete();
+                return;
+            }
+
+            int heal = Math.Max(1, (int)(dude.HitsMax * HealFraction));
             int before = dude.Hits;
             dude.Hits = Math.Min(dude.HitsMax, dude.Hits + heal);
             int actual = dude.Hits - before;
 
-            if (dude.BoundBall != null && dude.BoundBall.StoredDude != null)
+            if (dude.BoundBall.StoredDude != null)
             {
                 dude.BoundBall.StoredDude.Hits = dude.Hits;
                 dude.BoundBall.InvalidateProperties();
@@ -101,9 +209,11 @@ namespace Server.Items
             from.SendMessage(0x59, "You heal {0} for {1} hit points.", dude.Name, actual);
             dude.PlaySound(0x1F2);
             dude.FixedEffect(0x376A, 9, 32);
+            Effects.SendLocationParticles(
+                EffectItem.Create(dude.Location, dude.Map, EffectItem.DefaultDuration),
+                0x3728, 10, 10, 5029);
 
-            Consume();
-            return true;
+            Delete();
         }
 
         public override void Serialize(GenericWriter writer)
@@ -118,12 +228,12 @@ namespace Server.Items
             int version = reader.ReadInt();
         }
 
-        private class HealTarget : Target
+        private class ThrowHealTarget : Target
         {
-            private readonly DudeHealingPotion m_Potion;
+            private readonly BaseDudeHealingPotion m_Potion;
 
-            public HealTarget(DudeHealingPotion potion)
-                : base(8, false, TargetFlags.None)
+            public ThrowHealTarget(BaseDudeHealingPotion potion)
+                : base(8, false, TargetFlags.Beneficial)
             {
                 m_Potion = potion;
             }
@@ -140,8 +250,70 @@ namespace Server.Items
                     return;
                 }
 
-                m_Potion.TryHeal(from, dude);
+                m_Potion.BeginThrow(from, dude);
             }
+        }
+    }
+
+    public class DudeHealingPotion : BaseDudeHealingPotion
+    {
+        public override double HealFraction { get { return 0.20; } }
+        public override string PotionLabel { get { return "Dude Healing Potion"; } }
+
+        [Constructable]
+        public DudeHealingPotion()
+            : base(0xF0C)
+        {
+            Name = "Dude Healing Potion";
+            Hue = 0x21;
+        }
+
+        public DudeHealingPotion(Serial serial)
+            : base(serial)
+        {
+        }
+
+        public override void Serialize(GenericWriter writer)
+        {
+            base.Serialize(writer);
+            writer.Write((int)0);
+        }
+
+        public override void Deserialize(GenericReader reader)
+        {
+            base.Deserialize(reader);
+            reader.ReadInt();
+        }
+    }
+
+    public class GreaterDudeHealingPotion : BaseDudeHealingPotion
+    {
+        public override double HealFraction { get { return 0.50; } }
+        public override string PotionLabel { get { return "Greater Dude Healing Potion"; } }
+
+        [Constructable]
+        public GreaterDudeHealingPotion()
+            : base(0xF0B)
+        {
+            Name = "Greater Dude Healing Potion";
+            Hue = 0x26; // deeper red
+        }
+
+        public GreaterDudeHealingPotion(Serial serial)
+            : base(serial)
+        {
+        }
+
+        public override void Serialize(GenericWriter writer)
+        {
+            base.Serialize(writer);
+            writer.Write((int)0);
+        }
+
+        public override void Deserialize(GenericReader reader)
+        {
+            base.Deserialize(reader);
+            reader.ReadInt();
         }
     }
 }

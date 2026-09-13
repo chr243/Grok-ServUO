@@ -150,6 +150,20 @@ namespace Server.Engines.Craft
                 "You need an empty bottle.");
             AddRes(index, typeof(Ginseng), "Ginseng", 5, "You need more ginseng.");
             ForceNonExceptional(index);
+
+            index = AddCraft(
+                typeof(GreaterDudeHealingPotion),
+                "Potions",
+                "Greater Dude Healing Potion",
+                SkillName.Alchemy,
+                65.0,
+                90.0,
+                typeof(Ginseng),
+                "Ginseng",
+                10,
+                "You need more ginseng.");
+            AddRes(index, typeof(DudeDust), "Dude Dust", 5, "You need more Dude Dust.");
+            ForceNonExceptional(index);
         }
     }
 }

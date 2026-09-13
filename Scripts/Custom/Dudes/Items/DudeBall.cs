@@ -16,6 +16,7 @@ namespace Server.Items
         private DudeData m_StoredDude;
         private DudeCreature m_SummonedDude;
         private DudeJobStation m_AssignedStation;
+        private DateTime m_NextUseUtc;
 
         private const int BallItemId = 0xE73; // BolaBall graphic
         private const int EmptyHue = 0x59; // bright green — easy to spot empty in pack
@@ -23,6 +24,8 @@ namespace Server.Items
         private const int WaterHue = 0x5A; // blue
         private const int AirHue = 0x47E; // white
         private const int EarthHue = 0x22C; // light brown
+
+        private static readonly TimeSpan UseCooldown = TimeSpan.FromSeconds(5.0);
 
         [Constructable]
         public DudeBall()
@@ -64,7 +67,21 @@ namespace Server.Items
 
         public bool IsSummoned
         {
-            get { return SummonedDude != null; }
+            get
+            {
+                DudeCreature dude = SummonedDude;
+                return dude != null && dude.Map != null && dude.Map != Map.Internal;
+            }
+        }
+
+        /// <summary>True if a world Dude instance exists (out or parked on Internal for serial reuse).</summary>
+        public bool HasParkedDude
+        {
+            get
+            {
+                DudeCreature dude = SummonedDude;
+                return dude != null;
+            }
         }
 
         /// <summary>True while this ball is assigned to a Job Station (possibly mid-job).</summary>
@@ -149,6 +166,23 @@ namespace Server.Items
             InvalidateProperties();
         }
 
+        /// <summary>Drop the parked/world Dude instance (frees serial). Used on ball delete / faint cleanup.</summary>
+        public void DestroyParkedDude()
+        {
+            DudeCreature dude = m_SummonedDude;
+            m_SummonedDude = null;
+
+            if (dude != null && !dude.Deleted)
+            {
+                dude.BoundBall = null;
+                if (dude.ControlMaster != null)
+                    dude.SetControlMaster(null);
+                dude.Delete();
+            }
+
+            InvalidateProperties();
+        }
+
         public override void GetProperties(ObjectPropertyList list)
         {
             base.GetProperties(list);
@@ -211,6 +245,15 @@ namespace Server.Items
                 return;
             }
 
+            if (DateTime.UtcNow < m_NextUseUtc)
+            {
+                double left = (m_NextUseUtc - DateTime.UtcNow).TotalSeconds;
+                if (left < 0.1)
+                    left = 0.1;
+                from.SendMessage("You must wait {0:0.0}s before using this Dude Ball again.", left);
+                return;
+            }
+
             if (IsSummoned)
             {
                 Recall(from);
@@ -219,6 +262,11 @@ namespace Server.Items
             {
                 Summon(from);
             }
+        }
+
+        private void MarkUsed()
+        {
+            m_NextUseUtc = DateTime.UtcNow + UseCooldown;
         }
 
         public void Summon(Mobile from)
@@ -245,7 +293,7 @@ namespace Server.Items
             }
 
             DudeDefinition def = DudeRegistry.Get(m_StoredDude.DefinitionId);
-            int slots = def != null ? def.ControlSlots : 1;
+            int slots = def != null ? def.ControlSlots : 4;
 
             if (from.Followers + slots > from.FollowersMax)
             {
@@ -259,10 +307,18 @@ namespace Server.Items
             if (map == null || map == Map.Internal)
                 return;
 
-            DudeCreature dude = new DudeCreature(m_StoredDude.DefinitionId, false);
+            // Reuse parked instance so the client status bar keeps the same serial.
+            DudeCreature dude = m_SummonedDude;
+            bool created = false;
+
+            if (dude == null || dude.Deleted)
+            {
+                dude = new DudeCreature(m_StoredDude.DefinitionId, false);
+                created = true;
+            }
+
             dude.BoundBall = this;
             dude.ApplyData(m_StoredDude, false);
-
             m_StoredDude.Hits = dude.Hits;
 
             dude.MoveToWorld(loc, map);
@@ -270,7 +326,16 @@ namespace Server.Items
             if (!dude.SetControlMaster(from))
             {
                 from.SendMessage("You cannot control this Dude right now.");
-                dude.Delete();
+                if (created)
+                {
+                    dude.BoundBall = null;
+                    dude.Delete();
+                    m_SummonedDude = null;
+                }
+                else
+                {
+                    ParkDude(dude);
+                }
                 return;
             }
 
@@ -279,15 +344,13 @@ namespace Server.Items
             dude.Fame = from.Fame;
 
             dude.ControlTarget = from;
-            dude.ControlOrder = OrderType.Follow;
+            dude.ControlOrder = OrderType.Guard;
             m_SummonedDude = dude;
             InvalidateProperties();
 
             from.SendMessage(0x59, "{0} emerges from the Dude Ball!", m_StoredDude.DisplayName);
-            from.PlaySound(0x20E);
-            Effects.SendLocationParticles(
-                EffectItem.Create(dude.Location, dude.Map, EffectItem.DefaultDuration),
-                0x3728, 10, 10, 2023);
+            DudeSummonEffects.Play(m_StoredDude.Type, dude.Location, dude.Map);
+            MarkUsed();
         }
 
         public void Recall(Mobile from)
@@ -313,13 +376,13 @@ namespace Server.Items
             Point3D loc = dude.Location;
             Map map = dude.Map;
 
-            dude.BoundBall = null;
-            m_SummonedDude = null;
-
+            // Keep the same mobile/serial: park on Internal instead of Delete.
             dude.SetControlMaster(null);
-            dude.Delete();
+            ParkDude(dude);
+            m_SummonedDude = dude;
 
             InvalidateProperties();
+            MarkUsed();
 
             if (notify && from != null)
             {
@@ -335,16 +398,33 @@ namespace Server.Items
             }
         }
 
+        private static void ParkDude(DudeCreature dude)
+        {
+            if (dude == null || dude.Deleted)
+                return;
+
+            dude.Combatant = null;
+            dude.Warmode = false;
+            dude.Internalize();
+        }
+
+        public override void OnDelete()
+        {
+            DestroyParkedDude();
+            base.OnDelete();
+        }
+
         public override void Serialize(GenericWriter writer)
         {
             base.Serialize(writer);
-            writer.Write((int)0); // version
+            writer.Write((int)1); // version
 
             writer.Write(m_StoredDude != null);
             if (m_StoredDude != null)
                 m_StoredDude.Serialize(writer);
 
             writer.Write(m_SummonedDude);
+            writer.Write(m_NextUseUtc);
         }
 
         public override void Deserialize(GenericReader reader)
@@ -367,6 +447,11 @@ namespace Server.Items
             }
 
             m_SummonedDude = reader.ReadMobile() as DudeCreature;
+
+            if (version >= 1)
+                m_NextUseUtc = reader.ReadDateTime();
+            else
+                m_NextUseUtc = DateTime.MinValue;
 
             ItemID = BallItemId; // migrate older ball art
             RefreshHue(); // migrate steel/charged hues to green / type colors

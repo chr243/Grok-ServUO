@@ -107,6 +107,10 @@ namespace Server.Mobiles
 
         public override void GenerateLoot()
         {
+            // Normal high-tier boss packs + Dude resources.
+            AddLoot(LootPack.FilthyRich, 2);
+            AddLoot(LootPack.MedScrolls, 1);
+            AddLoot(LootPack.Gems, Utility.RandomMinMax(2, 4));
             PackDudeCommonLoot();
             PackUniqueLoot();
         }
@@ -114,7 +118,7 @@ namespace Server.Mobiles
         /// <summary>Shared Dude-relevant drops for every boss. Retune amounts freely.</summary>
         protected virtual void PackDudeCommonLoot()
         {
-            PackItem(new DudeDust(Utility.RandomMinMax(3, 6)));
+            PackItem(new DudeDust(Utility.RandomMinMax(10, 30)));
             PackItem(new IronIngot(Utility.RandomMinMax(8, 15)));
         }
 

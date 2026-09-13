@@ -7,14 +7,12 @@ using Server.Network;
 namespace Server.Mobiles
 {
     /// <summary>
-    /// First Dude boss — hostile Fire affinity. Uncatchable; drops DudeDust, ingots, rare Ember Core.
+    /// First Dude boss — hostile Fire affinity. Uncatchable; FilthyRich loot + dust + 0-2 Ember Essence.
     /// Staff spawn: [SpawnEmberlord or [add Emberlord. No automatic world spawner.
     /// </summary>
     [CorpseName("the remains of Emberlord")]
     public class Emberlord : DudeBoss
     {
-        private const double EmberCoreChance = 0.25;
-
         [Constructable]
         public Emberlord()
             : base(AIType.AI_Melee, FightMode.Closest, 10, 1, 0.2, 0.4)
@@ -144,8 +142,9 @@ namespace Server.Mobiles
 
         protected override void PackUniqueLoot()
         {
-            if (Utility.RandomDouble() < EmberCoreChance)
-                PackItem(new EmberCore());
+            int essence = Utility.RandomMinMax(0, 2);
+            if (essence > 0)
+                PackItem(new EmberCore(essence));
         }
 
         public override void Serialize(GenericWriter writer)

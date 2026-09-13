@@ -29,6 +29,8 @@ namespace Server.Custom.Dudes.Commands
             CommandSystem.Register("CreateTrainersManual", AccessLevel.GameMaster, new CommandEventHandler(CreateTrainersManual_OnCommand));
             CommandSystem.Register("CreateDudeRevivalPotion", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeRevivalPotion_OnCommand));
             CommandSystem.Register("CreateDudeHealingPotion", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeHealingPotion_OnCommand));
+            CommandSystem.Register("CreateGreaterDudeHealingPotion", AccessLevel.GameMaster, new CommandEventHandler(CreateGreaterDudeHealingPotion_OnCommand));
+            CommandSystem.Register("CreateMysteryJuice", AccessLevel.GameMaster, new CommandEventHandler(CreateMysteryJuice_OnCommand));
             CommandSystem.Register("CreateBeginnersBall", AccessLevel.GameMaster, new CommandEventHandler(CreateBeginnersBall_OnCommand));
             CommandSystem.Register("CreateDudeSpawners", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeSpawners_OnCommand));
         }
@@ -285,6 +287,31 @@ namespace Server.Custom.Dudes.Commands
             from.Backpack.DropItem(new DudeHealingPotion());
             from.SendMessage(0x59, "TEST: Dude Healing Potion created.");
         }
+
+        [Usage("CreateGreaterDudeHealingPotion")]
+        [Description("TEST: Creates a Greater Dude Healing Potion (50% heal).")]
+        private static void CreateGreaterDudeHealingPotion_OnCommand(CommandEventArgs e)
+        {
+            Mobile from = e.Mobile;
+            if (from == null || from.Backpack == null)
+                return;
+
+            from.Backpack.DropItem(new GreaterDudeHealingPotion());
+            from.SendMessage(0x59, "Created Greater Dude Healing Potion.");
+        }
+
+        [Usage("CreateMysteryJuice")]
+        [Description("TEST: Creates Mystery Juice (+1 Dude level).")]
+        private static void CreateMysteryJuice_OnCommand(CommandEventArgs e)
+        {
+            Mobile from = e.Mobile;
+            if (from == null || from.Backpack == null)
+                return;
+
+            from.Backpack.DropItem(new MysteryJuice());
+            from.SendMessage(0x59, "Created Mystery Juice.");
+        }
+
 
         [Usage("StartDudeJob")]
         [Description("TEST: Target a Dude Job Station to force-start its job.")]

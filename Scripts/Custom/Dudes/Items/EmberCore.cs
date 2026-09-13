@@ -17,7 +17,7 @@ namespace Server.Items
         public EmberCore(int amount)
             : base(0x1F1C) // classic power-crystal graphic (UOR-friendly)
         {
-            Name = "Ember Core";
+            Name = "Ember Essence";
             Hue = 1161;
             Stackable = true;
             Amount = amount;
@@ -32,7 +32,7 @@ namespace Server.Items
         public override void GetProperties(ObjectPropertyList list)
         {
             base.GetProperties(list);
-            list.Add("A smoldering core taken from Emberlord");
+            list.Add("Ember Essence taken from Emberlord");
             list.Add("Reserved for future Dude crafting");
         }
 

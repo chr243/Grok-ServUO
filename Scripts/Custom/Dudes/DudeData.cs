@@ -24,12 +24,14 @@ namespace Server.Custom.Dudes
         private string m_AbilityId;
         private bool m_IsFainted;
         private Mobile m_Catcher;
+        private double m_GatherSkill;
 
         public DudeData()
         {
             m_Level = 1;
             m_CurrentEXP = 0;
             m_EXPToNext = DudeExperience.GetExpRequiredForLevel(1);
+            m_GatherSkill = Server.Custom.Dudes.Jobs.DudeJobConfig.BaseGatherSkill;
         }
 
         public string DefinitionId
@@ -134,6 +136,21 @@ namespace Server.Custom.Dudes
             set { m_Catcher = value; }
         }
 
+        /// <summary>Persistent gathering skill (jobs), independent of combat level.</summary>
+        public double GatherSkill
+        {
+            get { return m_GatherSkill; }
+            set
+            {
+                double max = Server.Custom.Dudes.Jobs.DudeJobConfig.MaxGatherSkill;
+                if (value < 0.0)
+                    value = 0.0;
+                else if (value > max)
+                    value = max;
+                m_GatherSkill = value;
+            }
+        }
+
         public string DisplayName
         {
             get
@@ -172,12 +189,13 @@ namespace Server.Custom.Dudes
             data.m_AbilityId = def.AbilityId;
             data.m_IsFainted = false;
             data.m_Catcher = catcher;
+            data.m_GatherSkill = Server.Custom.Dudes.Jobs.DudeJobConfig.BaseGatherSkill;
             return data;
         }
 
         public void Serialize(GenericWriter writer)
         {
-            writer.Write((int)0); // version
+            writer.Write((int)1); // version
 
             writer.Write(m_DefinitionId);
             writer.Write(m_CustomName);
@@ -196,36 +214,46 @@ namespace Server.Custom.Dudes
             writer.Write(m_AbilityId);
             writer.Write(m_IsFainted);
             writer.Write(m_Catcher);
+            writer.Write(m_GatherSkill);
         }
 
         public void Deserialize(GenericReader reader)
         {
             int version = reader.ReadInt();
 
-            switch (version)
+            m_DefinitionId = reader.ReadString();
+            m_CustomName = reader.ReadString();
+            m_Type = (DudeType)reader.ReadInt();
+            m_Level = reader.ReadInt();
+            m_CurrentEXP = reader.ReadInt();
+            m_EXPToNext = reader.ReadInt();
+            m_Str = reader.ReadInt();
+            m_Dex = reader.ReadInt();
+            m_Int = reader.ReadInt();
+            m_HitsMax = reader.ReadInt();
+            m_Hits = reader.ReadInt();
+            m_MinDamage = reader.ReadInt();
+            m_MaxDamage = reader.ReadInt();
+            m_VirtualArmor = reader.ReadInt();
+            m_AbilityId = reader.ReadString();
+            m_IsFainted = reader.ReadBool();
+            m_Catcher = reader.ReadMobile();
+
+            if (version >= 1)
             {
-                case 0:
-                    {
-                        m_DefinitionId = reader.ReadString();
-                        m_CustomName = reader.ReadString();
-                        m_Type = (DudeType)reader.ReadInt();
-                        m_Level = reader.ReadInt();
-                        m_CurrentEXP = reader.ReadInt();
-                        m_EXPToNext = reader.ReadInt();
-                        m_Str = reader.ReadInt();
-                        m_Dex = reader.ReadInt();
-                        m_Int = reader.ReadInt();
-                        m_HitsMax = reader.ReadInt();
-                        m_Hits = reader.ReadInt();
-                        m_MinDamage = reader.ReadInt();
-                        m_MaxDamage = reader.ReadInt();
-                        m_VirtualArmor = reader.ReadInt();
-                        m_AbilityId = reader.ReadString();
-                        m_IsFainted = reader.ReadBool();
-                        m_Catcher = reader.ReadMobile();
-                        break;
-                    }
+                m_GatherSkill = reader.ReadDouble();
             }
+            else
+            {
+                // Migrate old level-tied job skill so existing Dudes keep their harvest tier.
+                m_GatherSkill = DudeExperience.GetSkillCapForLevel(m_Level > 0 ? m_Level : 1);
+            }
+
+            double max = Server.Custom.Dudes.Jobs.DudeJobConfig.MaxGatherSkill;
+            if (m_GatherSkill < 0.0)
+                m_GatherSkill = 0.0;
+            else if (m_GatherSkill > max)
+                m_GatherSkill = max;
         }
 
         public DudeData Clone()
@@ -248,6 +276,7 @@ namespace Server.Custom.Dudes
             copy.m_AbilityId = m_AbilityId;
             copy.m_IsFainted = m_IsFainted;
             copy.m_Catcher = m_Catcher;
+            copy.m_GatherSkill = m_GatherSkill;
             return copy;
         }
     }

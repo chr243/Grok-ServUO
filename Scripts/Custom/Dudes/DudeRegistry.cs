@@ -79,7 +79,7 @@ namespace Server.Custom.Dudes
             // Leveling: Str+2, HitsMax+8, Min/MaxDamage+1 per level; abilities base+(DudeLevel*2).
             // Weak L1 tuned to clear skeletons/zombies; higher tiers keep clear separation.
 
-            // --- WEAK (starter-fodder / early catch) — ControlSlots 1, reuse type abilities ---
+            // --- WEAK (starter-fodder / early catch) — ControlSlots 4, reuse type abilities ---
 
             Register(new DudeDefinition(
                 "sparkmite",
@@ -93,7 +93,7 @@ namespace Server.Custom.Dudes
                 4, 7,
                 14,
                 "ember_burst",
-                1));
+                4));
 
             Register(new DudeDefinition(
                 "puddling",
@@ -107,7 +107,7 @@ namespace Server.Custom.Dudes
                 4, 7,
                 14,
                 "tide_crash",
-                1));
+                4));
 
             Register(new DudeDefinition(
                 "pebblet",
@@ -121,7 +121,7 @@ namespace Server.Custom.Dudes
                 5, 8,
                 16,
                 "stone_slam",
-                1));
+                4));
 
             Register(new DudeDefinition(
                 "breezeling",
@@ -135,9 +135,9 @@ namespace Server.Custom.Dudes
                 4, 7,
                 12,
                 "gust_slash",
-                1));
+                4));
 
-            // --- BASIC starters (baseline) — ControlSlots 1, elemental bodies 13–16 ---
+            // --- BASIC starters (baseline) — ControlSlots 4, elemental bodies 13–16 ---
 
             Register(new DudeDefinition(
                 "emberling",
@@ -151,7 +151,7 @@ namespace Server.Custom.Dudes
                 6, 10,
                 18,
                 "ember_burst",
-                1));
+                4));
 
             Register(new DudeDefinition(
                 "tideling",
@@ -165,7 +165,7 @@ namespace Server.Custom.Dudes
                 5, 9,
                 16,
                 "tide_crash",
-                1));
+                4));
 
             Register(new DudeDefinition(
                 "stonepaw",
@@ -179,7 +179,7 @@ namespace Server.Custom.Dudes
                 7, 11,
                 22,
                 "stone_slam",
-                1));
+                4));
 
             Register(new DudeDefinition(
                 "gustling",
@@ -193,7 +193,7 @@ namespace Server.Custom.Dudes
                 5, 9,
                 15,
                 "gust_slash",
-                1));
+                4));
 
             // --- MEDIUM (stronger than starters, still catchable) ---
 
@@ -209,7 +209,7 @@ namespace Server.Custom.Dudes
                 9, 14,
                 20,
                 "cinder_bite",
-                1));
+                4));
 
             Register(new DudeDefinition(
                 "riptide",
@@ -223,7 +223,7 @@ namespace Server.Custom.Dudes
                 8, 13,
                 20,
                 "riptide_crash",
-                1));
+                4));
 
             Register(new DudeDefinition(
                 "boulderback",
@@ -237,7 +237,7 @@ namespace Server.Custom.Dudes
                 10, 16,
                 32,
                 "boulder_crush",
-                2));
+                4));
 
             // --- STRONG (elite wild, catchable, not DudeBoss) ---
 
@@ -253,7 +253,7 @@ namespace Server.Custom.Dudes
                 13, 19,
                 40,
                 "pyre_blast",
-                2));
+                4));
         }
     }
 }

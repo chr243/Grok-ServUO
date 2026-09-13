@@ -43,6 +43,7 @@ namespace Server.Custom.Dudes.Jobs
                     reward.Amount = amount;
             }
 
+            DudeJobHarvest.TryGainGatherSkill(data);
             return reward;
         }
 

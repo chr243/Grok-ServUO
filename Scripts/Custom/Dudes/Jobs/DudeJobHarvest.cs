@@ -6,8 +6,7 @@ using Server.Items;
 namespace Server.Custom.Dudes.Jobs
 {
     /// <summary>
-    /// Effective gathering skill from Dude level, plus vein-style resource rolls.
-    /// Formula: BaseGatherSkill + (Level * GatherSkillPerLevel), capped at 120.
+    /// Effective gathering skill from DudeData.GatherSkill (trainable), plus vein-style resource rolls.
     /// </summary>
     public static class DudeJobHarvest
     {
@@ -27,14 +26,53 @@ namespace Server.Custom.Dudes.Jobs
         public static double GetEffectiveSkill(DudeData data)
         {
             if (data == null)
-                return DudeExperience.GetSkillCapForLevel(1);
+                return DudeJobConfig.BaseGatherSkill;
 
-            return DudeExperience.GetSkillCapForLevel(data.Level);
+            double skill = data.GatherSkill;
+            if (skill < 0.0)
+                skill = 0.0;
+            if (skill > DudeJobConfig.MaxGatherSkill)
+                skill = DudeJobConfig.MaxGatherSkill;
+            return skill;
         }
 
         public static string FormatSkillLabel(DudeData data)
         {
             return string.Format("{0:0.#}", GetEffectiveSkill(data));
+        }
+
+        /// <summary>
+        /// Chance to raise GatherSkill after a successful gather cycle. Harder as skill rises.
+        /// </summary>
+        public static bool TryGainGatherSkill(DudeData data)
+        {
+            if (data == null)
+                return false;
+
+            double skill = data.GatherSkill;
+            double max = DudeJobConfig.MaxGatherSkill;
+            if (skill >= max)
+                return false;
+
+            // Chance scales down as skill approaches cap (classic UO-ish).
+            double chance = DudeJobConfig.GatherSkillGainChance * ((max - skill) / max);
+            if (chance < 0.02)
+                chance = 0.02;
+
+            if (Utility.RandomDouble() >= chance)
+                return false;
+
+            double amount = DudeJobConfig.GatherSkillGainAmount;
+            if (skill >= 100.0)
+                amount *= 0.25;
+            else if (skill >= 70.0)
+                amount *= 0.5;
+
+            if (amount < 0.01)
+                amount = 0.01;
+
+            data.GatherSkill = skill + amount;
+            return true;
         }
 
 

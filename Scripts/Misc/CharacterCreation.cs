@@ -67,6 +67,9 @@ namespace Server.Misc
 			PackItem(new BeginnersBall()); // first Dude picker for new characters
 			PackItem(new TrainersManual());
 			PackItem(new DudeCraftingKit());
+			PackItem(new MysteryJuice());
+			for (int i = 0; i < 10; i++)
+				PackItem(new DudeHealingPotion());
 
 			if (m.Race != Race.Gargoyle)
 				PackItem(new Dagger());

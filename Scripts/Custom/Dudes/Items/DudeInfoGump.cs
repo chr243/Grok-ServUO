@@ -140,9 +140,9 @@ namespace Server.Items
         public string AbilityDescription { get; set; }
 
 
-        private static void FillSkillTexts(DudeInfoView view, int level)
+        private static void FillSkillTexts(DudeInfoView view, DudeData data)
         {
-            view.JobSkillText = string.Format("{0:0.#}", DudeExperience.GetSkillCapForLevel(level));
+            view.JobSkillText = Server.Custom.Dudes.Jobs.DudeJobHarvest.FormatSkillLabel(data);
         }
 
         public static DudeInfoView FromDudeData(DudeData data, string statusOverride)
@@ -158,7 +158,7 @@ namespace Server.Items
             view.Status = !string.IsNullOrEmpty(statusOverride) ? statusOverride : BuildCapturedStatus(data);
             view.LevelText = data.Level.ToString();
             view.ExpText = string.Format("{0} / {1}", data.CurrentEXP, data.EXPToNext);
-            FillSkillTexts(view, data.Level);
+            FillSkillTexts(view, data);
             view.Str = data.Str;
             view.Dex = data.Dex;
             view.Int = data.Int;
@@ -202,7 +202,10 @@ namespace Server.Items
             view.Status = dude.IsWild ? "Wild" : "Summoned";
             view.LevelText = dude.DudeLevel > 0 ? dude.DudeLevel.ToString() : "1";
             view.ExpText = dude.IsWild ? "N/A (wild)" : "N/A";
-            FillSkillTexts(view, dude.DudeLevel > 0 ? dude.DudeLevel : 1);
+            if (dude.BoundBall != null && dude.BoundBall.StoredDude != null)
+                FillSkillTexts(view, dude.BoundBall.StoredDude);
+            else
+                view.JobSkillText = "N/A";
             view.Str = dude.RawStr;
             view.Dex = dude.RawDex;
             view.Int = dude.RawInt;

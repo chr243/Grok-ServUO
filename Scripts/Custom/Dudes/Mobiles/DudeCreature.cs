@@ -52,7 +52,7 @@ namespace Server.Mobiles
             else
             {
                 Tamable = false; // ownership via DudeBall, not classic taming
-                ControlSlots = def != null ? def.ControlSlots : 1;
+                ControlSlots = def != null ? def.ControlSlots : 4;
                 MinTameSkill = 0.0;
                 FightMode = FightMode.Closest;
             }
@@ -261,14 +261,16 @@ namespace Server.Mobiles
             if (!Controlled || ControlMaster == null || ControlMaster.Deleted)
                 return;
 
-            // Stay following when idle (classic pet Follow order).
-            if (Combatant == null && ControlOrder != OrderType.Attack && ControlOrder != OrderType.Stop && ControlOrder != OrderType.Stay)
+            // Default combat stance is Guard — keep hunting nearby threats after each kill.
+            // Do NOT force Follow when idle; that stopped aggression after the first corpse.
+            if (ControlOrder == OrderType.None)
             {
-                if (ControlOrder != OrderType.Follow || ControlTarget != ControlMaster)
-                {
-                    ControlTarget = ControlMaster;
-                    ControlOrder = OrderType.Follow;
-                }
+                ControlTarget = ControlMaster;
+                ControlOrder = OrderType.Guard;
+            }
+            else if (ControlOrder == OrderType.Guard && ControlTarget != ControlMaster)
+            {
+                ControlTarget = ControlMaster;
             }
 
             TryUseAbility();
@@ -298,8 +300,7 @@ namespace Server.Mobiles
         {
             if (!m_IsWild && m_BoundBall != null && !m_BoundBall.Deleted)
             {
-                // Death policy: write last state to ball as fainted, remove world creature.
-                // Prevents soft-lock; ball remains authoritative and can re-summon (revives).
+                // Faint: park on Internal so the same serial (status bar) survives revival.
                 m_SyncingDeath = true;
                 SyncToBall();
 
@@ -310,13 +311,19 @@ namespace Server.Mobiles
                     data.Hits = 0;
                 }
 
-                m_BoundBall.ClearSummonLink();
-
                 Mobile master = ControlMaster;
+                SetControlMaster(null);
+                Combatant = null;
+                Warmode = false;
+                Internalize();
+
+                // Keep ball → creature link for serial reuse on next summon after revive.
+                m_BoundBall.InvalidateProperties();
+
                 if (master != null)
                     master.SendMessage(0x22, "{0} fainted and returned to the Dude Ball!", Name);
 
-                Delete();
+                m_SyncingDeath = false;
                 return false;
             }
 

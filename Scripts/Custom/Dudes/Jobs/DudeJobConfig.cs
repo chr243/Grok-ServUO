@@ -46,11 +46,17 @@ namespace Server.Custom.Dudes.Jobs
         /// <summary>Dude Dust amount granted when the bonus roll succeeds.</summary>
         public static int JobDustAmount = 1;
 
-        /// <summary>Base effective gathering skill (%) for a level-0/1 Dude.</summary>
-        public static double BaseGatherSkill = 50.0;
+        /// <summary>Starting gathering skill for a newly caught Dude (independent of combat level).</summary>
+        public static double BaseGatherSkill = 0.0;
 
-        /// <summary>Added to effective gathering skill per Dude level.</summary>
-        public static double GatherSkillPerLevel = 5.0;
+        /// <summary>Hard cap for Dude gathering skill.</summary>
+        public static double MaxGatherSkill = 120.0;
+
+        /// <summary>Base chance (0-1) to gain skill on a successful gather cycle at skill 0.</summary>
+        public static double GatherSkillGainChance = 0.35;
+
+        /// <summary>Skill points gained when a gather skill check succeeds (scales down at high skill).</summary>
+        public static double GatherSkillGainAmount = 0.1;
 
         /// <summary>Legacy alias for MaxStoredResource (Iron Ore jobs).</summary>
         public static int MaxStoredOre
