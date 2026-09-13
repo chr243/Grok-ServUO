@@ -22,6 +22,8 @@ namespace Server.Mobiles
         private string m_AbilityId;
         private bool m_SyncingDeath;
         private int m_EvolutionStage;
+        private Dictionary<string, DateTime> m_NextAbilityById;
+        private bool m_Fainting;
 
         private const double DudeForceSpeed = 0.1;
 
@@ -41,6 +43,7 @@ namespace Server.Mobiles
             m_IsWild = wild;
             m_NextAbilityTime = DateTime.UtcNow;
             m_EvolutionStage = 1;
+            m_NextAbilityById = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
 
             DudeDefinition def = DudeRegistry.Get(definitionId);
             if (def == null)
@@ -291,7 +294,7 @@ namespace Server.Mobiles
         {
             base.OnThink();
 
-            if (m_IsWild || Deleted || Map == null || Map == Map.Internal)
+            if (m_IsWild || Deleted || Map == null || Map == Map.Internal || m_Fainting)
                 return;
 
             if (!Controlled || ControlMaster == null || ControlMaster.Deleted)
@@ -326,12 +329,18 @@ namespace Server.Mobiles
 
         private void TryUseAbility()
         {
+            if (m_Fainting || Frozen)
+                return;
+
             Mobile target = Combatant as Mobile;
             if (target == null || target.Deleted || !target.Alive)
                 return;
 
             if (!CanBeHarmful(target))
                 return;
+
+            if (m_NextAbilityById == null)
+                m_NextAbilityById = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
 
             List<string> ids = GetUnlockedAbilityIds();
             for (int i = 0; i < ids.Count; i++)
@@ -344,6 +353,10 @@ namespace Server.Mobiles
                 if (string.Equals(ability.Id, "burn", StringComparison.OrdinalIgnoreCase))
                     continue;
 
+                DateTime readyAt;
+                if (m_NextAbilityById.TryGetValue(ability.Id, out readyAt) && DateTime.UtcNow < readyAt)
+                    continue;
+
                 int range = 3;
                 if (string.Equals(ability.Id, "ring_of_fire", StringComparison.OrdinalIgnoreCase))
                     range = RingOfFireAbility.AoERange;
@@ -351,14 +364,21 @@ namespace Server.Mobiles
                 if (!InRange(target, range))
                     continue;
 
-                if (ability.TryExecute(this, target))
-                    return; // shared cooldown — one ability per ready window
+                if (ability.ManaCost > 0 && Mana < ability.ManaCost)
+                    continue;
+
+                if (ability.ManaCost > 0)
+                    Mana -= ability.ManaCost;
+
+                ability.Execute(this, target);
+                m_NextAbilityById[ability.Id] = DateTime.UtcNow + ability.Cooldown;
+                // Independent cooldowns — keep scanning so Blast and Ring of Fire both work.
             }
         }
 
         private void TryInfernoxPassive()
         {
-            if (Combatant == null)
+            if (m_Fainting || Frozen || Combatant == null)
                 return;
 
             bool infernox = EvolutionStage >= 3
@@ -423,8 +443,12 @@ namespace Server.Mobiles
         {
             if (!m_IsWild && m_BoundBall != null && !m_BoundBall.Deleted)
             {
-                // Faint: park on Internal so the same serial (status bar) survives revival.
+                // Faint: play despawn FX, then park on Internal so serial survives.
+                if (m_Fainting)
+                    return false;
+
                 m_SyncingDeath = true;
+                m_Fainting = true;
                 SyncToBall();
 
                 DudeData data = m_BoundBall.StoredDude;
@@ -437,28 +461,57 @@ namespace Server.Mobiles
                 Point3D loc = Location;
                 Map map = Map;
                 DudeType fxType = data != null ? data.Type : DudeType.Fire;
+                string defId = data != null ? data.DefinitionId : m_DefinitionId;
 
                 Mobile master = ControlMaster;
                 SetControlMaster(null);
                 Combatant = null;
                 Warmode = false;
+                Frozen = true;
 
+                // Keep visible at 1 HP so death stays cancelled while FX plays.
+                if (Hits < 1)
+                    Hits = 1;
+
+                TimeSpan delay = TimeSpan.Zero;
                 if (map != null && map != Map.Internal)
-                    DudeSummonEffects.PlayDespawn(fxType, loc, map, data != null ? data.DefinitionId : m_DefinitionId);
+                {
+                    DudeSummonEffects.PlayDespawn(fxType, loc, map, defId);
+                    delay = DudeSummonEffects.GetDespawnDuration(fxType, defId);
+                }
 
-                Internalize();
+                DudeBall ball = m_BoundBall;
+                string dudeName = Name;
 
-                // Keep ball → creature link for serial reuse on next summon after revive.
-                m_BoundBall.InvalidateProperties();
-
-                if (master != null)
-                    master.SendMessage(0x22, "{0} fainted and returned to the Dude Ball!", Name);
+                Timer.DelayCall(delay, () =>
+                {
+                    FinishFaintPark(ball, master, dudeName);
+                });
 
                 m_SyncingDeath = false;
                 return false;
             }
 
             return base.OnBeforeDeath();
+        }
+
+        private void FinishFaintPark(DudeBall ball, Mobile master, string dudeName)
+        {
+            m_Fainting = false;
+            Frozen = false;
+
+            if (Deleted)
+                return;
+
+            m_SyncingDeath = true;
+            Internalize();
+            m_SyncingDeath = false;
+
+            if (ball != null && !ball.Deleted)
+                ball.InvalidateProperties();
+
+            if (master != null && !master.Deleted)
+                master.SendMessage(0x22, "{0} fainted and returned to the Dude Ball!", dudeName);
         }
 
         public override void OnDelete()

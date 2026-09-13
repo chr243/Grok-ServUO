@@ -85,6 +85,22 @@ namespace Server.Custom.Dudes
         /// <summary>
         /// Inward despawn: outer ring first, then collapse to center.
         /// </summary>
+        /// <summary>Total inward despawn length (matches PlayDespawn timers).</summary>
+        public static TimeSpan GetDespawnDuration(int maxRadius)
+        {
+            if (maxRadius < 1)
+                maxRadius = 1;
+            if (maxRadius > 3)
+                maxRadius = 3;
+            // Outer rings + final center burst at 300*maxRadius ms, plus a short tail.
+            return TimeSpan.FromMilliseconds(300 * maxRadius + 150);
+        }
+
+        public static TimeSpan GetDespawnDuration(DudeType type, string definitionId)
+        {
+            return GetDespawnDuration(GetSummonRadius(type, definitionId));
+        }
+
         public static void PlayDespawn(DudeType type, Point3D center, Map map)
         {
             PlayDespawn(type, center, map, 3);

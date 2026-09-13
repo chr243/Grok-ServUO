@@ -136,8 +136,17 @@ namespace Server.Items
             data.EvolutionStage = requiredStage + 1;
             data.EXPToNext = DudeExperience.GetExpRequiredForLevel(data.Level);
 
-            if (!string.IsNullOrEmpty(unlockAbility))
+            // Keep prior-tier abilities; stage 3 must have Blast + Ring of Fire + Burn.
+            data.UnlockAbility(nextDef.AbilityId); // blast
+            if (string.Equals(nextId, "emberon", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(nextId, "infernox", StringComparison.OrdinalIgnoreCase))
+                data.UnlockAbility("ring_of_fire");
+            if (string.Equals(nextId, "infernox", StringComparison.OrdinalIgnoreCase))
+                data.UnlockAbility("burn");
+            else if (!string.IsNullOrEmpty(unlockAbility))
                 data.UnlockAbility(unlockAbility);
+
+            DudeExperience.EnsureEvolutionAbilities(data);
 
             // Refresh display name if still default old species name.
             if (!string.IsNullOrEmpty(data.CustomName)

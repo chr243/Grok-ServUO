@@ -17,6 +17,7 @@ namespace Server.Items
         private DudeCreature m_SummonedDude;
         private DudeJobStation m_AssignedStation;
         private DateTime m_NextUseUtc;
+        private bool m_Recalling;
 
         private const int BallItemId = 0xE73; // BolaBall graphic
         private const int EmptyHue = 0x59; // bright green — easy to spot empty in pack
@@ -292,6 +293,12 @@ namespace Server.Items
                 return;
             }
 
+            if (m_Recalling)
+            {
+                from.SendMessage("Your Dude is still returning to the ball.");
+                return;
+            }
+
             DudeDefinition def = DudeRegistry.Get(m_StoredDude.DefinitionId);
             int slots = def != null ? def.ControlSlots : 4;
 
@@ -368,6 +375,13 @@ namespace Server.Items
                 return;
             }
 
+            if (m_Recalling)
+            {
+                if (notify && from != null)
+                    from.SendMessage("Your Dude is already returning to the ball.");
+                return;
+            }
+
             dude.SyncToBall();
 
             if (m_StoredDude != null)
@@ -376,20 +390,49 @@ namespace Server.Items
             Point3D loc = dude.Location;
             Map map = dude.Map;
             DudeType fxType = m_StoredDude != null ? m_StoredDude.Type : DudeType.Fire;
+            string defId = m_StoredDude != null ? m_StoredDude.DefinitionId : null;
 
-            // Despawn FX while location is still valid, then park on Internal.
-            if (map != null && map != Map.Internal)
-                DudeSummonEffects.PlayDespawn(fxType, loc, map, m_StoredDude != null ? m_StoredDude.DefinitionId : null);
-
-            // Keep the same mobile/serial: park on Internal instead of Delete.
+            // Freeze in place, play despawn, THEN park after the FX finishes.
+            m_Recalling = true;
+            dude.Combatant = null;
+            dude.Warmode = false;
+            dude.Frozen = true;
+            dude.ControlOrder = OrderType.Stay;
             dude.SetControlMaster(null);
-            ParkDude(dude);
-            m_SummonedDude = dude;
 
-            InvalidateProperties();
+            TimeSpan delay = TimeSpan.Zero;
+            if (map != null && map != Map.Internal)
+            {
+                DudeSummonEffects.PlayDespawn(fxType, loc, map, defId);
+                delay = DudeSummonEffects.GetDespawnDuration(fxType, defId);
+            }
+
             MarkUsed();
 
-            if (notify && from != null)
+            Mobile notifyMobile = from;
+            bool doNotify = notify;
+            DudeCreature parkTarget = dude;
+
+            Timer.DelayCall(delay, () =>
+            {
+                FinishRecallPark(parkTarget, notifyMobile, doNotify);
+            });
+        }
+
+        private void FinishRecallPark(DudeCreature dude, Mobile from, bool notify)
+        {
+            m_Recalling = false;
+
+            if (dude != null && !dude.Deleted)
+            {
+                dude.Frozen = false;
+                ParkDude(dude);
+                m_SummonedDude = dude;
+            }
+
+            InvalidateProperties();
+
+            if (notify && from != null && !from.Deleted)
             {
                 from.SendMessage(0x59, "{0} returns to the Dude Ball.", m_StoredDude != null ? m_StoredDude.DisplayName : "Your Dude");
                 from.PlaySound(0x1F1);

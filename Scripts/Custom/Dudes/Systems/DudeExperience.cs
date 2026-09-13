@@ -27,6 +27,33 @@ namespace Server.Custom.Dudes
             return GetMaxLevel(stage);
         }
 
+
+        /// <summary>
+        /// Ensures Embit-line stages keep prior unlocked combat abilities (and Burn on stage 3).
+        /// </summary>
+        public static void EnsureEvolutionAbilities(DudeData data)
+        {
+            if (data == null)
+                return;
+
+            string id = data.DefinitionId;
+            if (string.IsNullOrEmpty(id))
+                return;
+
+            id = id.ToLowerInvariant();
+            bool evoLine = id == "embit" || id == "emberon" || id == "infernox";
+            if (!evoLine)
+                return;
+
+            data.UnlockAbility("blast");
+
+            if (data.EvolutionStage >= 2 || id == "emberon" || id == "infernox")
+                data.UnlockAbility("ring_of_fire");
+
+            if (data.EvolutionStage >= 3 || id == "infernox")
+                data.UnlockAbility("burn");
+        }
+
         public static int GetMaxLevel(int evolutionStage)
         {
             if (evolutionStage <= 1)

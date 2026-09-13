@@ -30,7 +30,8 @@ namespace Server.Items
         {
             base.GetProperties(list);
             list.Add("Double-click and target a Dude to grant +1 level.");
-            list.Add("Testing juice. Tastes like secrets.");
+            list.Add("Reusable testing juice. Does not consume.");
+            list.Add("Tastes like secrets.");
         }
 
         public override void OnDoubleClick(Mobile from)
@@ -75,7 +76,7 @@ namespace Server.Items
 
             from.SendMessage(0x59, "The Mystery Juice levels {0} to {1}!", data.DisplayName, data.Level);
             from.PlaySound(0x1F2);
-            Consume();
+            // Permanent — do not consume.
             return true;
         }
 
