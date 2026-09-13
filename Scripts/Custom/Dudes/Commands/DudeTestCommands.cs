@@ -33,6 +33,9 @@ namespace Server.Custom.Dudes.Commands
             CommandSystem.Register("CreateMysteryJuice", AccessLevel.GameMaster, new CommandEventHandler(CreateMysteryJuice_OnCommand));
             CommandSystem.Register("CreateBeginnersBall", AccessLevel.GameMaster, new CommandEventHandler(CreateBeginnersBall_OnCommand));
             CommandSystem.Register("CreateDudeSpawners", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeSpawners_OnCommand));
+            CommandSystem.Register("CreateDudeBallDispenser", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeBallDispenser_OnCommand));
+            CommandSystem.Register("CreateDudeHealthPotDispenser", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeHealthPotDispenser_OnCommand));
+            CommandSystem.Register("CreateDudeRevivalPotDispenser", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeRevivalPotDispenser_OnCommand));
         }
 
 
@@ -376,6 +379,39 @@ namespace Server.Custom.Dudes.Commands
 
                 station.TryStartJob(from);
             }
+        }
+
+        [Usage("CreateDudeBallDispenser")]
+        [Description("Creates a Dude Ball Dispenser (gravestone) in your backpack. Place and lock down for players.")]
+        private static void CreateDudeBallDispenser_OnCommand(CommandEventArgs e)
+        {
+            Mobile from = e.Mobile;
+            if (from == null || from.Backpack == null)
+                return;
+            from.Backpack.DropItem(new DudeBallDispenser());
+            from.SendMessage(0x59, "Dude Ball Dispenser created. Place it and lock it down.");
+        }
+
+        [Usage("CreateDudeHealthPotDispenser")]
+        [Description("Creates a Dude Health Pots Dispenser (gravestone) in your backpack.")]
+        private static void CreateDudeHealthPotDispenser_OnCommand(CommandEventArgs e)
+        {
+            Mobile from = e.Mobile;
+            if (from == null || from.Backpack == null)
+                return;
+            from.Backpack.DropItem(new DudeHealthPotDispenser());
+            from.SendMessage(0x59, "Dude Health Pots Dispenser created. Place it and lock it down.");
+        }
+
+        [Usage("CreateDudeRevivalPotDispenser")]
+        [Description("Creates a Dude Revival Pots Dispenser (gravestone) in your backpack.")]
+        private static void CreateDudeRevivalPotDispenser_OnCommand(CommandEventArgs e)
+        {
+            Mobile from = e.Mobile;
+            if (from == null || from.Backpack == null)
+                return;
+            from.Backpack.DropItem(new DudeRevivalPotDispenser());
+            from.SendMessage(0x59, "Dude Revival Pots Dispenser created. Place it and lock it down.");
         }
     }
 }

@@ -289,28 +289,50 @@ namespace Server.Custom.Dudes
             dude.PublicOverheadMessage(MessageType.Regular, 0x22, false, "*Ring of Fire*");
             dude.PlaySound(0x208);
 
-            // Visual ring on tiles around the Dude — extra flame particles.
-            for (int dx = -AoERange; dx <= AoERange; dx++)
+            Point3D center = dude.Location;
+            Map map = dude.Map;
+            if (map == null || map == Map.Internal)
+                return;
+
+            // Expanding wave: r=1..AoERange, ~250ms apart — FX + damage travel outward.
+            for (int r = 1; r <= AoERange; r++)
             {
-                for (int dy = -AoERange; dy <= AoERange; dy++)
+                int radius = r;
+                Timer.DelayCall(TimeSpan.FromMilliseconds(250 * (radius - 1)), () =>
+                {
+                    if (dude == null || dude.Deleted || map == null || map == Map.Internal)
+                        return;
+
+                    PlayExpandingRing(dude, center, map, radius, damage);
+                });
+            }
+        }
+
+        private static void PlayExpandingRing(DudeCreature dude, Point3D center, Map map, int radius, int damage)
+        {
+            for (int dx = -radius; dx <= radius; dx++)
+            {
+                for (int dy = -radius; dy <= radius; dy++)
                 {
                     int adx = dx < 0 ? -dx : dx;
                     int ady = dy < 0 ? -dy : dy;
-                    int cheb = Math.Max(adx, ady);
-                    if (cheb != AoERange && cheb != AoERange - 1)
+                    if (Math.Max(adx, ady) != radius)
                         continue;
-                    if (adx == AoERange && ady == AoERange)
+                    if (adx == radius && ady == radius && radius > 1)
                         continue;
 
-                    Point3D p = new Point3D(dude.X + dx, dude.Y + dy, dude.Z);
-                    Effects.SendLocationEffect(p, dude.Map, 0x3709, 16, 0, 0);
+                    int z = center.Z;
+                    try { z = map.GetAverageZ(center.X + dx, center.Y + dy); } catch { }
+
+                    Point3D p = new Point3D(center.X + dx, center.Y + dy, z);
+                    Effects.SendLocationEffect(p, map, 0x3709, 16, 0, 0);
                     if (Utility.RandomBool())
-                        Effects.SendLocationEffect(p, dude.Map, 0x36BD, 12, 0, 0);
+                        Effects.SendLocationEffect(p, map, 0x36BD, 12, 0, 0);
                 }
             }
 
-            List<Mobile> list = new List<Mobile>();
-            foreach (Mobile m in dude.GetMobilesInRange(AoERange))
+            // Damage hostiles whose Chebyshev distance equals this wave radius.
+            foreach (Mobile m in map.GetMobilesInRange(center, radius))
             {
                 if (m == null || m == dude || m.Deleted || !m.Alive)
                     continue;
@@ -323,12 +345,10 @@ namespace Server.Custom.Dudes
                 if (bc != null && bc.Controlled && bc.ControlMaster == dude.ControlMaster)
                     continue;
 
-                list.Add(m);
-            }
+                int dist = Math.Max(Math.Abs(m.X - center.X), Math.Abs(m.Y - center.Y));
+                if (dist != radius)
+                    continue;
 
-            for (int i = 0; i < list.Count; i++)
-            {
-                Mobile m = list[i];
                 dude.DoHarmful(m);
                 AOS.Damage(m, dude, damage, 0, 100, 0, 0, 0);
                 DudeAbilityVfx.PlayFireHit(m, false);

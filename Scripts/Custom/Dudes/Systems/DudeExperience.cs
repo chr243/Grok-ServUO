@@ -179,6 +179,18 @@ namespace Server.Custom.Dudes
                 live.ApplyData(data, false);
         }
 
+        /// <summary>
+        /// Hits gain on reaching this level. Tuned so Embit (base 50) ≈ 200 @10 / 500 @20 / 1000 @30.
+        /// </summary>
+        public static int GetHitsGainForLevel(int newLevel)
+        {
+            if (newLevel <= 10)
+                return 17; // L2–10: 50 + 17*9 ≈ 203
+            if (newLevel <= 20)
+                return 30; // L11–20: +300 → ≈ 503
+            return 50;     // L21–30: +500 → ≈ 1003
+        }
+
         public static void LevelUp(DudeData data, Mobile owner)
         {
             if (data == null)
@@ -190,14 +202,14 @@ namespace Server.Custom.Dudes
             data.Level++;
             data.EXPToNext = GetExpRequiredForLevel(data.Level);
 
-            // Classic UO-style bumps; HitsMax +8 so pets stay ahead of early undead.
+            // Classic UO-style bumps; Hits scaled for late-game evo tanks; melee +2/+2.
             data.Str += 2;
             data.Dex += 2;
             data.Int += 1;
-            data.HitsMax += 8;
+            data.HitsMax += GetHitsGainForLevel(data.Level);
             data.Hits = data.HitsMax;
-            data.MinDamage += 1;
-            data.MaxDamage += 1;
+            data.MinDamage += 2;
+            data.MaxDamage += 2;
 
             if (data.Level % 3 == 0)
                 data.VirtualArmor += 1;

@@ -165,9 +165,20 @@ namespace Server.Mobiles
         /// </summary>
         public void ApplyDudeSpeeds()
         {
-            ForceActiveSpeed = DudeForceSpeed;
-            ForcePassiveSpeed = DudeForceSpeed;
-            CurrentSpeed = DudeForceSpeed;
+            if (m_IsWild)
+            {
+                // 0.0 = do not force — use normal mob SpeedInfo (wilds must not match pet speed).
+                ForceActiveSpeed = 0.0;
+                ForcePassiveSpeed = 0.0;
+                AdjustSpeeds();
+                CurrentSpeed = PassiveSpeed;
+            }
+            else
+            {
+                ForceActiveSpeed = DudeForceSpeed;
+                ForcePassiveSpeed = DudeForceSpeed;
+                CurrentSpeed = DudeForceSpeed;
+            }
         }
 
         public void ApplyDefinition(DudeDefinition def)
@@ -262,7 +273,7 @@ namespace Server.Mobiles
             double skill = DudeExperience.GetCombatSkillCap(data);
             SetSkill(SkillName.Tactics, skill);
             SetSkill(SkillName.Wrestling, skill);
-            SetSkill(SkillName.MagicResist, skill);
+            SetSkill(SkillName.MagicResist, skill); // Resist Spells — stage caps 100 / 110 / 120
         }
 
         /// <summary>Legacy name — redirects to ApplyCombatSkills with stage 1.</summary>

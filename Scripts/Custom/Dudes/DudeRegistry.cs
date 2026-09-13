@@ -92,7 +92,7 @@ namespace Server.Custom.Dudes
         private static void RegisterDefaults()
         {
             // Classic UO / UOR-safe bodies. Tiers: weak fodder < basic starters < medium < strong elite.
-            // Leveling: Str+2, HitsMax+8, Min/MaxDamage+1 per level; abilities base+(DudeLevel*2).
+            // Leveling: Str+2, Hits curve (~200@10/~500@20/~1000@30 from weak base), Min/MaxDamage+2; abilities base+(DudeLevel*2).
             // Weak L1 tuned to clear skeletons/zombies; higher tiers keep clear separation.
 
             // --- WEAK (starter-fodder / early catch) — ControlSlots 4, reuse type abilities ---
@@ -307,7 +307,7 @@ namespace Server.Custom.Dudes
                 "Infernox",
                 DudeType.Fire,
                 40,   // balron
-                0,    // default balron hue
+                1161, // same bright fire hue as Emberon / Pyreclaw
                 357,  // balron sound
                 110, 65, 55,
                 180,
