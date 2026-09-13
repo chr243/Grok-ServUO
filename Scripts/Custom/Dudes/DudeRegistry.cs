@@ -116,9 +116,9 @@ namespace Server.Custom.Dudes
                 "embit",
                 "Embit",
                 DudeType.Fire,
-                51,   // slime
+                74,   // imp
                 1358, // hot orange
-                456,
+                422,  // imp sound
                 45, 40, 15,
                 50,
                 4, 7,
@@ -292,9 +292,9 @@ namespace Server.Custom.Dudes
                 "emberon",
                 "Emberon",
                 DudeType.Fire,
-                0xC9, // hell cat mid fire look
-                1359,
-                0x69,
+                130,  // fire gargoyle — same as Pyreclaw
+                1161, // bright fire (Pyreclaw hue)
+                0x174,
                 70, 70, 35,
                 100,
                 9, 14,
@@ -306,9 +306,9 @@ namespace Server.Custom.Dudes
                 "infernox",
                 "Infernox",
                 DudeType.Fire,
-                130,  // fire gargoyle
-                1161,
-                0x174,
+                40,   // balron
+                0,    // default balron hue
+                357,  // balron sound
                 110, 65, 55,
                 180,
                 13, 19,
