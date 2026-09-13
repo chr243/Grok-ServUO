@@ -1,6 +1,7 @@
 using System;
 using Server.Items;
 using Server.Mobiles;
+using Server.Network;
 
 namespace Server.Custom.Dudes
 {
@@ -10,7 +11,7 @@ namespace Server.Custom.Dudes
     public static class DudeExperience
     {
         /// <summary>
-        /// Soft max level for now (evolution will raise effective power later).
+        /// Legacy soft max (stage 1). Prefer GetMaxLevel(DudeData) for evolution-aware caps.
         /// </summary>
         public static int MaxLevel = 10;
 
@@ -20,12 +21,27 @@ namespace Server.Custom.Dudes
         /// <summary>Bonus EXP per band of victim HitsMax.</summary>
         public static int KillExpPerVictimHits = 1;
 
+        public static int GetMaxLevel(DudeData data)
+        {
+            int stage = data != null ? data.EvolutionStage : 1;
+            return GetMaxLevel(stage);
+        }
+
+        public static int GetMaxLevel(int evolutionStage)
+        {
+            if (evolutionStage <= 1)
+                return 10;
+            if (evolutionStage == 2)
+                return 20;
+            return 30;
+        }
+
         public static int GetExpRequiredForLevel(int level)
         {
             if (level < 1)
                 level = 1;
 
-            // Simple curve: 100 * level^2
+            // Simple curve: 100 * level^2 (continues through L11–30)
             return 100 * level * level;
         }
 
@@ -51,16 +67,34 @@ namespace Server.Custom.Dudes
             return exp;
         }
 
+        /// <summary>
+        /// Combat skill cap by evolution stage: stage1=100, stage2=110, stage3=120.
+        /// NOT level-based.
+        /// </summary>
+        public static double GetCombatSkillCap(DudeData data)
+        {
+            int stage = data != null ? data.EvolutionStage : 1;
+            return GetCombatSkillCap(stage);
+        }
+
+        public static double GetCombatSkillCap(int evolutionStage)
+        {
+            if (evolutionStage <= 1)
+                return 100.0;
+            if (evolutionStage == 2)
+                return 110.0;
+            return 120.0;
+        }
 
         /// <summary>
-        /// Combat / job skill cap from Dude level: level 1 = 50, level 10 = 100 (~+5.56 per level).
+        /// Legacy GatherSkill migration helper only — NOT for combat skills.
+        /// Level 1 → 50, Level 10 → 100.
         /// </summary>
         public static double GetSkillCapForLevel(int level)
         {
             if (level < 1)
                 level = 1;
 
-            // Level 1 → 50, Level 10 → 100.
             double skill = 50.0 + ((level - 1) * (50.0 / 9.0));
             if (skill > 100.0)
                 skill = 100.0;
@@ -88,24 +122,32 @@ namespace Server.Custom.Dudes
 
             data.CurrentEXP += amount;
 
+            DudeCreature live = ball.SummonedDude;
+            if (live != null && !live.Deleted && live.Map != null && live.Map != Map.Internal)
+            {
+                live.PublicOverheadMessage(MessageType.Regular, 0x59, false,
+                    string.Format("+{0} EXP", amount));
+            }
+
             if (owner != null)
                 owner.SendMessage(0x59, "{0} gained {1} EXP.", data.DisplayName, amount);
 
+            int maxLevel = GetMaxLevel(data);
             int safety = 0;
-            while (data.CurrentEXP >= data.EXPToNext && data.Level < MaxLevel && safety < 50)
+            while (data.CurrentEXP >= data.EXPToNext && data.Level < maxLevel && safety < 50)
             {
                 data.CurrentEXP -= data.EXPToNext;
                 LevelUp(data, owner);
                 safety++;
+                maxLevel = GetMaxLevel(data);
             }
 
-            // At cap: keep the bar filled (future evolution gate) but do not overflow endlessly.
-            if (data.Level >= MaxLevel && data.CurrentEXP > data.EXPToNext)
+            // At cap: keep the bar filled (evolution gate) but do not overflow endlessly.
+            if (data.Level >= maxLevel && data.CurrentEXP > data.EXPToNext)
                 data.CurrentEXP = data.EXPToNext;
 
             ball.InvalidateProperties();
 
-            DudeCreature live = ball.SummonedDude;
             if (live != null && !live.Deleted)
                 live.ApplyData(data, false);
         }
@@ -115,7 +157,7 @@ namespace Server.Custom.Dudes
             if (data == null)
                 return;
 
-            if (data.Level >= MaxLevel)
+            if (data.Level >= GetMaxLevel(data))
                 return;
 
             data.Level++;
@@ -140,6 +182,16 @@ namespace Server.Custom.Dudes
                 owner.SendMessage(0x44, "{0} reached level {1}!", data.DisplayName, data.Level);
                 owner.PlaySound(0x1F2);
             }
+        }
+
+        /// <summary>
+        /// Blast damage formula shared by Blast, Ring of Fire, and Infernox passive.
+        /// </summary>
+        public static int GetBlastDamage(int level)
+        {
+            if (level < 1)
+                level = 1;
+            return 8 + (level * 2);
         }
     }
 }

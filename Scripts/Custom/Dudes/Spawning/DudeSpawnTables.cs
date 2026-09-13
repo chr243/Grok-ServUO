@@ -5,6 +5,7 @@ namespace Server.Custom.Dudes.Spawning
 {
     /// <summary>
     /// Weighted species tables for DudeSpawner. Weights are relative within the active preset.
+    /// Evolution-only forms (emberon / infernox) are intentionally omitted.
     /// </summary>
     public static class DudeSpawnTables
     {
@@ -28,6 +29,7 @@ namespace Server.Custom.Dudes.Spawning
         {
             // weak — common
             new Entry("sparkmite", 10, DudeType.Fire, 0),
+            new Entry("embit", 10, DudeType.Fire, 0),
             new Entry("puddling", 10, DudeType.Water, 0),
             new Entry("pebblet", 10, DudeType.Earth, 0),
             new Entry("breezeling", 10, DudeType.Air, 0),

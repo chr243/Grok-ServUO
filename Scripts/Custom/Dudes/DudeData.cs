@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Server.Custom.Dudes
 {
@@ -25,6 +26,8 @@ namespace Server.Custom.Dudes
         private bool m_IsFainted;
         private Mobile m_Catcher;
         private double m_GatherSkill;
+        private int m_EvolutionStage;
+        private string m_UnlockedAbilities;
 
         public DudeData()
         {
@@ -32,6 +35,8 @@ namespace Server.Custom.Dudes
             m_CurrentEXP = 0;
             m_EXPToNext = DudeExperience.GetExpRequiredForLevel(1);
             m_GatherSkill = Server.Custom.Dudes.Jobs.DudeJobConfig.BaseGatherSkill;
+            m_EvolutionStage = 1;
+            m_UnlockedAbilities = null;
         }
 
         public string DefinitionId
@@ -151,6 +156,20 @@ namespace Server.Custom.Dudes
             }
         }
 
+        /// <summary>1 = base form, 2 = first evo, 3 = final evo.</summary>
+        public int EvolutionStage
+        {
+            get { return m_EvolutionStage < 1 ? 1 : m_EvolutionStage; }
+            set { m_EvolutionStage = value < 1 ? 1 : value; }
+        }
+
+        /// <summary>Comma-separated unlocked ability ids (always includes primary).</summary>
+        public string UnlockedAbilities
+        {
+            get { return m_UnlockedAbilities; }
+            set { m_UnlockedAbilities = value; }
+        }
+
         public string DisplayName
         {
             get
@@ -164,6 +183,69 @@ namespace Server.Custom.Dudes
 
                 return "Dude";
             }
+        }
+
+        public List<string> GetUnlockedAbilityIds()
+        {
+            List<string> list = new List<string>();
+
+            if (!string.IsNullOrEmpty(m_UnlockedAbilities))
+            {
+                string[] parts = m_UnlockedAbilities.Split(',');
+                for (int i = 0; i < parts.Length; i++)
+                {
+                    string id = parts[i] != null ? parts[i].Trim() : null;
+                    if (string.IsNullOrEmpty(id))
+                        continue;
+
+                    bool found = false;
+                    for (int j = 0; j < list.Count; j++)
+                    {
+                        if (string.Equals(list[j], id, StringComparison.OrdinalIgnoreCase))
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (!found)
+                        list.Add(id);
+                }
+            }
+
+            if (!string.IsNullOrEmpty(m_AbilityId))
+            {
+                bool hasPrimary = false;
+                for (int i = 0; i < list.Count; i++)
+                {
+                    if (string.Equals(list[i], m_AbilityId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        hasPrimary = true;
+                        break;
+                    }
+                }
+
+                if (!hasPrimary)
+                    list.Insert(0, m_AbilityId);
+            }
+
+            return list;
+        }
+
+        public void UnlockAbility(string abilityId)
+        {
+            if (string.IsNullOrEmpty(abilityId))
+                return;
+
+            List<string> list = GetUnlockedAbilityIds();
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (string.Equals(list[i], abilityId, StringComparison.OrdinalIgnoreCase))
+                    return;
+            }
+
+            list.Add(abilityId);
+            m_UnlockedAbilities = string.Join(",", list.ToArray());
         }
 
         public static DudeData FromDefinition(DudeDefinition def, Mobile catcher)
@@ -187,6 +269,8 @@ namespace Server.Custom.Dudes
             data.m_MaxDamage = def.MaxDamage;
             data.m_VirtualArmor = def.VirtualArmor;
             data.m_AbilityId = def.AbilityId;
+            data.m_UnlockedAbilities = def.AbilityId;
+            data.m_EvolutionStage = 1;
             data.m_IsFainted = false;
             data.m_Catcher = catcher;
             data.m_GatherSkill = Server.Custom.Dudes.Jobs.DudeJobConfig.BaseGatherSkill;
@@ -195,7 +279,7 @@ namespace Server.Custom.Dudes
 
         public void Serialize(GenericWriter writer)
         {
-            writer.Write((int)1); // version
+            writer.Write((int)2); // version
 
             writer.Write(m_DefinitionId);
             writer.Write(m_CustomName);
@@ -215,6 +299,8 @@ namespace Server.Custom.Dudes
             writer.Write(m_IsFainted);
             writer.Write(m_Catcher);
             writer.Write(m_GatherSkill);
+            writer.Write(m_EvolutionStage);
+            writer.Write(m_UnlockedAbilities);
         }
 
         public void Deserialize(GenericReader reader)
@@ -249,6 +335,23 @@ namespace Server.Custom.Dudes
                 m_GatherSkill = DudeExperience.GetSkillCapForLevel(m_Level > 0 ? m_Level : 1);
             }
 
+            if (version >= 2)
+            {
+                m_EvolutionStage = reader.ReadInt();
+                m_UnlockedAbilities = reader.ReadString();
+            }
+            else
+            {
+                m_EvolutionStage = 1;
+                m_UnlockedAbilities = m_AbilityId;
+            }
+
+            if (m_EvolutionStage < 1)
+                m_EvolutionStage = 1;
+
+            if (string.IsNullOrEmpty(m_UnlockedAbilities) && !string.IsNullOrEmpty(m_AbilityId))
+                m_UnlockedAbilities = m_AbilityId;
+
             double max = Server.Custom.Dudes.Jobs.DudeJobConfig.MaxGatherSkill;
             if (m_GatherSkill < 0.0)
                 m_GatherSkill = 0.0;
@@ -277,6 +380,8 @@ namespace Server.Custom.Dudes
             copy.m_IsFainted = m_IsFainted;
             copy.m_Catcher = m_Catcher;
             copy.m_GatherSkill = m_GatherSkill;
+            copy.m_EvolutionStage = m_EvolutionStage;
+            copy.m_UnlockedAbilities = m_UnlockedAbilities;
             return copy;
         }
     }

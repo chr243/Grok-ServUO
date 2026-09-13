@@ -60,17 +60,33 @@ namespace Server.Custom.Dudes
             return m_All.AsReadOnly();
         }
 
+        /// <summary>
+        /// First registered wild-friendly match for type. Evolution-only forms (emberon/infernox) are skipped.
+        /// </summary>
         public static DudeDefinition GetByType(DudeType type)
         {
             EnsureInitialized();
 
             for (int i = 0; i < m_All.Count; i++)
             {
-                if (m_All[i].Type == type)
-                    return m_All[i];
+                DudeDefinition def = m_All[i];
+                if (def.Type != type)
+                    continue;
+                if (IsEvolutionOnly(def.Id))
+                    continue;
+                return def;
             }
 
             return null;
+        }
+
+        public static bool IsEvolutionOnly(string definitionId)
+        {
+            if (string.IsNullOrEmpty(definitionId))
+                return false;
+
+            return string.Equals(definitionId, "emberon", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(definitionId, "infernox", StringComparison.OrdinalIgnoreCase);
         }
 
         private static void RegisterDefaults()
@@ -93,6 +109,21 @@ namespace Server.Custom.Dudes
                 4, 7,
                 14,
                 "ember_burst",
+                4));
+
+            // Embit — catchable fire evo stage 1 (same weak stats as sparkmite, blast ability)
+            Register(new DudeDefinition(
+                "embit",
+                "Embit",
+                DudeType.Fire,
+                51,   // slime
+                1358, // hot orange
+                456,
+                45, 40, 15,
+                50,
+                4, 7,
+                14,
+                "blast",
                 4));
 
             Register(new DudeDefinition(
@@ -253,6 +284,36 @@ namespace Server.Custom.Dudes
                 13, 19,
                 40,
                 "pyre_blast",
+                4));
+
+            // --- Evolution-only (NOT wild-spawned; GetByType / spawn tables skip these) ---
+
+            Register(new DudeDefinition(
+                "emberon",
+                "Emberon",
+                DudeType.Fire,
+                0xC9, // hell cat mid fire look
+                1359,
+                0x69,
+                70, 70, 35,
+                100,
+                9, 14,
+                20,
+                "blast",
+                4));
+
+            Register(new DudeDefinition(
+                "infernox",
+                "Infernox",
+                DudeType.Fire,
+                130,  // fire gargoyle
+                1161,
+                0x174,
+                110, 65, 55,
+                180,
+                13, 19,
+                40,
+                "blast",
                 4));
         }
     }

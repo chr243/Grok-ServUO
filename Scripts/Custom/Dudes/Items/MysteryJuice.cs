@@ -60,9 +60,9 @@ namespace Server.Items
             }
 
             DudeData data = ball.StoredDude;
-            if (data.Level >= DudeExperience.MaxLevel)
+            if (data.Level >= DudeExperience.GetMaxLevel(data))
             {
-                from.SendMessage("{0} is already at max level.", data.DisplayName);
+                from.SendMessage("{0} is already at max level for this form.", data.DisplayName);
                 return false;
             }
 

@@ -5,23 +5,74 @@ using Server.Network;
 namespace Server.Custom.Dudes
 {
     /// <summary>
-    /// Short type-themed summon burst: expanding ring out to 3 tiles over ~1 second.
+    /// Short type-themed summon burst: expanding ring over ~1 second.
+    /// Radius scales by Dude tier (weak 1 / basic+medium 2 / strong 3).
+    /// Despawn mirrors Play with rings collapsing inward.
     /// </summary>
     public static class DudeSummonEffects
     {
-        private const int MaxRadius = 3;
+        public static int GetSummonRadius(DudeType type, string definitionId)
+        {
+            if (!string.IsNullOrEmpty(definitionId))
+            {
+                switch (definitionId.ToLowerInvariant())
+                {
+                    // Weak fodder + Embit
+                    case "sparkmite":
+                    case "puddling":
+                    case "pebblet":
+                    case "breezeling":
+                    case "embit":
+                        return 1;
+
+                    // Basic starters + medium + Emberon
+                    case "emberling":
+                    case "tideling":
+                    case "stonepaw":
+                    case "gustling":
+                    case "cinderfang":
+                    case "riptide":
+                    case "boulderback":
+                    case "emberon":
+                        return 2;
+
+                    // Strong elite + Infernox
+                    case "pyreclaw":
+                    case "infernox":
+                        return 3;
+                }
+            }
+
+            // Fallback by type only — medium-small default
+            return 2;
+        }
 
         public static void Play(DudeType type, Point3D center, Map map)
+        {
+            Play(type, center, map, 3);
+        }
+
+        public static void Play(DudeType type, Point3D center, Map map, string definitionId)
+        {
+            Play(type, center, map, GetSummonRadius(type, definitionId));
+        }
+
+        public static void Play(DudeType type, Point3D center, Map map, int maxRadius)
         {
             if (map == null || map == Map.Internal)
                 return;
 
+            if (maxRadius < 1)
+                maxRadius = 1;
+            if (maxRadius > 3)
+                maxRadius = 3;
+
             Effects.PlaySound(center, map, GetSound(type));
 
-            // Center burst, then rings at r=1..3 (~300ms apart ≈ 1s total).
+            // Center burst, then rings at r=1..maxRadius (~300ms apart).
             PlayAt(type, center, map, 0);
 
-            for (int r = 1; r <= MaxRadius; r++)
+            for (int r = 1; r <= maxRadius; r++)
             {
                 int radius = r;
                 Timer.DelayCall(TimeSpan.FromMilliseconds(300 * radius), () =>
@@ -29,6 +80,48 @@ namespace Server.Custom.Dudes
                     PlayRing(type, center, map, radius);
                 });
             }
+        }
+
+        /// <summary>
+        /// Inward despawn: outer ring first, then collapse to center.
+        /// </summary>
+        public static void PlayDespawn(DudeType type, Point3D center, Map map)
+        {
+            PlayDespawn(type, center, map, 3);
+        }
+
+        public static void PlayDespawn(DudeType type, Point3D center, Map map, string definitionId)
+        {
+            PlayDespawn(type, center, map, GetSummonRadius(type, definitionId));
+        }
+
+        public static void PlayDespawn(DudeType type, Point3D center, Map map, int maxRadius)
+        {
+            if (map == null || map == Map.Internal)
+                return;
+
+            if (maxRadius < 1)
+                maxRadius = 1;
+            if (maxRadius > 3)
+                maxRadius = 3;
+
+            Effects.PlaySound(center, map, GetSound(type));
+
+            // Outer ring first, then collapse — delays 0, 300, ... then center.
+            for (int r = maxRadius; r >= 1; r--)
+            {
+                int radius = r;
+                int delayIndex = maxRadius - radius;
+                Timer.DelayCall(TimeSpan.FromMilliseconds(300 * delayIndex), () =>
+                {
+                    PlayRing(type, center, map, radius);
+                });
+            }
+
+            Timer.DelayCall(TimeSpan.FromMilliseconds(300 * maxRadius), () =>
+            {
+                PlayAt(type, center, map, 0);
+            });
         }
 
         private static void PlayRing(DudeType type, Point3D center, Map map, int radius)
@@ -77,8 +170,13 @@ namespace Server.Custom.Dudes
                     break;
 
                 case DudeType.Water:
-                    Effects.SendLocationParticles(ent, 0x3728, 10, 20, 0x47E, 0, 5029, 0);
-                    Effects.SendLocationEffect(p, map, 0x352D, 16, 0x47F, 0);
+                    // Particle splashes — muted hues, no ugly 0x352D water tiles.
+                    Effects.SendLocationParticles(ent, 0x3728, 10, 20, 0x59B, 0, 5029, 0);
+                    Effects.SendLocationParticles(
+                        EffectItem.Create(p, map, EffectItem.DefaultDuration),
+                        0x36B0, 10, 16, 0x966, 0, 5044, 0);
+                    if (wave == 0 || Utility.RandomBool())
+                        Effects.SendLocationEffect(p, map, 0x3728, 12, 2101, 0);
                     break;
 
                 case DudeType.Earth:

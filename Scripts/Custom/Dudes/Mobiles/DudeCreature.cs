@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using Server.Custom.Dudes;
 using Server.Items;
+using Server.Network;
 
 namespace Server.Mobiles
 {
@@ -19,6 +21,9 @@ namespace Server.Mobiles
         private int m_DudeLevel;
         private string m_AbilityId;
         private bool m_SyncingDeath;
+        private int m_EvolutionStage;
+
+        private const double DudeForceSpeed = 0.1;
 
         [Constructable]
         public DudeCreature()
@@ -35,12 +40,14 @@ namespace Server.Mobiles
             m_DefinitionId = definitionId;
             m_IsWild = wild;
             m_NextAbilityTime = DateTime.UtcNow;
+            m_EvolutionStage = 1;
 
             DudeDefinition def = DudeRegistry.Get(definitionId);
             if (def == null)
                 def = DudeRegistry.GetByType(DudeType.Fire);
 
             ApplyDefinition(def);
+            ApplyDudeSpeeds();
 
             if (m_IsWild)
             {
@@ -90,6 +97,13 @@ namespace Server.Mobiles
         {
             get { return m_DudeLevel; }
             set { m_DudeLevel = value; }
+        }
+
+        [CommandProperty(AccessLevel.GameMaster)]
+        public int EvolutionStage
+        {
+            get { return m_EvolutionStage < 1 ? 1 : m_EvolutionStage; }
+            set { m_EvolutionStage = value < 1 ? 1 : value; }
         }
 
         public DudeBall BoundBall
@@ -142,6 +156,17 @@ namespace Server.Mobiles
             get { return false; }
         }
 
+        /// <summary>
+        /// Force player-comparable speed. SpeedInfo.GetSpeeds overwrites ctor Active/Passive
+        /// when UseNewSpeeds is on; Force* bypasses that via the ActiveSpeed getter.
+        /// </summary>
+        public void ApplyDudeSpeeds()
+        {
+            ForceActiveSpeed = DudeForceSpeed;
+            ForcePassiveSpeed = DudeForceSpeed;
+            CurrentSpeed = DudeForceSpeed;
+        }
+
         public void ApplyDefinition(DudeDefinition def)
         {
             if (def == null)
@@ -150,6 +175,7 @@ namespace Server.Mobiles
             m_DefinitionId = def.Id;
             m_AbilityId = def.AbilityId;
             m_DudeLevel = 1;
+            m_EvolutionStage = 1;
 
             Name = def.Name;
             Body = def.Body;
@@ -170,12 +196,14 @@ namespace Server.Mobiles
             // Light classic resists — VirtualArmor is the UOR-era primary mitigation.
             SetResistance(ResistanceType.Physical, 10, 20);
 
-            ApplyLevelSkills(m_DudeLevel > 0 ? m_DudeLevel : 1);
+            ApplyCombatSkills(null);
 
             Fame = m_IsWild ? 500 : 0;
             Karma = m_IsWild ? -500 : 0;
             VirtualArmor = def.VirtualArmor;
             ControlSlots = def.ControlSlots;
+
+            ApplyDudeSpeeds();
         }
 
         /// <summary>
@@ -198,6 +226,7 @@ namespace Server.Mobiles
             Name = data.DisplayName;
             m_DudeLevel = data.Level;
             m_AbilityId = data.AbilityId;
+            m_EvolutionStage = data.EvolutionStage;
             m_IsWild = false;
 
             SetStr(data.Str);
@@ -218,18 +247,25 @@ namespace Server.Mobiles
             SetDamage(data.MinDamage, data.MaxDamage);
             VirtualArmor = data.VirtualArmor;
 
-            ApplyLevelSkills(data.Level);
+            ApplyCombatSkills(data);
+            ApplyDudeSpeeds();
         }
 
         /// <summary>
-        /// Wrestling / Tactics / MagicResist capped by Dude level (50 at L1 → 100 at L10).
+        /// Wrestling / Tactics / MagicResist capped by evolution stage (100 / 110 / 120), not level.
         /// </summary>
-        public void ApplyLevelSkills(int level)
+        public void ApplyCombatSkills(DudeData data)
         {
-            double skill = DudeExperience.GetSkillCapForLevel(level);
+            double skill = DudeExperience.GetCombatSkillCap(data);
             SetSkill(SkillName.Tactics, skill);
             SetSkill(SkillName.Wrestling, skill);
             SetSkill(SkillName.MagicResist, skill);
+        }
+
+        /// <summary>Legacy name — redirects to ApplyCombatSkills with stage 1.</summary>
+        public void ApplyLevelSkills(int level)
+        {
+            ApplyCombatSkills(null);
         }
 
         public void SyncToBall()
@@ -274,6 +310,18 @@ namespace Server.Mobiles
             }
 
             TryUseAbility();
+            TryInfernoxPassive();
+        }
+
+        private List<string> GetUnlockedAbilityIds()
+        {
+            if (m_BoundBall != null && !m_BoundBall.Deleted && m_BoundBall.StoredDude != null)
+                return m_BoundBall.StoredDude.GetUnlockedAbilityIds();
+
+            List<string> list = new List<string>();
+            if (!string.IsNullOrEmpty(m_AbilityId))
+                list.Add(m_AbilityId);
+            return list;
         }
 
         private void TryUseAbility()
@@ -285,15 +333,90 @@ namespace Server.Mobiles
             if (!CanBeHarmful(target))
                 return;
 
-            DudeAbility ability = DudeAbilityRegistry.Get(m_AbilityId);
-            if (ability == null)
+            List<string> ids = GetUnlockedAbilityIds();
+            for (int i = 0; i < ids.Count; i++)
+            {
+                DudeAbility ability = DudeAbilityRegistry.Get(ids[i]);
+                if (ability == null)
+                    continue;
+
+                // Passive display stub — combat handled by TryInfernoxPassive.
+                if (string.Equals(ability.Id, "burn", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                int range = 3;
+                if (string.Equals(ability.Id, "ring_of_fire", StringComparison.OrdinalIgnoreCase))
+                    range = RingOfFireAbility.AoERange;
+
+                if (!InRange(target, range))
+                    continue;
+
+                if (ability.TryExecute(this, target))
+                    return; // shared cooldown — one ability per ready window
+            }
+        }
+
+        private void TryInfernoxPassive()
+        {
+            if (Combatant == null)
                 return;
 
-            // Use when in range and cooldown ready.
-            if (!InRange(target, 3))
+            bool infernox = EvolutionStage >= 3
+                || string.Equals(m_DefinitionId, "infernox", StringComparison.OrdinalIgnoreCase);
+
+            if (!infernox)
                 return;
 
-            ability.TryExecute(this, target);
+            if (Utility.RandomDouble() >= 0.05)
+                return;
+
+            int damage = Math.Max(1, (int)(DudeExperience.GetBlastDamage(m_DudeLevel) * 0.3));
+
+            List<Mobile> list = new List<Mobile>();
+            foreach (Mobile m in GetMobilesInRange(8))
+            {
+                if (m == null || m == this || m.Deleted || !m.Alive)
+                    continue;
+                if (m == ControlMaster)
+                    continue;
+                if (!CanBeHarmful(m))
+                    continue;
+
+                BaseCreature bc = m as BaseCreature;
+                if (bc != null && bc.Controlled && bc.ControlMaster == ControlMaster)
+                    continue;
+
+                list.Add(m);
+            }
+
+            if (list.Count == 0)
+                return;
+
+            PublicOverheadMessage(MessageType.Regular, 0x22, false, "*Burn*");
+            PlaySound(0x208);
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                Mobile m = list[i];
+                DoHarmful(m);
+                AOS.Damage(m, this, damage, 0, 100, 0, 0, 0);
+                DudeAbilityVfx.PlayFireHit(m, true);
+            }
+        }
+
+        public override void GenerateLoot()
+        {
+            base.GenerateLoot();
+
+            if (!m_IsWild)
+                return;
+
+            DudeDefinition def = DudeRegistry.Get(m_DefinitionId);
+            if (def == null || def.Type != DudeType.Fire)
+                return;
+
+            if (Utility.RandomDouble() < 0.05)
+                PackItem(new EmberCore());
         }
 
         public override bool OnBeforeDeath()
@@ -311,10 +434,18 @@ namespace Server.Mobiles
                     data.Hits = 0;
                 }
 
+                Point3D loc = Location;
+                Map map = Map;
+                DudeType fxType = data != null ? data.Type : DudeType.Fire;
+
                 Mobile master = ControlMaster;
                 SetControlMaster(null);
                 Combatant = null;
                 Warmode = false;
+
+                if (map != null && map != Map.Internal)
+                    DudeSummonEffects.PlayDespawn(fxType, loc, map, data != null ? data.DefinitionId : m_DefinitionId);
+
                 Internalize();
 
                 // Keep ball → creature link for serial reuse on next summon after revive.
@@ -344,7 +475,7 @@ namespace Server.Mobiles
         public override void Serialize(GenericWriter writer)
         {
             base.Serialize(writer);
-            writer.Write((int)0);
+            writer.Write((int)1);
 
             writer.Write(m_DefinitionId);
             writer.Write(m_IsWild);
@@ -352,6 +483,7 @@ namespace Server.Mobiles
             writer.Write(m_NextAbilityTime);
             writer.Write(m_DudeLevel);
             writer.Write(m_AbilityId);
+            writer.Write(m_EvolutionStage);
         }
 
         public override void Deserialize(GenericReader reader)
@@ -366,8 +498,15 @@ namespace Server.Mobiles
             m_DudeLevel = reader.ReadInt();
             m_AbilityId = reader.ReadString();
 
+            if (version >= 1)
+                m_EvolutionStage = reader.ReadInt();
+            else
+                m_EvolutionStage = 1;
+
             DudeRegistry.EnsureInitialized();
             DudeAbilityRegistry.EnsureInitialized();
+
+            ApplyDudeSpeeds();
         }
     }
 }

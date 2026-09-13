@@ -30,6 +30,11 @@ namespace Server.Custom.Dudes
 
             // Strong elite
             Register(new PyreBlastAbility());
+
+            // Embit evolution line
+            Register(new BlastAbility());
+            Register(new RingOfFireAbility());
+            Register(new BurnAbility());
         }
 
         public static void Register(DudeAbility ability)

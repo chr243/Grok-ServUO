@@ -360,23 +360,32 @@ namespace Server.Misc
 			if (source.Player && target is BaseCreature)
 			{
 				var bc = (BaseCreature)target;
+				bool isDude = bc is DudeCreature;
 
 				var master = bc.GetMaster();
 
+				// Staff pets are gray — except summoned Dudes with ForceNotoriety (stay blue via InitialInnocent).
 				if (master != null && master.IsStaff())
-					return Notoriety.CanBeAttacked;
-
-				master = bc.ControlMaster;
-
-				if (Core.ML && master != null && !bc.ForceNotoriety)
 				{
-					if (source == master && CheckAggressor(target.Aggressors, source))
+					if (!(isDude && bc.ForceNotoriety))
 						return Notoriety.CanBeAttacked;
+					// Dude + ForceNotoriety: fall through (do not inherit staff gray).
+				}
+				else
+				{
+					master = bc.ControlMaster;
 
-					if (CheckAggressor(source.Aggressors, bc))
-						return Notoriety.CanBeAttacked;
+					// Dudes always inherit player master noto on AOS; other pets remain ML-gated.
+					if (master != null && !bc.ForceNotoriety && (Core.ML || isDude))
+					{
+						if (source == master && CheckAggressor(target.Aggressors, source))
+							return Notoriety.CanBeAttacked;
 
-					return MobileNotoriety(source, master);
+						if (CheckAggressor(source.Aggressors, bc))
+							return Notoriety.CanBeAttacked;
+
+						return MobileNotoriety(source, master);
+					}
 				}
 			}
 

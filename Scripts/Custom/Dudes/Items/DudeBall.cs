@@ -349,7 +349,7 @@ namespace Server.Items
             InvalidateProperties();
 
             from.SendMessage(0x59, "{0} emerges from the Dude Ball!", m_StoredDude.DisplayName);
-            DudeSummonEffects.Play(m_StoredDude.Type, dude.Location, dude.Map);
+            DudeSummonEffects.Play(m_StoredDude.Type, dude.Location, dude.Map, m_StoredDude.DefinitionId);
             MarkUsed();
         }
 
@@ -375,6 +375,11 @@ namespace Server.Items
 
             Point3D loc = dude.Location;
             Map map = dude.Map;
+            DudeType fxType = m_StoredDude != null ? m_StoredDude.Type : DudeType.Fire;
+
+            // Despawn FX while location is still valid, then park on Internal.
+            if (map != null && map != Map.Internal)
+                DudeSummonEffects.PlayDespawn(fxType, loc, map, m_StoredDude != null ? m_StoredDude.DefinitionId : null);
 
             // Keep the same mobile/serial: park on Internal instead of Delete.
             dude.SetControlMaster(null);
@@ -388,13 +393,6 @@ namespace Server.Items
             {
                 from.SendMessage(0x59, "{0} returns to the Dude Ball.", m_StoredDude != null ? m_StoredDude.DisplayName : "Your Dude");
                 from.PlaySound(0x1F1);
-            }
-
-            if (map != null && map != Map.Internal)
-            {
-                Effects.SendLocationParticles(
-                    EffectItem.Create(loc, map, EffectItem.DefaultDuration),
-                    0x3728, 10, 10, 2024);
             }
         }
 
