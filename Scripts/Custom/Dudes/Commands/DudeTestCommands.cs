@@ -25,7 +25,13 @@ namespace Server.Custom.Dudes.Commands
             CommandSystem.Register("CreateDudeJobStation", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeJobStation_OnCommand));
             CommandSystem.Register("StartDudeJob", AccessLevel.GameMaster, new CommandEventHandler(StartDudeJob_OnCommand));
             CommandSystem.Register("SpawnEmberlord", AccessLevel.GameMaster, new CommandEventHandler(SpawnEmberlord_OnCommand));
+            CommandSystem.Register("SpawnTidewarden", AccessLevel.GameMaster, new CommandEventHandler(SpawnTidewarden_OnCommand));
+            CommandSystem.Register("SpawnStonewarden", AccessLevel.GameMaster, new CommandEventHandler(SpawnStonewarden_OnCommand));
+            CommandSystem.Register("SpawnGalewarden", AccessLevel.GameMaster, new CommandEventHandler(SpawnGalewarden_OnCommand));
             CommandSystem.Register("CreateEmberCore", AccessLevel.GameMaster, new CommandEventHandler(CreateEmberCore_OnCommand));
+            CommandSystem.Register("CreateTideCore", AccessLevel.GameMaster, new CommandEventHandler(CreateTideCore_OnCommand));
+            CommandSystem.Register("CreateStoneCore", AccessLevel.GameMaster, new CommandEventHandler(CreateStoneCore_OnCommand));
+            CommandSystem.Register("CreateGaleCore", AccessLevel.GameMaster, new CommandEventHandler(CreateGaleCore_OnCommand));
             CommandSystem.Register("CreateTrainersManual", AccessLevel.GameMaster, new CommandEventHandler(CreateTrainersManual_OnCommand));
             CommandSystem.Register("CreateDudeRevivalPotion", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeRevivalPotion_OnCommand));
             CommandSystem.Register("CreateDudeHealingPotion", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeHealingPotion_OnCommand));
@@ -253,6 +259,81 @@ namespace Server.Custom.Dudes.Commands
 
             from.Backpack.DropItem(new EmberCore());
             from.SendMessage(0x59, "TEST: Ember Core created.");
+        }
+
+        [Usage("SpawnTidewarden")]
+        [Description("TEST: Spawns Tidewarden (Water Dude boss) at your location. Not catchable.")]
+        private static void SpawnTidewarden_OnCommand(CommandEventArgs e)
+        {
+            Mobile from = e.Mobile;
+            if (from == null || from.Map == null || from.Map == Map.Internal)
+                return;
+
+            Tidewarden boss = new Tidewarden();
+            boss.MoveToWorld(from.Location, from.Map);
+            from.SendMessage(0x59, "TEST: Spawned Tidewarden. Hostile, uncatchable, no world spawner.");
+        }
+
+        [Usage("SpawnStonewarden")]
+        [Description("TEST: Spawns Stonewarden (Earth Dude boss) at your location. Not catchable.")]
+        private static void SpawnStonewarden_OnCommand(CommandEventArgs e)
+        {
+            Mobile from = e.Mobile;
+            if (from == null || from.Map == null || from.Map == Map.Internal)
+                return;
+
+            Stonewarden boss = new Stonewarden();
+            boss.MoveToWorld(from.Location, from.Map);
+            from.SendMessage(0x59, "TEST: Spawned Stonewarden. Hostile, uncatchable, no world spawner.");
+        }
+
+        [Usage("SpawnGalewarden")]
+        [Description("TEST: Spawns Galewarden (Air Dude boss) at your location. Not catchable.")]
+        private static void SpawnGalewarden_OnCommand(CommandEventArgs e)
+        {
+            Mobile from = e.Mobile;
+            if (from == null || from.Map == null || from.Map == Map.Internal)
+                return;
+
+            Galewarden boss = new Galewarden();
+            boss.MoveToWorld(from.Location, from.Map);
+            from.SendMessage(0x59, "TEST: Spawned Galewarden. Hostile, uncatchable, no world spawner.");
+        }
+
+        [Usage("CreateTideCore")]
+        [Description("TEST: Creates a Tide Essence in your backpack.")]
+        private static void CreateTideCore_OnCommand(CommandEventArgs e)
+        {
+            Mobile from = e.Mobile;
+            if (from == null || from.Backpack == null)
+                return;
+
+            from.Backpack.DropItem(new TideCore());
+            from.SendMessage(0x59, "TEST: Tide Essence created.");
+        }
+
+        [Usage("CreateStoneCore")]
+        [Description("TEST: Creates a Stone Essence in your backpack.")]
+        private static void CreateStoneCore_OnCommand(CommandEventArgs e)
+        {
+            Mobile from = e.Mobile;
+            if (from == null || from.Backpack == null)
+                return;
+
+            from.Backpack.DropItem(new StoneCore());
+            from.SendMessage(0x59, "TEST: Stone Essence created.");
+        }
+
+        [Usage("CreateGaleCore")]
+        [Description("TEST: Creates a Gale Essence in your backpack.")]
+        private static void CreateGaleCore_OnCommand(CommandEventArgs e)
+        {
+            Mobile from = e.Mobile;
+            if (from == null || from.Backpack == null)
+                return;
+
+            from.Backpack.DropItem(new GaleCore());
+            from.SendMessage(0x59, "TEST: Gale Essence created.");
         }
 
         [Usage("CreateTrainersManual")]

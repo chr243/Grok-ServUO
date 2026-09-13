@@ -20,8 +20,15 @@ Filled Dude Ball → **Dude Mixer** (confirm) → **Dude Dust** + empty ball →
 ### Job Station / Gathering (Phase 3)
 Filled **Earth**-type Dude Ball → drop on **Dude Job Station** → Start Job → worker travels to nearest mineable tile → works → returns → deposits **Iron Ore** into station container → ball remains.
 
-### Boss (Emberlord)
-Staff-spawned **Emberlord** (`DudeBoss`) — hostile Fire boss, not catchable, no Dude Ball on death. Fight → Ember Burst AoE → corpse loot (Dude Dust, Iron Ingots, rare Ember Core). No world spawner.
+### Bosses (elemental farm)
+Staff-spawned `DudeBoss` farm bosses — hostile, not catchable, no Dude Ball on death, no world spawners. Stage-1 Dude + healing pots intended. Melee 10–16, delayed AoE ability 14–20 (12s CD, range 6).
+
+| Boss | Type | Ability | Unique core (0–2) |
+|------|------|---------|-------------------|
+| **Emberlord** | Fire | Ember Burst | Ember Essence |
+| **Tidewarden** | Water | Tide Crash | Tide Essence |
+| **Stonewarden** | Earth | Fault Line | Stone Essence |
+| **Galewarden** | Air | Shear | Gale Essence |
 
 ### Trainer's Manual
 **Trainer's Manual** item → double-click → target a wild/summoned `DudeCreature`, filled `DudeBall`, or `DudeBoss` → opens **DudeInfoGump** (name, type, level, EXP, stats, ability, status, owner). Ball data works without recalling. Bosses show a scout sheet (uncatchable).
@@ -41,8 +48,9 @@ Staff-spawned **Emberlord** (`DudeBoss`) — hostile Fire boss, not catchable, n
 | `Mobiles/DudeCreature.cs` | Wild / summoned combat Dude |
 | `Mobiles/DudeJobWorker.cs` | Temporary job worker |
 | `Bosses/DudeBoss.cs` | Abstract uncatchable boss (`DudeBoss` → subclass) |
-| `Bosses/Emberlord.cs` | First Fire boss + Ember Burst AoE |
-| `Items/EmberCore.cs` | Rare Emberlord drop (future crafting) |
+| `Bosses/Emberlord.cs` | Fire farm boss + Ember Burst |
+| `Bosses/Tidewarden.cs` / `Stonewarden.cs` / `Galewarden.cs` | Water / Earth / Air farm bosses |
+| `Items/EmberCore.cs` (+ Tide/Stone/GaleCore) | Rare typed boss essences (no recipes yet) |
 | `Items/TrainersManual.cs` | Inspect tool (target Dude / ball / boss) |
 | `Items/DudeInfoGump.cs` | Read-only info sheet (+ `DudeInfoView`) |
 | `Systems/*` | Capture, EXP, kill handler, dust formula |
@@ -91,8 +99,8 @@ Earth-type Dudes (`pebblet`, `stonepaw`, `boulderback`) qualify for **Earth Gath
 | `[CreateDudeCraftKit` | Craft kit + ingots |
 | `[CreateDudeJobStation` | Station at feet |
 | `[StartDudeJob` | Target station to start |
-| `[SpawnEmberlord` | Hostile Emberlord at your feet |
-| `[CreateEmberCore` | Rare boss item |
+| `[SpawnEmberlord` / `Tidewarden` / `Stonewarden` / `Galewarden` | Hostile elemental boss at your feet |
+| `[CreateEmberCore` / `TideCore` / `StoneCore` / `GaleCore` | Typed boss essence |
 | `[CreateTrainersManual` | Trainer's Manual (info gump) |
 
 ## In-game test steps
@@ -112,7 +120,7 @@ Earth-type Dudes (`pebblet`, `stonepaw`, `boulderback`) qualify for **Earth Gath
 6. After job: **Retrieve Dude Ball** from gump. Restart shard mid-job to verify recovery.
 
 ### Boss loop
-1. `[SpawnEmberlord` (or `[add Emberlord`). It is hostile (`FightMode.Closest`).
+1. `[SpawnEmberlord` / `[SpawnTidewarden` / `[SpawnStonewarden` / `[SpawnGalewarden` (or `[add …`). Hostile (`FightMode.Closest`).
 2. Fight: melee + **Ember Burst** AoE fire (~12s cooldown, nearby players/pets).
 3. `[CreateDudeBall` → double-click → target Emberlord: capture must fail ("cannot be caught in a Dude Ball").
 4. Kill it: corpse has Dude Dust, Iron Ingots, 25% Ember Core. No Dude Ball drop.
@@ -126,4 +134,4 @@ Earth-type Dudes (`pebblet`, `stonepaw`, `boulderback`) qualify for **Earth Gath
 5. `[SpawnEmberlord` → target boss → Boss sheet (uncatchable + Ember Burst). Empty balls / non-Dudes are rejected with messages.
 
 ## Out of scope (still)
-Additional bosses, multi-phase fights, automatic world spawn, Ember Core recipes, resource-processing jobs, multiple gathering professions, economy balancing, evolution, rarity dust variants.
+Multi-phase fights, automatic world spawn, elemental core recipes, resource-processing jobs, multiple gathering professions, economy balancing, rarity dust variants.

@@ -39,15 +39,15 @@ Pokémon-style companions under `Scripts/Custom/Dudes/`. Full overview: [`Script
 - Only **Earth Gathering** (any Earth-type Dude: `pebblet` / `stonepaw` / `boulderback`): finds nearest mineable land tile, spawns **DudeJobWorker**, pathfinds (teleport fallback), works, returns, deposits Iron Ore. Roster also includes weak/medium/strong catchable species — see Dude README.
 - Job state persists across restart; safety for stuck workers, full container, station/ball delete, etc.
 
-### First boss — Emberlord
-Staff-only spawn (`[SpawnEmberlord` / `[add Emberlord`). Hostile Fire `DudeBoss`; Ember Burst AoE; not catchable (`DudeCapture` hook); loot Dude Dust / Iron Ingots / rare **Ember Core** (future craft mat). No world spawner, no phases.
+### Elemental farm bosses
+Staff-only spawn (`[SpawnEmberlord` / `[SpawnTidewarden` / `[SpawnStonewarden` / `[SpawnGalewarden`). Four `DudeBoss` farm bosses (Fire/Water/Earth/Air): delayed flashy AoE (Ember Burst / Tide Crash / Fault Line / Shear), stage-1-safe damage, not catchable; loot Dude Dust / Iron Ingots / typed essence cores 0–2. No world spawners, no phases, no core recipes yet.
 
 ### Trainer's Manual
 `TrainersManual` + `DudeInfoGump`: double-click and target wild/summoned Dude, filled Dude Ball (no recall required), or Dude boss for a classic info sheet (stats, ability, status).
 
-**GM commands:** `[CreateDudeBall`, `[SpawnTestDude`, `[FillDudeBall`, `[CreateDudeMixer`, `[CreateDudeDust`, `[CreateDudeCraftKit`, `[CreateDudeJobStation`, `[StartDudeJob`, `[SpawnEmberlord`, `[CreateEmberCore`, `[CreateTrainersManual`
+**GM commands:** `[CreateDudeBall`, `[SpawnTestDude`, `[FillDudeBall`, `[CreateDudeMixer`, `[CreateDudeDust`, `[CreateDudeCraftKit`, `[CreateDudeJobStation`, `[StartDudeJob`, `[SpawnEmberlord`/`Tidewarden`/`Stonewarden`/`Galewarden`, `[CreateEmberCore`/`TideCore`/`StoneCore`/`GaleCore`, `[CreateTrainersManual`
 
-**Still out of scope:** Additional bosses, multi-phase, auto world-spawn, Ember Core recipes, processing jobs, multiple gathering professions, economy balancing, evolution.
+**Still out of scope:** Multi-phase, auto world-spawn, elemental core recipes, processing jobs, multiple gathering professions, economy balancing.
 
 ## Workflow tips
 
