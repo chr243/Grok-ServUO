@@ -8045,7 +8045,8 @@ namespace Server
 
 			if (!indirect)
 			{
-				Combatant = target;
+				if (Combatant != target)
+					Combatant = target;
 			}
 
 			if (m_ExpireCombatant == null)

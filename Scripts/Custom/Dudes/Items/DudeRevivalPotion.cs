@@ -12,12 +12,19 @@ namespace Server.Items
     {
         [Constructable]
         public DudeRevivalPotion()
+            : this(1)
+        {
+        }
+
+        [Constructable]
+        public DudeRevivalPotion(int amount)
             : base(0xF0B) // classic potion bottle graphic
         {
             Name = "Dude Revival Potion";
             Hue = 0x48E; // soft green revive tint
             Weight = 1.0;
-            Stackable = false;
+            Stackable = true;
+            Amount = amount > 0 ? amount : 1;
         }
 
         public DudeRevivalPotion(Serial serial)
@@ -104,6 +111,7 @@ namespace Server.Items
         {
             base.Deserialize(reader);
             int version = reader.ReadInt();
+            Stackable = true;
         }
 
         private class ReviveTarget : Target

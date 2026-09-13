@@ -23,7 +23,8 @@ namespace Server.Items
             : base(itemID)
         {
             Weight = 1.0;
-            Stackable = false;
+            Stackable = true;
+            Amount = 1;
         }
 
         public BaseDudeHealingPotion(Serial serial)
@@ -157,19 +158,33 @@ namespace Server.Items
             from.RevealingAction();
             Effects.SendMovingEffect(from, dude, ItemID, 7, 0, false, false, Hue, 0);
 
-            // Consume from pack immediately so it can't be reused mid-flight.
-            Internalize();
-            Timer.DelayCall(TimeSpan.FromSeconds(1.0), () => FinishHeal(from, dude));
+            // Consume one from the stack immediately so it can't be reused mid-flight.
+            // If Amount>1, decrement; otherwise internalize the single bottle for FinishHeal to Delete.
+            bool consumedFromStack = false;
+            if (Amount > 1)
+            {
+                Amount--;
+                consumedFromStack = true;
+            }
+            else
+            {
+                Internalize();
+            }
+
+            Timer.DelayCall(TimeSpan.FromSeconds(1.0), () => FinishHeal(from, dude, consumedFromStack));
         }
 
-        private void FinishHeal(Mobile from, DudeCreature dude)
+        private void FinishHeal(Mobile from, DudeCreature dude, bool consumedFromStack)
         {
-            if (Deleted)
+            // When consumedFromStack, `this` is the remaining stack in the pack — never Delete it.
+            // When !consumedFromStack, `this` is the internalized single bottle — Delete after use.
+            if (!consumedFromStack && Deleted)
                 return;
 
             if (from == null || from.Deleted || dude == null || dude.Deleted || !dude.Alive)
             {
-                Delete();
+                if (!consumedFromStack)
+                    Delete();
                 return;
             }
 
@@ -178,20 +193,23 @@ namespace Server.Items
             {
                 if (from != null)
                     from.SendMessage("The potion fails to take effect.");
-                Delete();
+                if (!consumedFromStack)
+                    Delete();
                 return;
             }
 
             if (dude.ControlMaster != from && from.AccessLevel < AccessLevel.GameMaster)
             {
-                Delete();
+                if (!consumedFromStack)
+                    Delete();
                 return;
             }
 
             if (dude.Hits >= dude.HitsMax)
             {
                 from.SendMessage("{0} is already at full health.", dude.Name);
-                Delete();
+                if (!consumedFromStack)
+                    Delete();
                 return;
             }
 
@@ -213,7 +231,8 @@ namespace Server.Items
                 EffectItem.Create(dude.Location, dude.Map, EffectItem.DefaultDuration),
                 0x3728, 10, 10, 5029);
 
-            Delete();
+            if (!consumedFromStack)
+                Delete();
         }
 
         public override void Serialize(GenericWriter writer)
@@ -226,6 +245,7 @@ namespace Server.Items
         {
             base.Deserialize(reader);
             int version = reader.ReadInt();
+            Stackable = true;
         }
 
         private class ThrowHealTarget : Target
@@ -262,10 +282,18 @@ namespace Server.Items
 
         [Constructable]
         public DudeHealingPotion()
+            : this(1)
+        {
+        }
+
+        [Constructable]
+        public DudeHealingPotion(int amount)
             : base(0xF0C)
         {
             Name = "Dude Healing Potion";
             Hue = 0x21;
+            Stackable = true;
+            Amount = amount > 0 ? amount : 1;
         }
 
         public DudeHealingPotion(Serial serial)
@@ -293,10 +321,18 @@ namespace Server.Items
 
         [Constructable]
         public GreaterDudeHealingPotion()
+            : this(1)
+        {
+        }
+
+        [Constructable]
+        public GreaterDudeHealingPotion(int amount)
             : base(0xF0B)
         {
             Name = "Greater Dude Healing Potion";
             Hue = 0x26; // deeper red
+            Stackable = true;
+            Amount = amount > 0 ? amount : 1;
         }
 
         public GreaterDudeHealingPotion(Serial serial)

@@ -132,17 +132,20 @@ namespace Server.Mobiles
             get { return !m_IsWild; }
         }
 
+        /// <summary>
+        /// Wild Dudes are blue (innocent) — only bosses stay AlwaysMurderer.
+        /// </summary>
         public override bool AlwaysMurderer
         {
-            get { return m_IsWild; }
+            get { return false; }
         }
 
         /// <summary>
-        /// Summoned Dudes are treated as innocent pets (not wild gray attackables).
+        /// Wild and summoned Dudes are blue/innocent. Bosses use DudeBoss.AlwaysMurderer.
         /// </summary>
         public override bool InitialInnocent
         {
-            get { return !m_IsWild; }
+            get { return true; }
         }
 
         /// <summary>
@@ -212,8 +215,8 @@ namespace Server.Mobiles
 
             ApplyCombatSkills(null);
 
-            Fame = m_IsWild ? 500 : 0;
-            Karma = m_IsWild ? -500 : 0;
+            Fame = m_IsWild ? 100 : 0;
+            Karma = m_IsWild ? 0 : 0;
             VirtualArmor = def.VirtualArmor;
             ControlSlots = def.ControlSlots;
 
@@ -299,6 +302,44 @@ namespace Server.Mobiles
             data.Level = m_DudeLevel;
             data.CustomName = Name;
             m_BoundBall.InvalidateProperties();
+        }
+
+        /// <summary>
+        /// Town guards focusing a summoned Dude must not trigger pet AI fight-back
+        /// (Combatant ↔ Guard Focus ↔ DoHarmful recursion / StackOverflow).
+        /// </summary>
+        public override void AggressiveAction(Mobile aggressor, bool criminal)
+        {
+            if (aggressor is BaseGuard)
+            {
+                IDamageable oldCombatant = Combatant;
+                base.AggressiveAction(aggressor, criminal);
+
+                // Undo BaseCreature AI / Combatant assignment against the guard.
+                if (Combatant == aggressor)
+                    Combatant = oldCombatant;
+
+                if (ControlOrder == OrderType.Attack && ControlTarget == aggressor)
+                {
+                    ControlTarget = ControlMaster;
+                    ControlOrder = OrderType.Guard;
+                }
+
+                return;
+            }
+
+            base.AggressiveAction(aggressor, criminal);
+        }
+
+        /// <summary>
+        /// Never assign Combatant to a town guard (indirect DoHarmful) — breaks recursion.
+        /// </summary>
+        public override void DoHarmful(IDamageable target, bool indirect)
+        {
+            if (target is BaseGuard)
+                base.DoHarmful(target, true);
+            else
+                base.DoHarmful(target, indirect);
         }
 
         public override void OnThink()
@@ -442,11 +483,31 @@ namespace Server.Mobiles
             if (!m_IsWild)
                 return;
 
-            DudeDefinition def = DudeRegistry.Get(m_DefinitionId);
-            if (def == null || def.Type != DudeType.Fire)
-                return;
+            PackGold(10, 50);
 
-            if (Utility.RandomDouble() < 0.05)
+            if (Utility.RandomDouble() < 0.35)
+                PackItem(new Bandage(Utility.RandomMinMax(1, 3)));
+
+            if (Utility.RandomDouble() < 0.30)
+            {
+                switch (Utility.Random(8))
+                {
+                    case 0: PackItem(new BlackPearl(Utility.RandomMinMax(1, 3))); break;
+                    case 1: PackItem(new Bloodmoss(Utility.RandomMinMax(1, 3))); break;
+                    case 2: PackItem(new Garlic(Utility.RandomMinMax(1, 3))); break;
+                    case 3: PackItem(new Ginseng(Utility.RandomMinMax(1, 3))); break;
+                    case 4: PackItem(new MandrakeRoot(Utility.RandomMinMax(1, 3))); break;
+                    case 5: PackItem(new Nightshade(Utility.RandomMinMax(1, 3))); break;
+                    case 6: PackItem(new SulfurousAsh(Utility.RandomMinMax(1, 3))); break;
+                    default: PackItem(new SpidersSilk(Utility.RandomMinMax(1, 3))); break;
+                }
+            }
+
+            if (Utility.RandomDouble() < 0.20)
+                PackItem(new BreadLoaf());
+
+            DudeDefinition def = DudeRegistry.Get(m_DefinitionId);
+            if (def != null && def.Type == DudeType.Fire && Utility.RandomDouble() < 0.05)
                 PackItem(new EmberCore());
         }
 

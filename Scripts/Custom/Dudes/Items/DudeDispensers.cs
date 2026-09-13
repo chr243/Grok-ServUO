@@ -4,7 +4,7 @@ using Server.Network;
 namespace Server.Items
 {
     /// <summary>
-    /// GM-placeable gravestone dispenser. Lock it down (or leave immovable); players dclick to receive an item.
+    /// GM-placeable gravestone dispenser. Immovable by default; players dclick to receive items.
     /// </summary>
     [Flipable(0x1173, 0x1174)]
     public abstract class BaseDudeDispenser : Item
@@ -17,7 +17,7 @@ namespace Server.Items
         {
             Hue = hue;
             Weight = 10.0;
-            Movable = true; // GM places, then [lock] / lock down
+            Movable = false; // fixed in world when placed; players may use immediately
         }
 
         public override void OnAfterDuped(Item newItem)
@@ -36,9 +36,9 @@ namespace Server.Items
         public override void GetProperties(ObjectPropertyList list)
         {
             base.GetProperties(list);
-            list.Add("Double-click to take one.");
+            list.Add("Double-click to take items (range 2).");
             if (Movable && !IsLockedDown && !IsSecure)
-                list.Add("GM: place and lock down for players to use.");
+                list.Add("GM: set Movable false or lock down for players to use.");
         }
 
         public override void OnSingleClick(Mobile from)
@@ -57,7 +57,7 @@ namespace Server.Items
                 return;
             }
 
-            // Players may use only when locked/secured or when the stone is fixed in the world.
+            // Players may use when placed in the world (immovable / locked / secured).
             if (from.AccessLevel < AccessLevel.GameMaster)
             {
                 if (RootParent != null)
@@ -68,7 +68,7 @@ namespace Server.Items
 
                 if (Movable && !IsLockedDown && !IsSecure)
                 {
-                    from.SendMessage("That dispenser must be locked down before it can be used.");
+                    from.SendMessage("That dispenser must be fixed in the world before it can be used.");
                     return;
                 }
             }
@@ -165,7 +165,7 @@ namespace Server.Items
 
         public override Item CreateDispensedItem()
         {
-            return new DudeHealingPotion();
+            return new DudeHealingPotion(10);
         }
 
         public override void Serialize(GenericWriter writer)
@@ -200,7 +200,7 @@ namespace Server.Items
 
         public override Item CreateDispensedItem()
         {
-            return new DudeRevivalPotion();
+            return new DudeRevivalPotion(10);
         }
 
         public override void Serialize(GenericWriter writer)

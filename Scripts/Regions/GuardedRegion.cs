@@ -123,6 +123,14 @@ namespace Server.Regions
 
 		public override void MakeGuard(Mobile focus)
 		{
+			if (focus == null)
+				return;
+
+			// Controlled pets: redirect focus to the owner (do not chase the pet).
+			BaseCreature focusBc = focus as BaseCreature;
+			if (focusBc != null && focusBc.Controlled && focusBc.ControlMaster != null && !focusBc.ControlMaster.Deleted)
+				focus = focusBc.ControlMaster;
+
 			BaseGuard useGuard = null;
             IPooledEnumerable eable = focus.GetMobilesInRange(8);
 
@@ -239,10 +247,15 @@ namespace Server.Regions
 
 		public void CheckGuardCandidate(Mobile m, bool autoCallGuards)
 		{
-			if (IsDisabled())
+			if (IsDisabled() || m == null)
 			{
 				return;
 			}
+
+			// Controlled pets are not guard candidates — chase the ControlMaster instead.
+			BaseCreature candidateBc = m as BaseCreature;
+			if (candidateBc != null && candidateBc.Controlled && candidateBc.ControlMaster != null && !candidateBc.ControlMaster.Deleted)
+				m = candidateBc.ControlMaster;
 
 			if (IsGuardCandidate(m))
 			{
@@ -323,25 +336,30 @@ namespace Server.Regions
 
 			foreach (Mobile m in eable)
 			{
-				if (IsGuardCandidate(m))
+				Mobile focus = m;
+				BaseCreature callBc = m as BaseCreature;
+				if (callBc != null && callBc.Controlled && callBc.ControlMaster != null && !callBc.ControlMaster.Deleted)
+					focus = callBc.ControlMaster;
+
+				if (IsGuardCandidate(focus))
 				{
-                    if (m_GuardCandidates.ContainsKey(m) || (!AllowReds && m.Murderer && m.Region.IsPartOf(this)))
+                    if (m_GuardCandidates.ContainsKey(focus) || (!AllowReds && focus.Murderer && focus.Region.IsPartOf(this)))
                     {
                         GuardTimer timer = null;
-                        m_GuardCandidates.TryGetValue(m, out timer);
+                        m_GuardCandidates.TryGetValue(focus, out timer);
 
                         if (timer != null)
                         {
                             timer.Stop();
-                            m_GuardCandidates.Remove(m);
+                            m_GuardCandidates.Remove(focus);
                         }
 
-                        MakeGuard(m);
-                        m.SendLocalizedMessage(502276); // Guards can no longer be called on you.
+                        MakeGuard(focus);
+                        focus.SendLocalizedMessage(502276); // Guards can no longer be called on you.
                     }
-                    else if (m is BaseCreature && ((BaseCreature)m).IsAggressiveMonster && m.Region.IsPartOf(this))
+                    else if (focus is BaseCreature && ((BaseCreature)focus).IsAggressiveMonster && focus.Region.IsPartOf(this))
                     {
-                        MakeGuard(m);
+                        MakeGuard(focus);
                     }
 
 					break;
@@ -353,13 +371,23 @@ namespace Server.Regions
 
 		public bool IsGuardCandidate(Mobile m)
 		{
-			if (m is BaseGuard || m.GuardImmune || !m.Alive || m.IsStaff() || m.Blessed || (m is BaseCreature && ((BaseCreature)m).IsInvulnerable) ||
-				IsDisabled())
+			if (m == null || m is BaseGuard || m.GuardImmune || !m.Alive || m.IsStaff() || m.Blessed || IsDisabled())
 			{
 				return false;
 			}
 
-			return (!AllowReds && m.Murderer) || m.Criminal || (m is BaseCreature && ((BaseCreature)m).IsAggressiveMonster);
+			BaseCreature bc = m as BaseCreature;
+			if (bc != null)
+			{
+				// Controlled pets never draw guards directly — owner is the candidate.
+				if (bc.Controlled && bc.ControlMaster != null)
+					return false;
+
+				if (bc.IsInvulnerable)
+					return false;
+			}
+
+			return (!AllowReds && m.Murderer) || m.Criminal || (bc != null && bc.IsAggressiveMonster);
 		}
 
 		[Usage("CheckGuarded")]
