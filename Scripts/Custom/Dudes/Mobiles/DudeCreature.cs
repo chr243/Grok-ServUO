@@ -24,6 +24,8 @@ namespace Server.Mobiles
         private int m_EvolutionStage;
         private Dictionary<string, DateTime> m_NextAbilityById;
         private bool m_Fainting;
+        private bool m_Despawning;
+        private bool m_BlessedBeforeDespawn;
 
         private const double DudeForceSpeed = 0.1;
 
@@ -160,6 +162,36 @@ namespace Server.Mobiles
         public override bool IsDispellable
         {
             get { return false; }
+        }
+
+        /// <summary>True while recall/despawn FX plays — no aggro, not a guard candidate.</summary>
+        public bool IsDespawning
+        {
+            get { return m_Despawning; }
+        }
+
+        public void BeginDespawnSequence()
+        {
+            m_Despawning = true;
+            m_BlessedBeforeDespawn = Blessed;
+            Blessed = true;
+            Combatant = null;
+            Warmode = false;
+            Frozen = true;
+            Criminal = false;
+            ControlOrder = OrderType.Stay;
+            if (ControlMaster != null)
+                ControlTarget = ControlMaster;
+            FocusMob = null;
+        }
+
+        public void EndDespawnSequence()
+        {
+            m_Despawning = false;
+            Blessed = m_BlessedBeforeDespawn;
+            Frozen = false;
+            Combatant = null;
+            Warmode = false;
         }
 
         /// <summary>
@@ -310,6 +342,17 @@ namespace Server.Mobiles
         /// </summary>
         public override void AggressiveAction(Mobile aggressor, bool criminal)
         {
+            if (m_Despawning)
+            {
+                // Still record aggression lists via base Mobile path without pet AI fight-back.
+                // Avoid Combatant assignment against anyone while returning to ball.
+                IDamageable old = Combatant;
+                base.AggressiveAction(aggressor, criminal);
+                Combatant = null;
+                Warmode = false;
+                return;
+            }
+
             if (aggressor is BaseGuard)
             {
                 IDamageable oldCombatant = Combatant;
@@ -348,6 +391,24 @@ namespace Server.Mobiles
 
             if (m_IsWild || Deleted || Map == null || Map == Map.Internal || m_Fainting)
                 return;
+
+            if (m_Despawning)
+            {
+                Combatant = null;
+                Warmode = false;
+                return;
+            }
+
+            if (m_BoundBall != null && !m_BoundBall.Deleted && m_BoundBall.IsRecalling)
+                return;
+
+            // Owner died (or deleted) — auto return to ball.
+            if (Controlled && ControlMaster != null && (ControlMaster.Deleted || !ControlMaster.Alive))
+            {
+                if (m_BoundBall != null && !m_BoundBall.Deleted)
+                    m_BoundBall.Recall(ControlMaster);
+                return;
+            }
 
             if (!Controlled || ControlMaster == null || ControlMaster.Deleted)
                 return;

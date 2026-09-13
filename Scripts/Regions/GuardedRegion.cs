@@ -126,10 +126,27 @@ namespace Server.Regions
 			if (focus == null)
 				return;
 
-			// Controlled pets: redirect focus to the owner (do not chase the pet).
+			// Pets / Dudes: never chase the companion — always redirect to the owner.
 			BaseCreature focusBc = focus as BaseCreature;
-			if (focusBc != null && focusBc.Controlled && focusBc.ControlMaster != null && !focusBc.ControlMaster.Deleted)
-				focus = focusBc.ControlMaster;
+			if (focusBc != null)
+			{
+				if (focusBc.Controlled && focusBc.ControlMaster != null && !focusBc.ControlMaster.Deleted)
+				{
+					focus = focusBc.ControlMaster;
+				}
+				else
+				{
+					DudeCreature dude = focusBc as DudeCreature;
+					if (dude != null)
+					{
+						if (dude.IsDespawning && dude.ControlMaster != null && !dude.ControlMaster.Deleted)
+							focus = dude.ControlMaster;
+						else if (dude.BoundBall != null && dude.BoundBall.StoredDude != null
+							&& dude.BoundBall.StoredDude.Catcher != null && !dude.BoundBall.StoredDude.Catcher.Deleted)
+							focus = dude.BoundBall.StoredDude.Catcher;
+					}
+				}
+			}
 
 			BaseGuard useGuard = null;
             IPooledEnumerable eable = focus.GetMobilesInRange(8);
@@ -381,6 +398,10 @@ namespace Server.Regions
 			{
 				// Controlled pets never draw guards directly — owner is the candidate.
 				if (bc.Controlled && bc.ControlMaster != null)
+					return false;
+
+				DudeCreature dude = bc as DudeCreature;
+				if (dude != null && dude.IsDespawning)
 					return false;
 
 				if (bc.IsInvulnerable)

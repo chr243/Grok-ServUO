@@ -19,6 +19,8 @@ namespace Server.Items
         private DateTime m_NextUseUtc;
         private bool m_Recalling;
 
+        public bool IsRecalling { get { return m_Recalling; } }
+
         private const int BallItemId = 0xE73; // BolaBall graphic
         private const int EmptyHue = 0x59; // bright green — easy to spot empty in pack
         private const int FireHue = 0x21; // red
@@ -392,13 +394,10 @@ namespace Server.Items
             DudeType fxType = m_StoredDude != null ? m_StoredDude.Type : DudeType.Fire;
             string defId = m_StoredDude != null ? m_StoredDude.DefinitionId : null;
 
-            // Freeze in place, play despawn, THEN park after the FX finishes.
+            // Keep ControlMaster through the FX so the Dude never goes "wild" / guard-candidate.
+            // Pacify + bless during the animation; park only after it finishes.
             m_Recalling = true;
-            dude.Combatant = null;
-            dude.Warmode = false;
-            dude.Frozen = true;
-            dude.ControlOrder = OrderType.Stay;
-            dude.SetControlMaster(null);
+            dude.BeginDespawnSequence();
 
             TimeSpan delay = TimeSpan.Zero;
             if (map != null && map != Map.Internal)
@@ -425,7 +424,8 @@ namespace Server.Items
 
             if (dude != null && !dude.Deleted)
             {
-                dude.Frozen = false;
+                dude.EndDespawnSequence();
+                dude.SetControlMaster(null);
                 ParkDude(dude);
                 m_SummonedDude = dude;
             }
