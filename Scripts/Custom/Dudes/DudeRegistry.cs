@@ -89,13 +89,41 @@ namespace Server.Custom.Dudes
                 || string.Equals(definitionId, "infernox", StringComparison.OrdinalIgnoreCase);
         }
 
+
+        /// <summary>
+        /// Follower slots by tier / evolution: weak+basic+stage1=1, medium+stage2=2, strong+stage3=3.
+        /// Evolution stage wins when >= 2 so Embit→Emberon→Infernox always maps 1/2/3.
+        /// </summary>
+        public static int GetControlSlots(string definitionId, int evolutionStage)
+        {
+            EnsureInitialized();
+
+            if (evolutionStage >= 3)
+                return 3;
+            if (evolutionStage >= 2)
+                return 2;
+
+            DudeDefinition def = Get(definitionId);
+            if (def != null && def.ControlSlots > 0)
+                return def.ControlSlots;
+
+            return 1;
+        }
+
+        public static int GetControlSlots(DudeData data)
+        {
+            if (data == null)
+                return 1;
+            return GetControlSlots(data.DefinitionId, data.EvolutionStage);
+        }
+
         private static void RegisterDefaults()
         {
             // Classic UO / UOR-safe bodies. Tiers: weak fodder < basic starters < medium < strong elite.
             // Leveling: Str+2, Hits curve (~200@10/~500@20/~1000@30 from weak base), Min/MaxDamage+2; abilities base+(DudeLevel*2).
             // Weak L1 tuned to clear skeletons/zombies; higher tiers keep clear separation.
 
-            // --- WEAK (starter-fodder / early catch) — ControlSlots 4, reuse type abilities ---
+            // --- WEAK (starter-fodder / early catch) — ControlSlots 1, reuse type abilities ---
 
             Register(new DudeDefinition(
                 "sparkmite",
@@ -109,7 +137,7 @@ namespace Server.Custom.Dudes
                 4, 7,
                 14,
                 "ember_burst",
-                4));
+                1));
 
             // Embit — catchable fire evo stage 1 (same weak stats as sparkmite, blast ability)
             Register(new DudeDefinition(
@@ -124,7 +152,7 @@ namespace Server.Custom.Dudes
                 4, 7,
                 14,
                 "blast",
-                4));
+                1));
 
             Register(new DudeDefinition(
                 "puddling",
@@ -138,7 +166,7 @@ namespace Server.Custom.Dudes
                 4, 7,
                 14,
                 "tide_crash",
-                4));
+                1));
 
             Register(new DudeDefinition(
                 "pebblet",
@@ -152,7 +180,7 @@ namespace Server.Custom.Dudes
                 5, 8,
                 16,
                 "stone_slam",
-                4));
+                1));
 
             Register(new DudeDefinition(
                 "breezeling",
@@ -166,9 +194,9 @@ namespace Server.Custom.Dudes
                 4, 7,
                 12,
                 "gust_slash",
-                4));
+                1));
 
-            // --- BASIC starters (baseline) — ControlSlots 4, elemental bodies 13–16 ---
+            // --- BASIC starters (baseline) — ControlSlots 1, elemental bodies 13–16 ---
 
             Register(new DudeDefinition(
                 "emberling",
@@ -182,7 +210,7 @@ namespace Server.Custom.Dudes
                 6, 10,
                 18,
                 "ember_burst",
-                4));
+                1));
 
             Register(new DudeDefinition(
                 "tideling",
@@ -196,7 +224,7 @@ namespace Server.Custom.Dudes
                 5, 9,
                 16,
                 "tide_crash",
-                4));
+                1));
 
             Register(new DudeDefinition(
                 "stonepaw",
@@ -210,7 +238,7 @@ namespace Server.Custom.Dudes
                 7, 11,
                 22,
                 "stone_slam",
-                4));
+                1));
 
             Register(new DudeDefinition(
                 "gustling",
@@ -224,9 +252,9 @@ namespace Server.Custom.Dudes
                 5, 9,
                 15,
                 "gust_slash",
-                4));
+                1));
 
-            // --- MEDIUM (stronger than starters, still catchable) ---
+            // --- MEDIUM (stronger than starters, still catchable) — ControlSlots 2 ---
 
             Register(new DudeDefinition(
                 "cinderfang",
@@ -240,7 +268,7 @@ namespace Server.Custom.Dudes
                 9, 14,
                 20,
                 "cinder_bite",
-                4));
+                2));
 
             Register(new DudeDefinition(
                 "riptide",
@@ -254,7 +282,7 @@ namespace Server.Custom.Dudes
                 8, 13,
                 20,
                 "riptide_crash",
-                4));
+                2));
 
             Register(new DudeDefinition(
                 "boulderback",
@@ -268,9 +296,9 @@ namespace Server.Custom.Dudes
                 10, 16,
                 32,
                 "boulder_crush",
-                4));
+                2));
 
-            // --- STRONG (elite wild, catchable, not DudeBoss) ---
+            // --- STRONG (elite wild, catchable, not DudeBoss) — ControlSlots 3 ---
 
             Register(new DudeDefinition(
                 "pyreclaw",
@@ -284,9 +312,9 @@ namespace Server.Custom.Dudes
                 13, 19,
                 40,
                 "pyre_blast",
-                4));
+                3));
 
-            // --- Evolution-only (NOT wild-spawned; GetByType / spawn tables skip these) ---
+            // --- Evolution-only (NOT wild-spawned) — Emberon slots 2, Infernox slots 3 ---
 
             Register(new DudeDefinition(
                 "emberon",
@@ -300,7 +328,7 @@ namespace Server.Custom.Dudes
                 9, 14,
                 20,
                 "blast",
-                4));
+                2));
 
             Register(new DudeDefinition(
                 "infernox",
@@ -314,7 +342,7 @@ namespace Server.Custom.Dudes
                 13, 19,
                 40,
                 "blast",
-                4));
+                3));
         }
     }
 }

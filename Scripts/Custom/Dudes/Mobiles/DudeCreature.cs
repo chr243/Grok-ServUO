@@ -64,7 +64,7 @@ namespace Server.Mobiles
             else
             {
                 Tamable = false; // ownership via DudeBall, not classic taming
-                ControlSlots = def != null ? def.ControlSlots : 4;
+                ControlSlots = DudeRegistry.GetControlSlots(def != null ? def.Id : m_DefinitionId, 1);
                 MinTameSkill = 0.0;
                 FightMode = FightMode.Closest;
             }
@@ -250,7 +250,7 @@ namespace Server.Mobiles
             Fame = m_IsWild ? 100 : 0;
             Karma = m_IsWild ? 0 : 0;
             VirtualArmor = def.VirtualArmor;
-            ControlSlots = def.ControlSlots;
+            ApplyControlSlots(DudeRegistry.GetControlSlots(def.Id, m_EvolutionStage));
 
             ApplyDudeSpeeds();
         }
@@ -282,19 +282,21 @@ namespace Server.Mobiles
             SetDex(data.Dex);
             SetInt(data.Int);
 
-            SetHits(data.HitsMax);
-            HitsMaxSeed = data.HitsMax;
+            // Set HitsMaxSeed directly — SetHits() always assigns Hits = HitsMax (full heal side-effect).
+            HitsMaxSeed = Math.Max(1, data.HitsMax);
 
             if (fullHeal || data.IsFainted)
-                Hits = data.HitsMax;
+                Hits = HitsMax;
             else
-                Hits = Math.Max(1, Math.Min(data.Hits, data.HitsMax));
+                Hits = Math.Max(1, Math.Min(data.Hits, HitsMax));
 
             SetMana(30 + (data.Level * 2));
             Mana = ManaMax;
 
             SetDamage(data.MinDamage, data.MaxDamage);
             VirtualArmor = data.VirtualArmor;
+
+            ApplyControlSlots(DudeRegistry.GetControlSlots(data));
 
             ApplyCombatSkills(data);
             ApplyDudeSpeeds();
@@ -317,6 +319,36 @@ namespace Server.Mobiles
             ApplyCombatSkills(null);
         }
 
+
+        /// <summary>
+        /// Sets ControlSlots and adjusts master's Followers if already controlled
+        /// (needed when evolving live Embit→Emberon→Infernox).
+        /// </summary>
+        public void ApplyControlSlots(int slots)
+        {
+            if (slots < 1)
+                slots = 1;
+
+            int old = ControlSlots;
+            if (old == slots)
+                return;
+
+            Mobile master = ControlMaster;
+            if (Controlled && master != null && !master.Deleted)
+            {
+                master.Followers -= old;
+                if (master.Followers < 0)
+                    master.Followers = 0;
+
+                ControlSlots = slots;
+                master.Followers += slots;
+            }
+            else
+            {
+                ControlSlots = slots;
+            }
+        }
+
         public void SyncToBall()
         {
             if (m_BoundBall == null || m_BoundBall.Deleted || m_BoundBall.StoredDude == null)
@@ -324,7 +356,8 @@ namespace Server.Mobiles
 
             DudeData data = m_BoundBall.StoredDude;
             data.Hits = Hits;
-            data.HitsMax = HitsMax;
+            // Persist seed, not HitsMax property (seed + Str offset), to avoid inflation.
+            data.HitsMax = HitsMaxSeed > 0 ? HitsMaxSeed : HitsMax;
             data.Str = RawStr;
             data.Dex = RawDex;
             data.Int = RawInt;

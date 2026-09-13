@@ -301,8 +301,7 @@ namespace Server.Items
                 return;
             }
 
-            DudeDefinition def = DudeRegistry.Get(m_StoredDude.DefinitionId);
-            int slots = def != null ? def.ControlSlots : 4;
+            int slots = DudeRegistry.GetControlSlots(m_StoredDude);
 
             if (from.Followers + slots > from.FollowersMax)
             {

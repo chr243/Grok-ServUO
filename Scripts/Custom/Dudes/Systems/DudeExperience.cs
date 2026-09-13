@@ -6,7 +6,7 @@ using Server.Network;
 namespace Server.Custom.Dudes
 {
     /// <summary>
-    /// EXP award and leveling. Simple configurable formulas for v1.
+    /// EXP award and leveling. Scaling knobs live on DudeScalingConfig (live-tunable).
     /// </summary>
     public static class DudeExperience
     {
@@ -68,8 +68,14 @@ namespace Server.Custom.Dudes
             if (level < 1)
                 level = 1;
 
-            // Simple curve: 100 * level^2 (continues through L11–30)
-            return 100 * level * level;
+            DudeScalingConfig.EnsureLoaded();
+
+            // Simple curve: 100 * level^2 (continues through L11–30), scaled live.
+            double raw = 100.0 * level * level * DudeScalingConfig.ExpScale;
+            int required = (int)Math.Round(raw);
+            if (required < 1)
+                required = 1;
+            return required;
         }
 
         public static int CalculateKillExp(DudeData data, Mobile victim)
@@ -147,9 +153,15 @@ namespace Server.Custom.Dudes
             if (owner == null)
                 owner = ball.RootParent as Mobile;
 
+            DudeCreature live = ball.SummonedDude;
+
+            // Root-cause fix: StoredDude.Hits is only synced on recall/death. Without syncing
+            // current combat HP here, ApplyData after a kill restores stale (often full) Hits.
+            if (live != null && !live.Deleted && live.Map != null && live.Map != Map.Internal)
+                data.Hits = Math.Max(0, live.Hits);
+
             data.CurrentEXP += amount;
 
-            DudeCreature live = ball.SummonedDude;
             if (live != null && !live.Deleted && live.Map != null && live.Map != Map.Internal)
             {
                 live.PublicOverheadMessage(MessageType.Regular, 0x59, false,
@@ -181,14 +193,17 @@ namespace Server.Custom.Dudes
 
         /// <summary>
         /// Hits gain on reaching this level. Tuned so Embit (base 50) ≈ 200 @10 / 500 @20 / 1000 @30.
+        /// Values come from DudeScalingConfig (live-tunable).
         /// </summary>
         public static int GetHitsGainForLevel(int newLevel)
         {
+            DudeScalingConfig.EnsureLoaded();
+
             if (newLevel <= 10)
-                return 17; // L2–10: 50 + 17*9 ≈ 203
+                return DudeScalingConfig.HitsGainL2to10; // L2–10 default 17
             if (newLevel <= 20)
-                return 30; // L11–20: +300 → ≈ 503
-            return 50;     // L21–30: +500 → ≈ 1003
+                return DudeScalingConfig.HitsGainL11to20; // L11–20 default 30
+            return DudeScalingConfig.HitsGainL21to30;     // L21–30 default 50
         }
 
         public static void LevelUp(DudeData data, Mobile owner)
@@ -199,17 +214,19 @@ namespace Server.Custom.Dudes
             if (data.Level >= GetMaxLevel(data))
                 return;
 
+            DudeScalingConfig.EnsureLoaded();
+
             data.Level++;
             data.EXPToNext = GetExpRequiredForLevel(data.Level);
 
-            // Classic UO-style bumps; Hits scaled for late-game evo tanks; melee +2/+2.
+            // Classic UO-style bumps; Hits scaled for late-game evo tanks; melee from config.
             data.Str += 2;
             data.Dex += 2;
             data.Int += 1;
             data.HitsMax += GetHitsGainForLevel(data.Level);
             data.Hits = data.HitsMax;
-            data.MinDamage += 2;
-            data.MaxDamage += 2;
+            data.MinDamage += DudeScalingConfig.MeleeDamagePerLevel;
+            data.MaxDamage += DudeScalingConfig.MeleeDamagePerLevel;
 
             if (data.Level % 3 == 0)
                 data.VirtualArmor += 1;
@@ -230,7 +247,14 @@ namespace Server.Custom.Dudes
         {
             if (level < 1)
                 level = 1;
-            return 8 + (level * 2);
+
+            DudeScalingConfig.EnsureLoaded();
+
+            int damage = 8 + (level * 2);
+            damage = (int)Math.Round(damage * DudeScalingConfig.AbilityDamageMultiplier);
+            if (damage < 1)
+                damage = 1;
+            return damage;
         }
     }
 }
