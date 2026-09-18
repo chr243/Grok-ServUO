@@ -111,7 +111,7 @@ namespace Server.Custom.Dudes.Commands
 
             DudeRegistry.EnsureInitialized();
 
-            string id = "emberling";
+            string id = "ember";
             if (e.Arguments != null && e.Arguments.Length > 0 && !string.IsNullOrEmpty(e.Arguments[0]))
                 id = e.Arguments[0];
 
@@ -163,7 +163,7 @@ namespace Server.Custom.Dudes.Commands
 
             DudeRegistry.EnsureInitialized();
 
-            string id = "emberling";
+            string id = "ember";
             if (e.Arguments != null && e.Arguments.Length > 0 && !string.IsNullOrEmpty(e.Arguments[0]))
                 id = e.Arguments[0];
 
@@ -233,7 +233,7 @@ namespace Server.Custom.Dudes.Commands
 
             DudeJobStation station = new DudeJobStation();
             station.MoveToWorld(from.Location, from.Map);
-            from.SendMessage(0x59, "TEST: Dude Job Station placed. Assign an Earth Dude (pebblet/stonepaw/boulderback) near mineable terrain.");
+            from.SendMessage(0x59, "TEST: Dude Job Station placed. Assign an Earth Dude (pebble/boulder/quake) near mineable terrain.");
         }
 
         [Usage("SpawnEmberlord")]

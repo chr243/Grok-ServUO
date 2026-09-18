@@ -283,6 +283,15 @@ namespace Server.Items
                 return;
             }
 
+            if (DudeRegistry.Get(m_StoredDude.DefinitionId) == null)
+            {
+                m_StoredDude = null;
+                RefreshHue();
+                InvalidateProperties();
+                from.SendMessage("That Dude species no longer exists. The ball is empty.");
+                return;
+            }
+
             if (IsSummoned)
             {
                 from.SendMessage("{0} is already summoned.", m_StoredDude.DisplayName);
@@ -480,6 +489,10 @@ namespace Server.Items
             {
                 m_StoredDude = new DudeData();
                 m_StoredDude.Deserialize(reader);
+
+                // Unknown / removed species: empty the ball (no migration).
+                if (DudeRegistry.Get(m_StoredDude.DefinitionId) == null)
+                    m_StoredDude = null;
             }
             else
             {
@@ -487,6 +500,12 @@ namespace Server.Items
             }
 
             m_SummonedDude = reader.ReadMobile() as DudeCreature;
+
+            if (m_StoredDude == null && m_SummonedDude != null && !m_SummonedDude.Deleted)
+            {
+                m_SummonedDude.Delete();
+                m_SummonedDude = null;
+            }
 
             if (version >= 1)
                 m_NextUseUtc = reader.ReadDateTime();

@@ -20,25 +20,22 @@ namespace Server.Custom.Dudes
             {
                 switch (definitionId.ToLowerInvariant())
                 {
-                    case "sparkmite":
-                    case "puddling":
-                    case "pebblet":
-                    case "breezeling":
-                    case "embit":
+                    case "ember":
+                    case "droplet":
+                    case "pebble":
+                    case "breeze":
                         return 1;
 
-                    case "emberling":
-                    case "tideling":
-                    case "stonepaw":
-                    case "gustling":
-                    case "cinderfang":
-                    case "riptide":
-                    case "boulderback":
-                    case "emberon":
+                    case "flame":
+                    case "ripple":
+                    case "boulder":
+                    case "gale":
                         return 2;
 
-                    case "pyreclaw":
-                    case "infernox":
+                    case "blaze":
+                    case "torrent":
+                    case "quake":
+                    case "hurricane":
                         return 3;
                 }
             }

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Server.Custom.Dudes
 {
     /// <summary>
-    /// Central registry for Dude species definitions. Add new Dudes by registering here.
+    /// Central registry for Dude species. Four elemental lines × three stages (12 total).
     /// </summary>
     public static class DudeRegistry
     {
@@ -60,9 +60,7 @@ namespace Server.Custom.Dudes
             return m_All.AsReadOnly();
         }
 
-        /// <summary>
-        /// First registered wild-friendly match for type. Evolution-only forms (emberon/infernox) are skipped.
-        /// </summary>
+        /// <summary>First wild-friendly (stage-1) match for type.</summary>
         public static DudeDefinition GetByType(DudeType type)
         {
             EnsureInitialized();
@@ -85,15 +83,23 @@ namespace Server.Custom.Dudes
             if (string.IsNullOrEmpty(definitionId))
                 return false;
 
-            return string.Equals(definitionId, "emberon", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(definitionId, "infernox", StringComparison.OrdinalIgnoreCase);
+            string id = definitionId.ToLowerInvariant();
+            return id == "flame" || id == "blaze"
+                || id == "ripple" || id == "torrent"
+                || id == "boulder" || id == "quake"
+                || id == "gale" || id == "hurricane";
         }
 
+        public static bool IsStage1(string definitionId)
+        {
+            if (string.IsNullOrEmpty(definitionId))
+                return false;
 
-        /// <summary>
-        /// Follower slots by tier / evolution: weak+basic+stage1=1, medium+stage2=2, strong+stage3=3.
-        /// Evolution stage wins when >= 2 so Embit→Emberon→Infernox always maps 1/2/3.
-        /// </summary>
+            string id = definitionId.ToLowerInvariant();
+            return id == "ember" || id == "droplet" || id == "pebble" || id == "breeze";
+        }
+
+        /// <summary>Follower slots: stage1=1, stage2=2, stage3=3.</summary>
         public static int GetControlSlots(string definitionId, int evolutionStage)
         {
             EnsureInitialized();
@@ -119,230 +125,83 @@ namespace Server.Custom.Dudes
 
         private static void RegisterDefaults()
         {
-            // Classic UO / UOR-safe bodies. Tiers: weak fodder < basic starters < medium < strong elite.
-            // Leveling: Str+2, Hits curve (~200@10/~500@20/~1000@30 from weak base), Min/MaxDamage+2; abilities base+(DudeLevel*2).
-            // Weak L1 tuned to clear skeletons/zombies; higher tiers keep clear separation.
+            // Hue 0 for all. ControlSlots 1/2/3 by stage. Stats keep S1/S2/S3 separation.
 
-            // --- WEAK (starter-fodder / early catch) — ControlSlots 1, reuse type abilities ---
+            // --- Fire: Ember → Flame → Blaze ---
+            Register(new DudeDefinition(
+                "ember", "Ember", DudeType.Fire,
+                74, 0, 422, // imp body (former Embit)
+                45, 40, 15, 50, 4, 7, 14,
+                "blast", 1));
 
             Register(new DudeDefinition(
-                "sparkmite",
-                "Sparkmite",
-                DudeType.Fire,
-                51,   // slime
-                1358, // hot orange
-                456,
-                45, 40, 15,
-                50,
-                4, 7,
-                14,
-                "ember_burst",
-                1));
-
-            // Embit — catchable fire evo stage 1 (same weak stats as sparkmite, blast ability)
-            Register(new DudeDefinition(
-                "embit",
-                "Embit",
-                DudeType.Fire,
-                74,   // imp
-                1358, // hot orange
-                422,  // imp sound
-                45, 40, 15,
-                50,
-                4, 7,
-                14,
-                "blast",
-                1));
+                "flame", "Flame", DudeType.Fire,
+                784, 0, 0x174,
+                70, 70, 35, 100, 9, 14, 20,
+                "blast", 2));
 
             Register(new DudeDefinition(
-                "puddling",
-                "Puddling",
-                DudeType.Water,
-                81,   // bullfrog
-                1366, // deep cyan
-                0x266,
-                42, 38, 18,
-                52,
-                4, 7,
-                14,
-                "tide_crash",
-                1));
+                "blaze", "Blaze", DudeType.Fire,
+                1433, 0, 357,
+                110, 65, 55, 180, 13, 19, 40,
+                "blast", 3));
+
+            // --- Water: Droplet → Ripple → Torrent ---
+            Register(new DudeDefinition(
+                "droplet", "Droplet", DudeType.Water,
+                51, 0, 0x266,
+                45, 40, 15, 50, 4, 7, 14,
+                "tide_crash", 1));
 
             Register(new DudeDefinition(
-                "pebblet",
-                "Pebblet",
-                DudeType.Earth,
-                48,   // scorpion
-                2412, // dusty stone
-                397,
-                50, 28, 12,
-                55,
-                5, 8,
-                16,
-                "stone_slam",
-                1));
+                "ripple", "Ripple", DudeType.Water,
+                1244, 0, 278,
+                70, 70, 35, 100, 9, 14, 20,
+                "tide_crash", 2));
 
             Register(new DudeDefinition(
-                "breezeling",
-                "Breezeling",
-                DudeType.Air,
-                6,    // bird
-                1150, // pale air
-                0x1B,
-                40, 50, 20,
-                48,
-                4, 7,
-                12,
-                "gust_slash",
-                1));
+                "torrent", "Torrent", DudeType.Water,
+                1427, 0, 278,
+                110, 65, 55, 180, 13, 19, 40,
+                "tide_crash", 3));
 
-            // --- BASIC starters (baseline) — ControlSlots 1, elemental bodies 13–16 ---
+            // --- Earth: Pebble → Boulder → Quake ---
+            Register(new DudeDefinition(
+                "pebble", "Pebble", DudeType.Earth,
+                196, 0, 397,
+                50, 28, 12, 55, 5, 8, 16,
+                "stone_slam", 1));
 
             Register(new DudeDefinition(
-                "emberling",
-                "Emberling",
-                DudeType.Fire,
-                15,   // fire elemental body
-                1359, // bright orange-red
-                838,
-                55, 50, 30,
-                70,
-                6, 10,
-                18,
-                "ember_burst",
-                1));
+                "boulder", "Boulder", DudeType.Earth,
+                829, 0, 0x174,
+                90, 40, 25, 130, 10, 16, 32,
+                "stone_slam", 2));
 
             Register(new DudeDefinition(
-                "tideling",
-                "Tideling",
-                DudeType.Water,
-                16,   // water elemental body
-                1365, // cyan-blue
-                278,
-                50, 55, 35,
-                72,
-                5, 9,
-                16,
-                "tide_crash",
-                1));
+                "quake", "Quake", DudeType.Earth,
+                1248, 0, 268,
+                110, 65, 55, 180, 13, 19, 40,
+                "stone_slam", 3));
+
+            // --- Air: Breeze → Gale → Hurricane ---
+            Register(new DudeDefinition(
+                "breeze", "Breeze", DudeType.Air,
+                58, 0, 0x1B,
+                40, 50, 20, 48, 4, 7, 12,
+                "gust_slash", 1));
 
             Register(new DudeDefinition(
-                "stonepaw",
-                "Stonepaw",
-                DudeType.Earth,
-                14,   // earth elemental body
-                2413, // brown/stone
-                268,
-                65, 35, 22,
-                85,
-                7, 11,
-                22,
-                "stone_slam",
-                1));
+                "gale", "Gale", DudeType.Air,
+                199, 0, 655,
+                70, 70, 35, 100, 9, 14, 20,
+                "gust_slash", 2));
 
             Register(new DudeDefinition(
-                "gustling",
-                "Gustling",
-                DudeType.Air,
-                13,   // air elemental body
-                1153, // pale sky
-                655,
-                48, 65, 40,
-                68,
-                5, 9,
-                15,
-                "gust_slash",
-                1));
-
-            // --- MEDIUM (stronger than starters, still catchable) — ControlSlots 2 ---
-
-            Register(new DudeDefinition(
-                "cinderfang",
-                "Cinderfang",
-                DudeType.Fire,
-                0xC9, // hell cat
-                1359,
-                0x69,
-                70, 70, 35,
-                100,
-                9, 14,
-                20,
-                "cinder_bite",
-                2));
-
-            Register(new DudeDefinition(
-                "riptide",
-                "Riptide",
-                DudeType.Water,
-                161,  // ice elemental
-                1154, // frost blue
-                268,
-                65, 60, 50,
-                105,
-                8, 13,
-                20,
-                "riptide_crash",
-                2));
-
-            Register(new DudeDefinition(
-                "boulderback",
-                "Boulderback",
-                DudeType.Earth,
-                67,   // stone gargoyle
-                2413,
-                0x174,
-                90, 40, 25,
-                130,
-                10, 16,
-                32,
-                "boulder_crush",
-                2));
-
-            // --- STRONG (elite wild, catchable, not DudeBoss) — ControlSlots 3 ---
-
-            Register(new DudeDefinition(
-                "pyreclaw",
-                "Pyreclaw",
-                DudeType.Fire,
-                130,  // fire gargoyle
-                1161, // bright fire (distinct from Emberling 1359)
-                0x174,
-                110, 65, 55,
-                180,
-                13, 19,
-                40,
-                "pyre_blast",
-                3));
-
-            // --- Evolution-only (NOT wild-spawned) — Emberon slots 2, Infernox slots 3 ---
-
-            Register(new DudeDefinition(
-                "emberon",
-                "Emberon",
-                DudeType.Fire,
-                130,  // fire gargoyle — same as Pyreclaw
-                1161, // bright fire (Pyreclaw hue)
-                0x174,
-                70, 70, 35,
-                100,
-                9, 14,
-                20,
-                "blast",
-                2));
-
-            Register(new DudeDefinition(
-                "infernox",
-                "Infernox",
-                DudeType.Fire,
-                40,   // balron
-                1161, // same bright fire hue as Emberon / Pyreclaw
-                357,  // balron sound
-                110, 65, 55,
-                180,
-                13, 19,
-                40,
-                "blast",
-                3));
+                "hurricane", "Hurricane", DudeType.Air,
+                1427, 0, 655,
+                110, 65, 55, 180, 13, 19, 40,
+                "gust_slash", 3));
         }
     }
 }

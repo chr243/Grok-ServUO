@@ -32,7 +32,7 @@ namespace Server.Mobiles
 
         [Constructable]
         public DudeCreature()
-            : this("emberling", true)
+            : this("ember", true)
         {
         }
 
@@ -532,10 +532,14 @@ namespace Server.Mobiles
             if (m_IsWild || m_Fainting || Frozen || m_Despawning || Deleted)
                 return;
 
-            bool infernox = EvolutionStage >= 3
-                || string.Equals(m_DefinitionId, "infernox", StringComparison.OrdinalIgnoreCase);
+            // Burn is Fire stage-3 (Blaze) only.
+            bool blaze = EvolutionStage >= 3
+                || string.Equals(m_DefinitionId, "blaze", StringComparison.OrdinalIgnoreCase);
+            if (!blaze)
+                return;
 
-            if (!infernox)
+            DudeDefinition burnDef = DudeRegistry.Get(m_DefinitionId);
+            if (burnDef == null || burnDef.Type != DudeType.Fire)
                 return;
 
             Mobile combatant = Combatant as Mobile;

@@ -179,12 +179,12 @@ namespace Server.Items
             if (data != null)
             {
                 showBurn = data.EvolutionStage >= 3
-                    || string.Equals(data.DefinitionId, "infernox", StringComparison.OrdinalIgnoreCase);
+                    || string.Equals(data.DefinitionId, "blaze", StringComparison.OrdinalIgnoreCase);
             }
             if (!showBurn)
             {
                 showBurn = evolutionStage >= 3
-                    || string.Equals(definitionId, "infernox", StringComparison.OrdinalIgnoreCase);
+                    || string.Equals(definitionId, "blaze", StringComparison.OrdinalIgnoreCase);
             }
 
             if (showBurn)

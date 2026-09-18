@@ -41,17 +41,25 @@ namespace Server.Custom.Dudes
                 return;
 
             id = id.ToLowerInvariant();
-            bool evoLine = id == "embit" || id == "emberon" || id == "infernox";
-            if (!evoLine)
+
+            // Fire line: Blast → Ring of Fire → Burn
+            if (id == "ember" || id == "flame" || id == "blaze")
+            {
+                data.UnlockAbility("blast");
+                if (data.EvolutionStage >= 2 || id == "flame" || id == "blaze")
+                    data.UnlockAbility("ring_of_fire");
+                if (data.EvolutionStage >= 3 || id == "blaze")
+                    data.UnlockAbility("burn");
                 return;
+            }
 
-            data.UnlockAbility("blast");
-
-            if (data.EvolutionStage >= 2 || id == "emberon" || id == "infernox")
-                data.UnlockAbility("ring_of_fire");
-
-            if (data.EvolutionStage >= 3 || id == "infernox")
-                data.UnlockAbility("burn");
+            // Other lines keep their stage-1 combat ability unlocked across evo.
+            if (id == "droplet" || id == "ripple" || id == "torrent")
+                data.UnlockAbility("tide_crash");
+            else if (id == "pebble" || id == "boulder" || id == "quake")
+                data.UnlockAbility("stone_slam");
+            else if (id == "breeze" || id == "gale" || id == "hurricane")
+                data.UnlockAbility("gust_slash");
         }
 
         public static int GetMaxLevel(int evolutionStage)
