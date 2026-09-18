@@ -39,11 +39,8 @@ namespace Server.Custom.Dudes
             {
                 for (int dy = -radius; dy <= radius; dy++)
                 {
-                    int adx = dx < 0 ? -dx : dx;
-                    int ady = dy < 0 ? -dy : dy;
-                    if (Math.Max(adx, ady) != radius)
-                        continue;
-                    if (adx == radius && ady == radius)
+                    double d = Math.Sqrt(dx * dx + dy * dy);
+                    if (Math.Abs(d - radius) > 0.6)
                         continue;
 
                     Point3D p = new Point3D(center.X + dx, center.Y + dy, center.Z);
@@ -556,7 +553,7 @@ namespace Server.Custom.Dudes
             for (int r = 1; r <= AoERange; r++)
             {
                 int radius = r;
-                Timer.DelayCall(TimeSpan.FromMilliseconds(250 * (radius - 1)), () =>
+                Timer.DelayCall(TimeSpan.FromMilliseconds(150 * (radius - 1)), () =>
                 {
                     if (dude == null || dude.Deleted || map == null || map == Map.Internal)
                         return;
@@ -596,7 +593,7 @@ namespace Server.Custom.Dudes
             for (int r = 1; r <= AoERange; r++)
             {
                 int radius = r;
-                Timer.DelayCall(TimeSpan.FromMilliseconds(250 * (radius - 1)), () =>
+                Timer.DelayCall(TimeSpan.FromMilliseconds(150 * (radius - 1)), () =>
                 {
                     if (caster == null || caster.Deleted || map == null || map == Map.Internal)
                         return;
@@ -612,11 +609,8 @@ namespace Server.Custom.Dudes
             {
                 for (int dy = -radius; dy <= radius; dy++)
                 {
-                    int adx = dx < 0 ? -dx : dx;
-                    int ady = dy < 0 ? -dy : dy;
-                    if (Math.Max(adx, ady) != radius)
-                        continue;
-                    if (adx == radius && ady == radius && radius > 1)
+                    double d = Math.Sqrt(dx * dx + dy * dy);
+                    if (Math.Abs(d - radius) > 0.6)
                         continue;
 
                     int z = center.Z;
@@ -645,8 +639,10 @@ namespace Server.Custom.Dudes
                     if (bc != null && master != null && bc.Controlled && bc.ControlMaster == master)
                         continue;
 
-                    int dist = Math.Max(Math.Abs(m.X - center.X), Math.Abs(m.Y - center.Y));
-                    if (dist != radius)
+                    int dx = m.X - center.X;
+                    int dy = m.Y - center.Y;
+                    double d = Math.Sqrt(dx * dx + dy * dy);
+                    if (Math.Abs(d - radius) > 0.6)
                         continue;
 
                     caster.DoHarmful(m);
