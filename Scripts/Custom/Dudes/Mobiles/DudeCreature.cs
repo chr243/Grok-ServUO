@@ -26,6 +26,7 @@ namespace Server.Mobiles
         private bool m_Fainting;
         private bool m_Despawning;
         private bool m_BlessedBeforeDespawn;
+        private DateTime m_NextBurnPulse;
 
         private const double DudeForceSpeed = 0.1;
 
@@ -528,7 +529,7 @@ namespace Server.Mobiles
 
         private void TryInfernoxPassive()
         {
-            if (m_Fainting || Frozen || Combatant == null)
+            if (m_IsWild || m_Fainting || Frozen || m_Despawning || Deleted)
                 return;
 
             bool infernox = EvolutionStage >= 3
@@ -537,41 +538,89 @@ namespace Server.Mobiles
             if (!infernox)
                 return;
 
-            if (Utility.RandomDouble() >= 0.05)
+            Mobile combatant = Combatant as Mobile;
+            if (combatant == null || combatant.Deleted || !combatant.Alive)
+                return;
+
+            DateTime now = DateTime.UtcNow;
+            if (now < m_NextBurnPulse)
+                return;
+
+            m_NextBurnPulse = now + TimeSpan.FromSeconds(1.0);
+
+            List<Mobile> candidates = new List<Mobile>();
+            AddBurnCandidate(candidates, combatant);
+
+            List<AggressorInfo> aggressors = Aggressors;
+            if (aggressors != null)
+            {
+                for (int i = 0; i < aggressors.Count; i++)
+                {
+                    AggressorInfo info = aggressors[i];
+                    if (info == null || info.Expired)
+                        continue;
+                    AddBurnCandidate(candidates, info.Attacker);
+                }
+            }
+
+            List<AggressorInfo> aggressed = Aggressed;
+            if (aggressed != null)
+            {
+                for (int i = 0; i < aggressed.Count; i++)
+                {
+                    AggressorInfo info = aggressed[i];
+                    if (info == null || info.Expired)
+                        continue;
+                    AddBurnCandidate(candidates, info.Defender);
+                }
+            }
+
+            if (candidates.Count == 0)
                 return;
 
             int damage = Math.Max(1, (int)(DudeExperience.GetBlastDamage(m_DudeLevel) * 0.3));
+            bool anyHit = false;
 
-            List<Mobile> list = new List<Mobile>();
-            foreach (Mobile m in GetMobilesInRange(8))
+            for (int i = 0; i < candidates.Count; i++)
             {
-                if (m == null || m == this || m.Deleted || !m.Alive)
-                    continue;
-                if (m == ControlMaster)
-                    continue;
-                if (!CanBeHarmful(m))
+                if (Utility.RandomDouble() >= 0.5)
                     continue;
 
-                BaseCreature bc = m as BaseCreature;
-                if (bc != null && bc.Controlled && bc.ControlMaster == ControlMaster)
-                    continue;
-
-                list.Add(m);
+                Mobile m = candidates[i];
+                // Already in the fight — damage only, no DoHarmful (avoids new pulls).
+                AOS.Damage(m, this, damage, 0, 100, 0, 0, 0);
+                DudeAbilityVfx.PlayFireHit(m, false);
+                anyHit = true;
             }
 
-            if (list.Count == 0)
+            if (anyHit)
+            {
+                PublicOverheadMessage(MessageType.Regular, 0x22, false, "*Burn*");
+                PlaySound(0x208);
+            }
+        }
+
+        private void AddBurnCandidate(List<Mobile> list, Mobile m)
+        {
+            if (m == null || m == this || m.Deleted || !m.Alive)
+                return;
+            if (m == ControlMaster)
+                return;
+            if (!CanBeHarmful(m))
                 return;
 
-            PublicOverheadMessage(MessageType.Regular, 0x22, false, "*Burn*");
-            PlaySound(0x208);
+            BaseCreature bc = m as BaseCreature;
+            if (bc != null && ControlMaster != null
+                && bc.Controlled && bc.ControlMaster == ControlMaster)
+                return;
 
             for (int i = 0; i < list.Count; i++)
             {
-                Mobile m = list[i];
-                DoHarmful(m);
-                AOS.Damage(m, this, damage, 0, 100, 0, 0, 0);
-                DudeAbilityVfx.PlayFireHit(m, true);
+                if (list[i] == m)
+                    return;
             }
+
+            list.Add(m);
         }
 
         public override void GenerateLoot()
@@ -706,7 +755,7 @@ namespace Server.Mobiles
         public override void Serialize(GenericWriter writer)
         {
             base.Serialize(writer);
-            writer.Write((int)1);
+            writer.Write((int)2);
 
             writer.Write(m_DefinitionId);
             writer.Write(m_IsWild);
@@ -715,6 +764,7 @@ namespace Server.Mobiles
             writer.Write(m_DudeLevel);
             writer.Write(m_AbilityId);
             writer.Write(m_EvolutionStage);
+            writer.Write(m_NextBurnPulse);
         }
 
         public override void Deserialize(GenericReader reader)
@@ -733,6 +783,11 @@ namespace Server.Mobiles
                 m_EvolutionStage = reader.ReadInt();
             else
                 m_EvolutionStage = 1;
+
+            if (version >= 2)
+                m_NextBurnPulse = reader.ReadDateTime();
+            else
+                m_NextBurnPulse = DateTime.UtcNow;
 
             DudeRegistry.EnsureInitialized();
             DudeAbilityRegistry.EnsureInitialized();
