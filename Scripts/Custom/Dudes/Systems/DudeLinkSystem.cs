@@ -634,11 +634,11 @@ namespace Server.Custom.Dudes
                 return;
 
             int oldLevel = ball.StoredDude.Level;
-            DudeExperience.AwardExperience(ball, amount, master, true);
+            DudeExperience.AwardExperience(ball, amount, master);
 
-            // Level-up: only nudge stats/HP that changed. No skill/body/OPL work mid-kill.
-            if (ball.StoredDude != null && ball.StoredDude.Level > oldLevel)
-                ApplyLinkedLevelUpStats(master, ball.StoredDude);
+            // Linked form: rewrite player stats only on a real level-up (not every trash kill).
+            if (ball.StoredDude != null && ball.StoredDude.Level != oldLevel)
+                RefreshLinkedFormFromBall(master, ball);
         }
 
         /// <summary>

@@ -196,7 +196,7 @@ namespace Server.Custom.Dudes
         }
 
         /// <param name="linkedQuiet">
-        /// Linked combat path: no OPL rebuild / ApplyData during the kill packet (avoids ping spikes).
+        /// Linked combat path: skip OPL rebuild mid-kill (ApplyData still only on real level-up).
         /// </param>
         public static void AwardExperience(DudeBall ball, int amount, Mobile notify, bool linkedQuiet)
         {
@@ -215,6 +215,8 @@ namespace Server.Custom.Dudes
             if (live != null && !live.Deleted && live.Map != null && live.Map != Map.Internal)
                 data.Hits = Math.Max(0, live.Hits);
 
+            int oldLevel = data.Level;
+
             data.CurrentEXP += amount;
 
             if (!linkedQuiet && live != null && !live.Deleted && live.Map != null && live.Map != Map.Internal)
@@ -228,10 +230,12 @@ namespace Server.Custom.Dudes
 
             int maxLevel = GetMaxLevel(data);
             int safety = 0;
-            while (data.CurrentEXP >= data.EXPToNext && data.Level < maxLevel && safety < 50)
+            while (data.CurrentEXP >= data.EXPToNext && data.EXPToNext > 0 && data.Level < maxLevel && safety < 50)
             {
                 data.CurrentEXP -= data.EXPToNext;
                 LevelUp(data, owner);
+                if (data.EXPToNext < 1)
+                    data.EXPToNext = GetExpRequiredForLevel(data.Level);
                 safety++;
                 maxLevel = GetMaxLevel(data);
             }
@@ -241,12 +245,11 @@ namespace Server.Custom.Dudes
                 data.CurrentEXP = data.EXPToNext;
 
             if (!linkedQuiet)
-            {
                 ball.InvalidateProperties();
 
-                if (live != null && !live.Deleted)
-                    live.ApplyData(data, false);
-            }
+            // Only rewrite live creature stats/skills/speeds on a real level-up (not every XP tick).
+            if (live != null && !live.Deleted && data.Level != oldLevel)
+                live.ApplyData(data, false);
         }
 
         /// <summary>
@@ -276,6 +279,8 @@ namespace Server.Custom.Dudes
 
             data.Level++;
             data.EXPToNext = GetExpRequiredForLevel(data.Level);
+            if (data.EXPToNext < 1)
+                data.EXPToNext = 1;
 
             // Stat bumps from live config (defaults: Str+5 / Dex+6 / Int+2 → L30 Dex ~220–240).
             data.Str += DudeScalingConfig.StrGainPerLevel;

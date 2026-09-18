@@ -1,4 +1,5 @@
 using System;
+using Server;
 using System.Collections.Generic;
 using Server.Engines.PartySystem;
 using Server.Items;
@@ -639,26 +640,34 @@ namespace Server.Custom.Dudes
                 }
             }
 
-            foreach (Mobile m in map.GetMobilesInRange(center, radius))
+            IPooledEnumerable eable = map.GetMobilesInRange(center, radius);
+            try
             {
-                if (m == null || m == caster || m.Deleted || !m.Alive)
-                    continue;
-                if (master != null && m == master)
-                    continue;
-                if (!caster.CanBeHarmful(m))
-                    continue;
+                foreach (Mobile m in eable)
+                {
+                    if (m == null || m == caster || m.Deleted || !m.Alive)
+                        continue;
+                    if (master != null && m == master)
+                        continue;
+                    if (!caster.CanBeHarmful(m))
+                        continue;
 
-                BaseCreature bc = m as BaseCreature;
-                if (bc != null && master != null && bc.Controlled && bc.ControlMaster == master)
-                    continue;
+                    BaseCreature bc = m as BaseCreature;
+                    if (bc != null && master != null && bc.Controlled && bc.ControlMaster == master)
+                        continue;
 
-                int dist = Math.Max(Math.Abs(m.X - center.X), Math.Abs(m.Y - center.Y));
-                if (dist != radius)
-                    continue;
+                    int dist = Math.Max(Math.Abs(m.X - center.X), Math.Abs(m.Y - center.Y));
+                    if (dist != radius)
+                        continue;
 
-                caster.DoHarmful(m);
-                AOS.Damage(m, caster, damage, 0, 100, 0, 0, 0);
-                DudeAbilityVfx.PlayFireHit(m, false);
+                    caster.DoHarmful(m);
+                    AOS.Damage(m, caster, damage, 0, 100, 0, 0, 0);
+                    DudeAbilityVfx.PlayFireHit(m, false);
+                }
+            }
+            finally
+            {
+                eable.Free();
             }
         }
     }
