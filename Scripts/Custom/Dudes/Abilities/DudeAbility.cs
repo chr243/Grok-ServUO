@@ -5,6 +5,7 @@ namespace Server.Custom.Dudes
 {
     /// <summary>
     /// Extensible Dude ability. Name, cooldown, optional mana cost, kit/stage, Execute().
+    /// Cooldown reads live from DudeAbilityConfig when configured.
     /// </summary>
     public abstract class DudeAbility
     {
@@ -27,7 +28,22 @@ namespace Server.Custom.Dudes
 
         public string Id { get { return m_Id; } }
         public string Name { get { return m_Name; } }
-        public TimeSpan Cooldown { get { return m_Cooldown; } }
+
+        /// <summary>
+        /// Live cooldown from DudeAbilityConfig when CooldownSeconds &gt; 0; else ctor fallback.
+        /// </summary>
+        public TimeSpan Cooldown
+        {
+            get
+            {
+                DudeAbilityConfig.EnsureLoaded();
+                TimeSpan live = DudeAbilityConfig.GetCooldown(m_Id);
+                if (live > TimeSpan.Zero)
+                    return live;
+                return m_Cooldown;
+            }
+        }
+
         public int ManaCost { get { return m_ManaCost; } }
         public int Stage { get { return m_Stage; } }
         public DudeType Kit { get { return m_Kit; } }
@@ -55,7 +71,7 @@ namespace Server.Custom.Dudes
                 dude.Mana -= m_ManaCost;
 
             Execute(dude, target);
-            dude.NextAbilityTime = DateTime.UtcNow + m_Cooldown;
+            dude.NextAbilityTime = DateTime.UtcNow + Cooldown;
             return true;
         }
 

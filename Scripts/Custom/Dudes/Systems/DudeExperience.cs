@@ -296,8 +296,9 @@ namespace Server.Custom.Dudes
                 level = 1;
 
             DudeScalingConfig.EnsureLoaded();
+            DudeAbilityConfig.EnsureLoaded();
 
-            int damage = 8 + (level * 2);
+            int damage = DudeAbilityConfig.BlastBase + (level * DudeAbilityConfig.BlastPerLevel);
             damage = (int)Math.Round(damage * DudeScalingConfig.AbilityDamageMultiplier);
             if (damage < 1)
                 damage = 1;

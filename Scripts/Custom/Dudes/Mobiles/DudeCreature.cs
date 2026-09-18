@@ -573,7 +573,13 @@ namespace Server.Mobiles
 
                 TimeSpan cd = ability.Cooldown;
                 if (slipstream)
-                    cd = TimeSpan.FromSeconds(Math.Max(7.0, cd.TotalSeconds - 2.0));
+                {
+                    DudeAbilityConfig.EnsureLoaded();
+                    DudeAbilityTune slip = DudeAbilityConfig.Get("slipstream");
+                    double reduce = slip != null && slip.ReduceSeconds > 0.0 ? slip.ReduceSeconds : 2.0;
+                    double floor = slip != null && slip.FloorSeconds > 0.0 ? slip.FloorSeconds : 7.0;
+                    cd = TimeSpan.FromSeconds(Math.Max(floor, cd.TotalSeconds - reduce));
+                }
 
                 m_NextAbilityById[ability.Id] = DateTime.UtcNow + cd;
                 // Independent cooldowns — keep scanning remaining unlocked abilities.
@@ -607,11 +613,17 @@ namespace Server.Mobiles
             if (burnDef == null || burnDef.Type != DudeType.Fire)
                 return;
 
+            DudeAbilityConfig.EnsureLoaded();
+            DudeAbilityTune tune = DudeAbilityConfig.Get("burn");
+            double tick = tune != null && tune.TickSeconds > 0.0 ? tune.TickSeconds : 1.0;
+            double hitChance = tune != null && tune.HitChance > 0.0 ? tune.HitChance : 0.5;
+            double vs = tune != null && tune.DamageVsBlast > 0.0 ? tune.DamageVsBlast : 0.3;
+
             DateTime now = DateTime.UtcNow;
             if (now < m_NextBurnPulse)
                 return;
 
-            m_NextBurnPulse = now + TimeSpan.FromSeconds(1.0);
+            m_NextBurnPulse = now + TimeSpan.FromSeconds(tick);
 
             List<Mobile> candidates = new List<Mobile>();
             DudeAbilityVfx.CollectFightList(this, candidates);
@@ -619,12 +631,12 @@ namespace Server.Mobiles
             if (candidates.Count == 0)
                 return;
 
-            int damage = Math.Max(1, (int)(DudeExperience.GetBlastDamage(m_DudeLevel) * 0.3));
+            int damage = Math.Max(1, (int)(DudeExperience.GetBlastDamage(m_DudeLevel) * vs));
             bool anyHit = false;
 
             for (int i = 0; i < candidates.Count; i++)
             {
-                if (Utility.RandomDouble() >= 0.5)
+                if (Utility.RandomDouble() >= hitChance)
                     continue;
 
                 Mobile m = candidates[i];
@@ -645,15 +657,20 @@ namespace Server.Mobiles
             if (!inCombat)
                 return;
 
+            DudeAbilityConfig.EnsureLoaded();
+            DudeAbilityTune tune = DudeAbilityConfig.Get("spring");
+            double tick = tune != null && tune.TickSeconds > 0.0 ? tune.TickSeconds : 2.0;
+            double healFrac = tune != null && tune.HealHitsFraction > 0.0 ? tune.HealHitsFraction : 0.05;
+
             DateTime now = DateTime.UtcNow;
             if (now < m_NextSpringPulse)
                 return;
 
-            m_NextSpringPulse = now + TimeSpan.FromSeconds(2.0);
+            m_NextSpringPulse = now + TimeSpan.FromSeconds(tick);
 
             int blast = DudeExperience.GetBlastDamage(m_DudeLevel);
             int selfHeal = Math.Max(1, (int)(blast * 0.15));
-            int pctHeal = Math.Max(1, (int)(HitsMax * 0.05));
+            int pctHeal = Math.Max(1, (int)(HitsMax * healFrac));
             int heal = Math.Min(selfHeal, pctHeal);
             if (heal < 1)
                 heal = 1;
@@ -681,7 +698,7 @@ namespace Server.Mobiles
                 if (!InRange(ally, 2))
                     continue;
 
-                int allyPct = Math.Max(1, (int)(ally.HitsMax * 0.05));
+                int allyPct = Math.Max(1, (int)(ally.HitsMax * healFrac));
                 int allyHeal = Math.Min(Math.Max(1, (int)(blast * 0.15)), allyPct);
                 ally.Hits = Math.Min(ally.HitsMax, ally.Hits + allyHeal);
                 DudeAbilityVfx.PlayWaterHeal(ally);
@@ -693,11 +710,20 @@ namespace Server.Mobiles
             if (!inCombat)
                 return;
 
+            DudeAbilityConfig.EnsureLoaded();
+            DudeAbilityTune tune = DudeAbilityConfig.Get("faultline");
+            double gap = tune != null && tune.GapSeconds > 0.0 ? tune.GapSeconds : 10.0;
+            double vs = tune != null && tune.DamageVsBlast > 0.0 ? tune.DamageVsBlast : 0.33;
+            double stunMin = tune != null && tune.StunMin > 0.0 ? tune.StunMin : 0.5;
+            double stunMax = tune != null && tune.StunMax > 0.0 ? tune.StunMax : 1.0;
+            if (stunMax < stunMin)
+                stunMax = stunMin;
+
             DateTime now = DateTime.UtcNow;
             if (now < m_NextFaultlinePulse)
                 return;
 
-            m_NextFaultlinePulse = now + TimeSpan.FromSeconds(10.0);
+            m_NextFaultlinePulse = now + TimeSpan.FromSeconds(gap);
 
             List<Mobile> candidates = new List<Mobile>();
             DudeAbilityVfx.CollectFightList(this, candidates);
@@ -719,13 +745,13 @@ namespace Server.Mobiles
                 return;
 
             Mobile target = valid[Utility.Random(valid.Count)];
-            int damage = Math.Max(1, DudeExperience.GetBlastDamage(m_DudeLevel) / 3);
+            int damage = Math.Max(1, (int)(DudeExperience.GetBlastDamage(m_DudeLevel) * vs));
 
             PublicOverheadMessage(MessageType.Regular, 0x3F, false, "*Faultline*");
             AOS.Damage(target, this, damage, 100, 0, 0, 0, 0);
             DudeAbilityVfx.PlayEarthHit(target);
 
-            double stun = 0.5 + (Utility.RandomDouble() * 0.5); // 0.5–1.0s
+            double stun = stunMin + (Utility.RandomDouble() * (stunMax - stunMin));
             target.Paralyze(TimeSpan.FromSeconds(stun));
         }
 

@@ -229,17 +229,20 @@ namespace Server.Custom.Dudes
             }
         }
 
-        public static void ApplyTailwindSpeed(DudeCreature dude, TimeSpan duration)
+        public static void ApplyTailwindSpeed(DudeCreature dude, TimeSpan duration, double speedFactor)
         {
             if (dude == null || dude.Deleted || dude.IsWild)
                 return;
+
+            if (speedFactor <= 0.0)
+                speedFactor = 0.5;
 
             double previous = dude.ForceActiveSpeed;
             if (previous <= 0.0)
                 previous = 0.1;
 
             // Lower ForceActiveSpeed = faster AI ticks / attack cadence.
-            double buffed = Math.Max(0.05, previous * 0.5);
+            double buffed = Math.Max(0.05, previous * speedFactor);
             dude.ForceActiveSpeed = buffed;
             dude.ForcePassiveSpeed = buffed;
             dude.CurrentSpeed = buffed;
@@ -265,6 +268,7 @@ namespace Server.Custom.Dudes
 
         public override void Execute(DudeCreature dude, Mobile target)
         {
+            DudeAbilityConfig.EnsureLoaded();
             int damage = DudeExperience.GetBlastDamage(dude.DudeLevel);
             dude.PublicOverheadMessage(MessageType.Regular, 0x22, false, "*Fire Blast*");
             AOS.Damage(target, dude, damage, 0, 100, 0, 0, 0);
@@ -295,6 +299,7 @@ namespace Server.Custom.Dudes
 
         public override void Execute(DudeCreature dude, Mobile target)
         {
+            DudeAbilityConfig.EnsureLoaded();
             int heal = DudeExperience.GetBlastDamage(dude.DudeLevel);
             dude.PublicOverheadMessage(MessageType.Regular, 0x3B2, false, "*Tide Mend*");
             dude.Hits = Math.Min(dude.HitsMax, dude.Hits + heal);
@@ -323,11 +328,15 @@ namespace Server.Custom.Dudes
             if (target is PlayerMobile)
                 return;
 
+            DudeAbilityConfig.EnsureLoaded();
+            DudeAbilityTune tune = DudeAbilityConfig.Get("fault_strike");
+            double stun = tune != null && tune.StunSeconds > 0.0 ? tune.StunSeconds : 1.0;
+
             int damage = DudeExperience.GetBlastDamage(dude.DudeLevel);
             dude.PublicOverheadMessage(MessageType.Regular, 0x3F, false, "*Fault Strike*");
             AOS.Damage(target, dude, damage, 100, 0, 0, 0, 0);
             DudeAbilityVfx.PlayEarthHit(target);
-            target.Paralyze(TimeSpan.FromSeconds(1.0));
+            target.Paralyze(TimeSpan.FromSeconds(stun));
         }
     }
 
@@ -353,8 +362,13 @@ namespace Server.Custom.Dudes
 
         public override void Execute(DudeCreature dude, Mobile target)
         {
+            DudeAbilityConfig.EnsureLoaded();
+            DudeAbilityTune tune = DudeAbilityConfig.Get("tailwind_self");
+            double duration = tune != null && tune.DurationSeconds > 0.0 ? tune.DurationSeconds : 5.0;
+            double speed = tune != null && tune.SpeedFactor > 0.0 ? tune.SpeedFactor : 0.5;
+
             dude.PublicOverheadMessage(MessageType.Regular, 0x47E, false, "*Tailwind*");
-            DudeAbilityVfx.ApplyTailwindSpeed(dude, TimeSpan.FromSeconds(5.0));
+            DudeAbilityVfx.ApplyTailwindSpeed(dude, TimeSpan.FromSeconds(duration), speed);
         }
     }
 
@@ -384,7 +398,10 @@ namespace Server.Custom.Dudes
 
         public override void Execute(DudeCreature dude, Mobile target)
         {
-            int damage = Math.Max(1, DudeExperience.GetBlastDamage(dude.DudeLevel) / 2);
+            DudeAbilityConfig.EnsureLoaded();
+            DudeAbilityTune tune = DudeAbilityConfig.Get("ring_of_fire");
+            double vs = tune != null && tune.DamageVsBlast > 0.0 ? tune.DamageVsBlast : 0.5;
+            int damage = Math.Max(1, (int)(DudeExperience.GetBlastDamage(dude.DudeLevel) * vs));
             dude.PublicOverheadMessage(MessageType.Regular, 0x22, false, "*Ring of Fire*");
             dude.PlaySound(0x208);
 
@@ -495,6 +512,10 @@ namespace Server.Custom.Dudes
             if (!hasSelf)
                 allies.Add(dude);
 
+            DudeAbilityConfig.EnsureLoaded();
+            DudeAbilityTune tune = DudeAbilityConfig.Get("tide_chorus");
+            double healFrac = tune != null && tune.HealHitsFraction > 0.0 ? tune.HealHitsFraction : 0.20;
+
             int blastHeal = DudeExperience.GetBlastDamage(dude.DudeLevel);
 
             for (int i = 0; i < allies.Count; i++)
@@ -503,7 +524,7 @@ namespace Server.Custom.Dudes
                 if (ally == null || ally.Deleted || !ally.Alive)
                     continue;
 
-                int pctHeal = Math.Max(1, (int)(ally.HitsMax * 0.20));
+                int pctHeal = Math.Max(1, (int)(ally.HitsMax * healFrac));
                 int heal = Math.Min(pctHeal, blastHeal);
                 if (heal < 1)
                     heal = 1;
@@ -536,7 +557,13 @@ namespace Server.Custom.Dudes
 
         public override void Execute(DudeCreature dude, Mobile target)
         {
-            int damage = Math.Max(1, DudeExperience.GetBlastDamage(dude.DudeLevel) / 2);
+            DudeAbilityConfig.EnsureLoaded();
+            DudeAbilityTune tune = DudeAbilityConfig.Get("aftershock");
+            double vs = tune != null && tune.DamageVsBlast > 0.0 ? tune.DamageVsBlast : 0.5;
+            double stun = tune != null && tune.StunSeconds > 0.0 ? tune.StunSeconds : 1.0;
+            int radius = tune != null && tune.Radius > 0 ? tune.Radius : 3;
+
+            int damage = Math.Max(1, (int)(DudeExperience.GetBlastDamage(dude.DudeLevel) * vs));
             dude.PublicOverheadMessage(MessageType.Regular, 0x3F, false, "*Aftershock*");
             dude.PlaySound(0x1F3);
 
@@ -553,15 +580,15 @@ namespace Server.Custom.Dudes
                 if (m is DudeCreature)
                     continue;
 
-                // Prefer nearby fight-list targets (Chebyshev ≤ 3).
+                // Prefer nearby fight-list targets (Chebyshev ≤ radius).
                 int dist = Math.Max(Math.Abs(m.X - dude.X), Math.Abs(m.Y - dude.Y));
-                if (dist > 3)
+                if (dist > radius)
                     continue;
 
                 dude.DoHarmful(m);
                 AOS.Damage(m, dude, damage, 100, 0, 0, 0, 0);
                 DudeAbilityVfx.PlayEarthHit(m);
-                m.Paralyze(TimeSpan.FromSeconds(1.0));
+                m.Paralyze(TimeSpan.FromSeconds(stun));
             }
         }
     }
@@ -607,8 +634,13 @@ namespace Server.Custom.Dudes
             if (!hasSelf)
                 allies.Add(dude);
 
+            DudeAbilityConfig.EnsureLoaded();
+            DudeAbilityTune tune = DudeAbilityConfig.Get("tailwind");
+            double duration = tune != null && tune.DurationSeconds > 0.0 ? tune.DurationSeconds : 5.0;
+            double speed = tune != null && tune.SpeedFactor > 0.0 ? tune.SpeedFactor : 0.5;
+
             for (int i = 0; i < allies.Count; i++)
-                DudeAbilityVfx.ApplyTailwindSpeed(allies[i], TimeSpan.FromSeconds(5.0));
+                DudeAbilityVfx.ApplyTailwindSpeed(allies[i], TimeSpan.FromSeconds(duration), speed);
         }
     }
 
