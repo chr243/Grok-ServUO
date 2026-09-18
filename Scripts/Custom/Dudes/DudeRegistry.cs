@@ -138,70 +138,70 @@ namespace Server.Custom.Dudes
                 "flame", "Flame", DudeType.Fire,
                 784, 0, 0x174,
                 70, 70, 35, 100, 9, 14, 20,
-                "blast", 2));
+                "ring_of_fire", 2));
 
             Register(new DudeDefinition(
                 "blaze", "Blaze", DudeType.Fire,
                 1433, 0, 357,
                 110, 65, 55, 180, 13, 19, 40,
-                "blast", 3));
+                "burn", 3));
 
             // --- Water: Droplet → Ripple → Torrent ---
             Register(new DudeDefinition(
                 "droplet", "Droplet", DudeType.Water,
                 51, 0, 0x266,
                 45, 40, 15, 50, 4, 7, 14,
-                "tide_crash", 1));
+                "tide_mend", 1));
 
             Register(new DudeDefinition(
                 "ripple", "Ripple", DudeType.Water,
                 1244, 0, 278,
                 70, 70, 35, 100, 9, 14, 20,
-                "tide_crash", 2));
+                "tide_chorus", 2));
 
             Register(new DudeDefinition(
                 "torrent", "Torrent", DudeType.Water,
                 1427, 0, 278,
                 110, 65, 55, 180, 13, 19, 40,
-                "tide_crash", 3));
+                "spring", 3));
 
             // --- Earth: Pebble → Boulder → Quake ---
             Register(new DudeDefinition(
                 "pebble", "Pebble", DudeType.Earth,
                 196, 0, 397,
                 50, 28, 12, 55, 5, 8, 16,
-                "stone_slam", 1));
+                "fault_strike", 1));
 
             Register(new DudeDefinition(
                 "boulder", "Boulder", DudeType.Earth,
                 829, 0, 0x174,
                 90, 40, 25, 130, 10, 16, 32,
-                "stone_slam", 2));
+                "aftershock", 2));
 
             Register(new DudeDefinition(
                 "quake", "Quake", DudeType.Earth,
                 1248, 0, 268,
                 110, 65, 55, 180, 13, 19, 40,
-                "stone_slam", 3));
+                "faultline", 3));
 
             // --- Air: Breeze → Gale → Hurricane ---
             Register(new DudeDefinition(
                 "breeze", "Breeze", DudeType.Air,
                 58, 0, 0x1B,
                 40, 50, 20, 48, 4, 7, 12,
-                "gust_slash", 1));
+                "tailwind_self", 1));
 
             Register(new DudeDefinition(
                 "gale", "Gale", DudeType.Air,
                 199, 0, 655,
                 70, 70, 35, 100, 9, 14, 20,
-                "gust_slash", 2));
+                "tailwind", 2));
 
             Register(new DudeDefinition(
                 "hurricane", "Hurricane", DudeType.Air,
                 1427, 0, 655,
                 110, 65, 55, 180, 13, 19, 40,
-                "gust_slash", 3));
+                "slipstream", 3));
         }
     }
 }

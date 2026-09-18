@@ -4,7 +4,7 @@ using Server.Mobiles;
 namespace Server.Custom.Dudes
 {
     /// <summary>
-    /// Extensible Dude ability. Name, cooldown, optional mana cost, Execute().
+    /// Extensible Dude ability. Name, cooldown, optional mana cost, kit/stage, Execute().
     /// </summary>
     public abstract class DudeAbility
     {
@@ -12,19 +12,25 @@ namespace Server.Custom.Dudes
         private readonly string m_Name;
         private readonly TimeSpan m_Cooldown;
         private readonly int m_ManaCost;
+        private readonly int m_Stage;
+        private readonly DudeType m_Kit;
 
-        protected DudeAbility(string id, string name, TimeSpan cooldown, int manaCost)
+        protected DudeAbility(string id, string name, TimeSpan cooldown, int manaCost, int stage, DudeType kit)
         {
             m_Id = id;
             m_Name = name;
             m_Cooldown = cooldown;
             m_ManaCost = manaCost;
+            m_Stage = stage;
+            m_Kit = kit;
         }
 
         public string Id { get { return m_Id; } }
         public string Name { get { return m_Name; } }
         public TimeSpan Cooldown { get { return m_Cooldown; } }
         public int ManaCost { get { return m_ManaCost; } }
+        public int Stage { get { return m_Stage; } }
+        public DudeType Kit { get { return m_Kit; } }
 
         public virtual bool CanExecute(DudeCreature dude, Mobile target)
         {
@@ -32,9 +38,6 @@ namespace Server.Custom.Dudes
                 return false;
 
             if (dude.IsWild)
-                return false;
-
-            if (DateTime.UtcNow < dude.NextAbilityTime)
                 return false;
 
             if (m_ManaCost > 0 && dude.Mana < m_ManaCost)

@@ -29,7 +29,7 @@ namespace Server.Custom.Dudes
 
 
         /// <summary>
-        /// Ensures Embit-line stages keep prior unlocked combat abilities (and Burn on stage 3).
+        /// Unlocks all kit abilities up through the Dude's current evolution stage.
         /// </summary>
         public static void EnsureEvolutionAbilities(DudeData data)
         {
@@ -41,25 +41,64 @@ namespace Server.Custom.Dudes
                 return;
 
             id = id.ToLowerInvariant();
+            int stage = data.EvolutionStage;
+            if (stage < 1)
+                stage = 1;
 
-            // Fire line: Blast → Ring of Fire → Burn
+            // Infer stage from definition when needed (evolved forms).
+            if (id == "flame" || id == "ripple" || id == "boulder" || id == "gale")
+            {
+                if (stage < 2)
+                    stage = 2;
+            }
+            else if (id == "blaze" || id == "torrent" || id == "quake" || id == "hurricane")
+            {
+                if (stage < 3)
+                    stage = 3;
+            }
+
+            // Fire: blast / ring_of_fire / burn
             if (id == "ember" || id == "flame" || id == "blaze")
             {
                 data.UnlockAbility("blast");
-                if (data.EvolutionStage >= 2 || id == "flame" || id == "blaze")
+                if (stage >= 2)
                     data.UnlockAbility("ring_of_fire");
-                if (data.EvolutionStage >= 3 || id == "blaze")
+                if (stage >= 3)
                     data.UnlockAbility("burn");
                 return;
             }
 
-            // Other lines keep their stage-1 combat ability unlocked across evo.
+            // Water: tide_mend / tide_chorus / spring
             if (id == "droplet" || id == "ripple" || id == "torrent")
-                data.UnlockAbility("tide_crash");
-            else if (id == "pebble" || id == "boulder" || id == "quake")
-                data.UnlockAbility("stone_slam");
-            else if (id == "breeze" || id == "gale" || id == "hurricane")
-                data.UnlockAbility("gust_slash");
+            {
+                data.UnlockAbility("tide_mend");
+                if (stage >= 2)
+                    data.UnlockAbility("tide_chorus");
+                if (stage >= 3)
+                    data.UnlockAbility("spring");
+                return;
+            }
+
+            // Earth: fault_strike / aftershock / faultline
+            if (id == "pebble" || id == "boulder" || id == "quake")
+            {
+                data.UnlockAbility("fault_strike");
+                if (stage >= 2)
+                    data.UnlockAbility("aftershock");
+                if (stage >= 3)
+                    data.UnlockAbility("faultline");
+                return;
+            }
+
+            // Air: tailwind_self / tailwind / slipstream
+            if (id == "breeze" || id == "gale" || id == "hurricane")
+            {
+                data.UnlockAbility("tailwind_self");
+                if (stage >= 2)
+                    data.UnlockAbility("tailwind");
+                if (stage >= 3)
+                    data.UnlockAbility("slipstream");
+            }
         }
 
         public static int GetMaxLevel(int evolutionStage)

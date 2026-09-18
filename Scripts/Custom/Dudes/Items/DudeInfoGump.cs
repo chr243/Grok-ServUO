@@ -379,28 +379,30 @@ namespace Server.Items
 
             switch (abilityId.ToLowerInvariant())
             {
-                case "ember_burst":
-                    return "Fire burst that scorches a nearby foe.";
-                case "tide_crash":
-                    return "Water crash that batters a nearby foe.";
-                case "stone_slam":
-                    return "Heavy earth slam against a nearby foe.";
-                case "gust_slash":
-                    return "Cutting wind slash against a nearby foe.";
-                case "cinder_bite":
-                    return "Searing fangs that bite with cinder heat.";
-                case "riptide_crash":
-                    return "A crushing surge of cold water.";
-                case "boulder_crush":
-                    return "A crushing boulder smash against a foe.";
-                case "pyre_blast":
-                    return "Elite fire blast that sears a nearby foe.";
                 case "blast":
-                    return "Fire strike that blasts a nearby foe.";
+                    return "Fire Blast: instant fire strike on a nearby foe (scales with level).";
                 case "ring_of_fire":
-                    return "AOE ring of flames scorching enemies nearby.";
+                    return "Expanding ring of flames that scorches nearby enemies.";
                 case "burn":
-                    return "Passive: 5% chance per combat tick to Burn nearby foes (range 8) for 30% of Blast damage.";
+                    return "Passive: every 1s in combat, 50% chance per fight-list foe to Burn for ~30% of Blast damage.";
+                case "tide_mend":
+                    return "Heal yourself for Blast-scale amount.";
+                case "tide_chorus":
+                    return "Heal owned and party Dudes nearby (~20% HitsMax, capped by Blast).";
+                case "spring":
+                    return "Passive: every 2s in combat, small self heal and heal owned Dudes within range 2.";
+                case "fault_strike":
+                    return "Earth strike for Blast damage plus 1s Paralyze (not players).";
+                case "aftershock":
+                    return "Small fight-list AoE damage plus short stun (not players or Dudes).";
+                case "faultline":
+                    return "Passive: every 10s, strike one fight-list foe for small damage plus brief Paralyze.";
+                case "tailwind_self":
+                    return "Brief attack-speed boost on yourself.";
+                case "tailwind":
+                    return "Brief attack-speed boost on owned and party Dudes nearby.";
+                case "slipstream":
+                    return "Passive: ability cooldowns reduced by 2s (minimum 7s).";
                 default:
                     return "A special Dude technique.";
             }

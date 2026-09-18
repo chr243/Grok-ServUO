@@ -63,37 +63,37 @@ Staff-spawned `DudeBoss` farm bosses — hostile, not catchable, no Dude Ball on
 - **Travel**: real `PathFollower` movement; stuck / timeout → teleport fallback; station never permanently blocked.
 - **Persistence**: station serializes ball, job id, stage, times, destination, worker; on load recovers stage from elapsed time.
 - **Safety**: rejects empty/wrong balls, multi-ball, no-job, no-resource; blocks ball lift mid-job; ejects ball/resources on station delete; deposits beside station if full.
-- **Bosses**: `DudeBoss` is a `BaseCreature`, not a companion. `DudeCapture.GetCaptureBlockReason` / `DudeCreature.CanBeCaught` reject bosses. Ember Burst is boss-local AoE (companion Ember Burst stays single-target). Add a new boss by subclassing `DudeBoss` (stats/ability/unique loot).
+- **Bosses**: `DudeBoss` is a `BaseCreature`, not a companion. `DudeCapture.GetCaptureBlockReason` / `DudeCreature.CanBeCaught` reject bosses. Boss abilities are local; companion Fire Blast stays single-target. Add a new boss by subclassing `DudeBoss` (stats/ability/unique loot).
 
 
 ## Species roster
 
-Register new species in `DudeRegistry` (stats/body/hue/ability/slots). Abilities in `SimpleDudeAbilities` + `DudeAbilityRegistry`. Leveling is unchanged (Str+2, HitsMax+5, Min/MaxDamage+1 per level; ability damage = base + DudeLevel×2).
+Four elemental lines × three stages (12 total). Register in `DudeRegistry`. Abilities in `SimpleDudeAbilities` + `DudeAbilityRegistry`. Evolution unlocks that kit’s abilities through the current stage. Blast-scale damage = `8 + level×2` × ability multiplier.
 
-| Id | Name | Type | Tier | Body | Slots | Key stats (Str / Hits / Dmg) | Ability |
-|----|------|------|------|------|-------|------------------------------|---------|
-| sparkmite | Sparkmite | Fire | weak | 51 slime | 1 | 18 / 20 / 1–3 | ember_burst |
-| puddling | Puddling | Water | weak | 81 bullfrog | 1 | 16 / 22 / 1–3 | tide_crash |
-| pebblet | Pebblet | Earth | weak | 48 scorpion | 1 | 22 / 28 / 2–4 | stone_slam |
-| breezeling | Breezeling | Air | weak | 6 bird | 1 | 14 / 18 / 1–3 | gust_slash |
-| emberling | Emberling | Fire | basic | 15 fire elem | 1 | 35 / 40 / 4–7 | ember_burst |
-| tideling | Tideling | Water | basic | 16 water elem | 1 | 32 / 42 / 3–6 | tide_crash |
-| stonepaw | Stonepaw | Earth | basic | 14 earth elem | 1 | 50 / 55 / 5–8 | stone_slam |
-| gustling | Gustling | Air | basic | 13 air elem | 1 | 28 / 35 / 3–6 | gust_slash |
-| cinderfang | Cinderfang | Fire | medium | 0xC9 hellcat | 1 | 55 / 70 / 7–11 | cinder_bite |
-| riptide | Riptide | Water | medium | 161 ice elem | 1 | 48 / 78 / 6–10 | riptide_crash |
-| boulderback | Boulderback | Earth | medium | 67 stone garg | 2 | 72 / 95 / 8–13 | boulder_crush |
-| pyreclaw | Pyreclaw | Fire | strong | 130 fire garg | 2 | 95 / 145 / 11–16 | pyre_blast |
+| Id | Name | Type | Stage | Ability |
+|----|------|------|-------|---------|
+| ember | Ember | Fire | 1 | blast |
+| flame | Flame | Fire | 2 | ring_of_fire |
+| blaze | Blaze | Fire | 3 | burn (passive) |
+| droplet | Droplet | Water | 1 | tide_mend |
+| ripple | Ripple | Water | 2 | tide_chorus |
+| torrent | Torrent | Water | 3 | spring (passive) |
+| pebble | Pebble | Earth | 1 | fault_strike |
+| boulder | Boulder | Earth | 2 | aftershock |
+| quake | Quake | Earth | 3 | faultline (passive) |
+| breeze | Breeze | Air | 1 | tailwind_self |
+| gale | Gale | Air | 2 | tailwind |
+| hurricane | Hurricane | Air | 3 | slipstream (passive) |
 
-Earth-type Dudes (`pebblet`, `stonepaw`, `boulderback`) qualify for **Earth Gathering** via the existing type check. `[SpawnAllTestDudes` spawns every registered id; `[SpawnTestDude <id>` / `[FillDudeBall <id>` accept any of the above.
+Earth-type Dudes qualify for **Earth Gathering** via the existing type check. `[SpawnAllTestDudes` spawns every registered id; `[SpawnTestDude <id>` / `[FillDudeBall <id>` accept any of the above.
 
 ## GM test commands
 
 | Command | Purpose |
 |---------|---------|
 | `[CreateDudeBall` | Empty ball |
-| `[SpawnTestDude stonepaw` | Wild Earth Dude |
-| `[FillDudeBall stonepaw` | Skip catch |
+| `[SpawnTestDude pebble` | Wild Earth Dude |
+| `[FillDudeBall pebble` | Skip catch |
 | `[CreateDudeMixer` | Mixer |
 | `[CreateDudeDust 5` | Dust stack |
 | `[CreateDudeCraftKit` | Craft kit + ingots |
@@ -106,14 +106,14 @@ Earth-type Dudes (`pebblet`, `stonepaw`, `boulderback`) qualify for **Earth Gath
 ## In-game test steps
 
 ### Phase 2 loop
-1. `[CreateDudeMixer`, `[CreateDudeBall`, `[FillDudeBall emberling`
+1. `[CreateDudeMixer`, `[CreateDudeBall`, `[FillDudeBall ember`
 2. Double-click Mixer → target filled ball → OK confirm → receive Dude Dust; ball empties.
 3. `[CreateDudeCraftKit` (gives kit + iron). Ensure dust in pack.
 4. Double-click kit → craft **Dude Ball** (Iron Ingot ×5 + Dude Dust ×1).
 
 ### Phase 3 loop
 1. Place station near **mountains/caves** (mineable land tiles): `[CreateDudeJobStation`
-2. `[CreateDudeBall` + `[FillDudeBall stonepaw` (or `pebblet` / `boulderback` — any Earth type).
+2. `[CreateDudeBall` + `[FillDudeBall pebble` (or `pebblet` / `boulderback` — any Earth type).
 3. Drag filled ball onto station → assigned.
 4. Double-click station → **Start Job**.
 5. Watch worker path to ore tile, work, return; open storage for Iron Ore.
@@ -128,8 +128,8 @@ Earth-type Dudes (`pebblet`, `stonepaw`, `boulderback`) qualify for **Earth Gath
 
 ### Trainer's Manual loop
 1. `[CreateTrainersManual` (or `[add TrainersManual`).
-2. `[SpawnTestDude stonepaw` → double-click manual → target wild Dude → info gump (Wild).
-3. `[CreateDudeBall` + `[FillDudeBall emberling` → target the filled ball (no need to summon) → Captured sheet with EXP/owner.
+2. `[SpawnTestDude pebble` → double-click manual → target wild Dude → info gump (Wild).
+3. `[CreateDudeBall` + `[FillDudeBall ember` → target the filled ball (no need to summon) → Captured sheet with EXP/owner.
 4. Summon from ball → target the pet → Summoned sheet with live HP.
 5. `[SpawnEmberlord` → target boss → Boss sheet (uncatchable + Ember Burst). Empty balls / non-Dudes are rejected with messages.
 

@@ -27,6 +27,8 @@ namespace Server.Mobiles
         private bool m_Despawning;
         private bool m_BlessedBeforeDespawn;
         private DateTime m_NextBurnPulse;
+        private DateTime m_NextSpringPulse;
+        private DateTime m_NextFaultlinePulse;
 
         private const double DudeForceSpeed = 0.1;
 
@@ -464,7 +466,7 @@ namespace Server.Mobiles
             }
 
             TryUseAbility();
-            TryInfernoxPassive();
+            TryStage3Passives();
         }
 
         private List<string> GetUnlockedAbilityIds()
@@ -476,6 +478,42 @@ namespace Server.Mobiles
             if (!string.IsNullOrEmpty(m_AbilityId))
                 list.Add(m_AbilityId);
             return list;
+        }
+
+        private static bool IsPassiveAbilityId(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                return false;
+            return string.Equals(id, "burn", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(id, "spring", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(id, "faultline", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(id, "slipstream", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsSupportAbilityId(string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                return false;
+            return string.Equals(id, "tide_mend", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(id, "tailwind_self", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(id, "tide_chorus", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(id, "tailwind", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(id, "aftershock", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(id, "ring_of_fire", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool HasUnlockedAbility(string abilityId)
+        {
+            if (string.IsNullOrEmpty(abilityId))
+                return false;
+
+            List<string> ids = GetUnlockedAbilityIds();
+            for (int i = 0; i < ids.Count; i++)
+            {
+                if (string.Equals(ids[i], abilityId, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
         }
 
         private void TryUseAbility()
@@ -493,6 +531,8 @@ namespace Server.Mobiles
             if (m_NextAbilityById == null)
                 m_NextAbilityById = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
 
+            bool slipstream = HasUnlockedAbility("slipstream");
+
             List<string> ids = GetUnlockedAbilityIds();
             for (int i = 0; i < ids.Count; i++)
             {
@@ -500,19 +540,27 @@ namespace Server.Mobiles
                 if (ability == null)
                     continue;
 
-                // Passive display stub — combat handled by TryInfernoxPassive.
-                if (string.Equals(ability.Id, "burn", StringComparison.OrdinalIgnoreCase))
+                // Passive stubs — combat handled by TryStage3Passives / Slipstream CD mod.
+                if (IsPassiveAbilityId(ability.Id))
                     continue;
 
                 DateTime readyAt;
                 if (m_NextAbilityById.TryGetValue(ability.Id, out readyAt) && DateTime.UtcNow < readyAt)
                     continue;
 
-                int range = 3;
-                if (string.Equals(ability.Id, "ring_of_fire", StringComparison.OrdinalIgnoreCase))
-                    range = RingOfFireAbility.AoERange;
+                if (!IsSupportAbilityId(ability.Id))
+                {
+                    int range = 3;
+                    if (!InRange(target, range))
+                        continue;
+                }
+                else if (string.Equals(ability.Id, "ring_of_fire", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!InRange(target, RingOfFireAbility.AoERange))
+                        continue;
+                }
 
-                if (!InRange(target, range))
+                if (!ability.CanExecute(this, target))
                     continue;
 
                 if (ability.ManaCost > 0 && Mana < ability.ManaCost)
@@ -522,28 +570,41 @@ namespace Server.Mobiles
                     Mana -= ability.ManaCost;
 
                 ability.Execute(this, target);
-                m_NextAbilityById[ability.Id] = DateTime.UtcNow + ability.Cooldown;
-                // Independent cooldowns — keep scanning so Blast and Ring of Fire both work.
+
+                TimeSpan cd = ability.Cooldown;
+                if (slipstream)
+                    cd = TimeSpan.FromSeconds(Math.Max(7.0, cd.TotalSeconds - 2.0));
+
+                m_NextAbilityById[ability.Id] = DateTime.UtcNow + cd;
+                // Independent cooldowns — keep scanning remaining unlocked abilities.
             }
         }
 
-        private void TryInfernoxPassive()
+        private void TryStage3Passives()
         {
             if (m_IsWild || m_Fainting || Frozen || m_Despawning || Deleted)
                 return;
 
-            // Burn is Fire stage-3 (Blaze) only.
-            bool blaze = EvolutionStage >= 3
-                || string.Equals(m_DefinitionId, "blaze", StringComparison.OrdinalIgnoreCase);
-            if (!blaze)
+            Mobile combatant = Combatant as Mobile;
+            bool inCombat = combatant != null && !combatant.Deleted && combatant.Alive;
+
+            if (HasUnlockedAbility("burn"))
+                TryBurnPassive(inCombat, combatant);
+
+            if (HasUnlockedAbility("spring"))
+                TrySpringPassive(inCombat);
+
+            if (HasUnlockedAbility("faultline"))
+                TryFaultlinePassive(inCombat);
+        }
+
+        private void TryBurnPassive(bool inCombat, Mobile combatant)
+        {
+            if (!inCombat)
                 return;
 
             DudeDefinition burnDef = DudeRegistry.Get(m_DefinitionId);
             if (burnDef == null || burnDef.Type != DudeType.Fire)
-                return;
-
-            Mobile combatant = Combatant as Mobile;
-            if (combatant == null || combatant.Deleted || !combatant.Alive)
                 return;
 
             DateTime now = DateTime.UtcNow;
@@ -553,31 +614,7 @@ namespace Server.Mobiles
             m_NextBurnPulse = now + TimeSpan.FromSeconds(1.0);
 
             List<Mobile> candidates = new List<Mobile>();
-            AddBurnCandidate(candidates, combatant);
-
-            List<AggressorInfo> aggressors = Aggressors;
-            if (aggressors != null)
-            {
-                for (int i = 0; i < aggressors.Count; i++)
-                {
-                    AggressorInfo info = aggressors[i];
-                    if (info == null || info.Expired)
-                        continue;
-                    AddBurnCandidate(candidates, info.Attacker);
-                }
-            }
-
-            List<AggressorInfo> aggressed = Aggressed;
-            if (aggressed != null)
-            {
-                for (int i = 0; i < aggressed.Count; i++)
-                {
-                    AggressorInfo info = aggressed[i];
-                    if (info == null || info.Expired)
-                        continue;
-                    AddBurnCandidate(candidates, info.Defender);
-                }
-            }
+            DudeAbilityVfx.CollectFightList(this, candidates);
 
             if (candidates.Count == 0)
                 return;
@@ -591,7 +628,6 @@ namespace Server.Mobiles
                     continue;
 
                 Mobile m = candidates[i];
-                // Already in the fight — damage only, no DoHarmful (avoids new pulls).
                 AOS.Damage(m, this, damage, 0, 100, 0, 0, 0);
                 DudeAbilityVfx.PlayFireHit(m, false);
                 anyHit = true;
@@ -604,27 +640,93 @@ namespace Server.Mobiles
             }
         }
 
-        private void AddBurnCandidate(List<Mobile> list, Mobile m)
+        private void TrySpringPassive(bool inCombat)
         {
-            if (m == null || m == this || m.Deleted || !m.Alive)
-                return;
-            if (m == ControlMaster)
-                return;
-            if (!CanBeHarmful(m))
+            if (!inCombat)
                 return;
 
-            BaseCreature bc = m as BaseCreature;
-            if (bc != null && ControlMaster != null
-                && bc.Controlled && bc.ControlMaster == ControlMaster)
+            DateTime now = DateTime.UtcNow;
+            if (now < m_NextSpringPulse)
                 return;
 
-            for (int i = 0; i < list.Count; i++)
+            m_NextSpringPulse = now + TimeSpan.FromSeconds(2.0);
+
+            int blast = DudeExperience.GetBlastDamage(m_DudeLevel);
+            int selfHeal = Math.Max(1, (int)(blast * 0.15));
+            int pctHeal = Math.Max(1, (int)(HitsMax * 0.05));
+            int heal = Math.Min(selfHeal, pctHeal);
+            if (heal < 1)
+                heal = 1;
+
+            Hits = Math.Min(HitsMax, Hits + heal);
+            DudeAbilityVfx.PlayWaterHeal(this);
+
+            // Heal owned DudeCreatures within range 2 via master's followers (no hostile scan).
+            Mobile master = ControlMaster;
+            if (master == null || master.Deleted)
+                return;
+
+            PlayerMobile pm = master as PlayerMobile;
+            List<Mobile> followers = pm != null ? pm.AllFollowers : null;
+            if (followers == null)
+                return;
+
+            for (int i = 0; i < followers.Count; i++)
             {
-                if (list[i] == m)
-                    return;
+                DudeCreature ally = followers[i] as DudeCreature;
+                if (ally == null || ally == this || ally.Deleted || !ally.Alive)
+                    continue;
+                if (ally.Map != Map)
+                    continue;
+                if (!InRange(ally, 2))
+                    continue;
+
+                int allyPct = Math.Max(1, (int)(ally.HitsMax * 0.05));
+                int allyHeal = Math.Min(Math.Max(1, (int)(blast * 0.15)), allyPct);
+                ally.Hits = Math.Min(ally.HitsMax, ally.Hits + allyHeal);
+                DudeAbilityVfx.PlayWaterHeal(ally);
+            }
+        }
+
+        private void TryFaultlinePassive(bool inCombat)
+        {
+            if (!inCombat)
+                return;
+
+            DateTime now = DateTime.UtcNow;
+            if (now < m_NextFaultlinePulse)
+                return;
+
+            m_NextFaultlinePulse = now + TimeSpan.FromSeconds(10.0);
+
+            List<Mobile> candidates = new List<Mobile>();
+            DudeAbilityVfx.CollectFightList(this, candidates);
+
+            List<Mobile> valid = new List<Mobile>();
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                Mobile m = candidates[i];
+                if (m == null || m.Deleted || !m.Alive)
+                    continue;
+                if (m is PlayerMobile)
+                    continue;
+                if (m is DudeCreature)
+                    continue;
+                valid.Add(m);
             }
 
-            list.Add(m);
+            if (valid.Count == 0)
+                return;
+
+            Mobile target = valid[Utility.Random(valid.Count)];
+            int damage = Math.Max(1, DudeExperience.GetBlastDamage(m_DudeLevel) / 3);
+
+            PublicOverheadMessage(MessageType.Regular, 0x3F, false, "*Faultline*");
+            AOS.Damage(target, this, damage, 100, 0, 0, 0, 0);
+            DudeAbilityVfx.PlayEarthHit(target);
+
+            double stun = 0.5 + (Utility.RandomDouble() * 0.5); // 0.5–1.0s
+            target.Paralyze(TimeSpan.FromSeconds(stun));
         }
 
         public override void GenerateLoot()
