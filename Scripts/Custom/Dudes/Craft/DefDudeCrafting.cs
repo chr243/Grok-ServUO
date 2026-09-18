@@ -122,19 +122,19 @@ namespace Server.Engines.Craft
                 "You need more iron ingots.");
             ForceNonExceptional(index);
 
-            // Revival potion — Alchemy 50, empty bottle + ginseng.
+            // Healing potions — Weak / Normal / Strong (Strong crafts GreaterDudeHealingPotion for world type stability).
             index = AddCraft(
-                typeof(DudeRevivalPotion),
+                typeof(WeakDudeHealingPotion),
                 "Potions",
-                "Dude Revival Potion",
+                "Weak Dude Healing Potion",
                 SkillName.Alchemy,
-                50.0,
-                75.0,
+                30.0,
+                55.0,
                 typeof(Bottle),
                 "Empty Bottle",
                 1,
                 "You need an empty bottle.");
-            AddRes(index, typeof(Ginseng), "Ginseng", 5, "You need more ginseng.");
+            AddRes(index, typeof(Ginseng), "Ginseng", 3, "You need more ginseng.");
             ForceNonExceptional(index);
 
             index = AddCraft(
@@ -149,19 +149,66 @@ namespace Server.Engines.Craft
                 1,
                 "You need an empty bottle.");
             AddRes(index, typeof(Ginseng), "Ginseng", 5, "You need more ginseng.");
+            AddRes(index, typeof(DudeDust), "Dude Dust", 2, "You need more Dude Dust.");
             ForceNonExceptional(index);
 
             index = AddCraft(
                 typeof(GreaterDudeHealingPotion),
                 "Potions",
-                "Greater Dude Healing Potion",
+                "Strong Dude Healing Potion",
                 SkillName.Alchemy,
                 65.0,
                 90.0,
-                typeof(Ginseng),
-                "Ginseng",
-                10,
-                "You need more ginseng.");
+                typeof(Bottle),
+                "Empty Bottle",
+                1,
+                "You need an empty bottle.");
+            AddRes(index, typeof(Ginseng), "Ginseng", 8, "You need more ginseng.");
+            AddRes(index, typeof(DudeDust), "Dude Dust", 5, "You need more Dude Dust.");
+            ForceNonExceptional(index);
+
+            // Revival potions — Weak / Normal / Strong by MaxReviveStage.
+            index = AddCraft(
+                typeof(WeakDudeRevivalPotion),
+                "Potions",
+                "Weak Dude Revival Potion",
+                SkillName.Alchemy,
+                30.0,
+                55.0,
+                typeof(Bottle),
+                "Empty Bottle",
+                1,
+                "You need an empty bottle.");
+            AddRes(index, typeof(Ginseng), "Ginseng", 3, "You need more ginseng.");
+            ForceNonExceptional(index);
+
+            index = AddCraft(
+                typeof(DudeRevivalPotion),
+                "Potions",
+                "Dude Revival Potion",
+                SkillName.Alchemy,
+                50.0,
+                75.0,
+                typeof(Bottle),
+                "Empty Bottle",
+                1,
+                "You need an empty bottle.");
+            AddRes(index, typeof(Ginseng), "Ginseng", 5, "You need more ginseng.");
+            AddRes(index, typeof(DudeDust), "Dude Dust", 2, "You need more Dude Dust.");
+            ForceNonExceptional(index);
+
+            index = AddCraft(
+                typeof(StrongDudeRevivalPotion),
+                "Potions",
+                "Strong Dude Revival Potion",
+                SkillName.Alchemy,
+                65.0,
+                90.0,
+                typeof(Bottle),
+                "Empty Bottle",
+                1,
+                "You need an empty bottle.");
+            AddRes(index, typeof(Ginseng), "Ginseng", 8, "You need more ginseng.");
             AddRes(index, typeof(DudeDust), "Dude Dust", 5, "You need more Dude Dust.");
             ForceNonExceptional(index);
         }

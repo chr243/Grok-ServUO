@@ -53,14 +53,21 @@ namespace Server.Custom.Dudes.Commands
             if (from.Backpack == null)
                 return null;
 
-            // Prefer greater heals when available.
+            // Prefer strong/greater heals when available (also matches StrongDudeHealingPotion subclass).
             GreaterDudeHealingPotion greater = from.Backpack.FindItemByType(typeof(GreaterDudeHealingPotion), true) as GreaterDudeHealingPotion;
             if (greater != null && !greater.Deleted)
                 return greater;
 
-            DudeHealingPotion normal = from.Backpack.FindItemByType(typeof(DudeHealingPotion), true) as DudeHealingPotion;
-            if (normal != null && !normal.Deleted)
-                return normal;
+            // Exact DudeHealingPotion only — avoid matching unexpected derived types.
+            foreach (Item item in from.Backpack.FindItemsByType(typeof(DudeHealingPotion), true))
+            {
+                if (item != null && !item.Deleted && item.GetType() == typeof(DudeHealingPotion))
+                    return (DudeHealingPotion)item;
+            }
+
+            WeakDudeHealingPotion weak = from.Backpack.FindItemByType(typeof(WeakDudeHealingPotion), true) as WeakDudeHealingPotion;
+            if (weak != null && !weak.Deleted)
+                return weak;
 
             return null;
         }

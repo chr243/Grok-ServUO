@@ -66,7 +66,7 @@ namespace Server.Items
         {
             base.GetProperties(list);
             int pct = (int)(HealFraction * 100.0 + 0.5);
-            list.Add("Double-click and target a summoned Dude (range 8), or yourself if linked. Heals {0}%.", pct);
+            list.Add("Heals {0}%. Target a summoned Dude or yourself if linked.", pct);
         }
 
         public override void OnDoubleClick(Mobile from)
@@ -351,9 +351,48 @@ namespace Server.Items
         }
     }
 
-    public class DudeHealingPotion : BaseDudeHealingPotion
+    public class WeakDudeHealingPotion : BaseDudeHealingPotion
     {
         public override double HealFraction { get { return 0.20; } }
+        public override string PotionLabel { get { return "Weak Dude Healing Potion"; } }
+
+        [Constructable]
+        public WeakDudeHealingPotion()
+            : this(1)
+        {
+        }
+
+        [Constructable]
+        public WeakDudeHealingPotion(int amount)
+            : base(0xF0C)
+        {
+            Name = "Weak Dude Healing Potion";
+            Hue = 0x2B; // lighter pale red
+            Stackable = true;
+            Amount = amount > 0 ? amount : 1;
+        }
+
+        public WeakDudeHealingPotion(Serial serial)
+            : base(serial)
+        {
+        }
+
+        public override void Serialize(GenericWriter writer)
+        {
+            base.Serialize(writer);
+            writer.Write((int)0);
+        }
+
+        public override void Deserialize(GenericReader reader)
+        {
+            base.Deserialize(reader);
+            reader.ReadInt();
+        }
+    }
+
+    public class DudeHealingPotion : BaseDudeHealingPotion
+    {
+        public override double HealFraction { get { return 0.30; } }
         public override string PotionLabel { get { return "Dude Healing Potion"; } }
 
         [Constructable]
@@ -390,10 +429,14 @@ namespace Server.Items
         }
     }
 
+    /// <summary>
+    /// Strong (40%) heal. Kept as GreaterDudeHealingPotion for world serialization;
+    /// crafting and display name use "Strong Dude Healing Potion".
+    /// </summary>
     public class GreaterDudeHealingPotion : BaseDudeHealingPotion
     {
-        public override double HealFraction { get { return 0.50; } }
-        public override string PotionLabel { get { return "Greater Dude Healing Potion"; } }
+        public override double HealFraction { get { return 0.40; } }
+        public override string PotionLabel { get { return "Strong Dude Healing Potion"; } }
 
         [Constructable]
         public GreaterDudeHealingPotion()
@@ -405,13 +448,49 @@ namespace Server.Items
         public GreaterDudeHealingPotion(int amount)
             : base(0xF0B)
         {
-            Name = "Greater Dude Healing Potion";
+            Name = "Strong Dude Healing Potion";
             Hue = 0x26; // deeper red
             Stackable = true;
             Amount = amount > 0 ? amount : 1;
         }
 
         public GreaterDudeHealingPotion(Serial serial)
+            : base(serial)
+        {
+        }
+
+        public override void Serialize(GenericWriter writer)
+        {
+            base.Serialize(writer);
+            writer.Write((int)0);
+        }
+
+        public override void Deserialize(GenericReader reader)
+        {
+            base.Deserialize(reader);
+            reader.ReadInt();
+            Name = "Strong Dude Healing Potion";
+        }
+    }
+
+    /// <summary>
+    /// Thin [add] alias; crafting Strong still produces GreaterDudeHealingPotion.
+    /// </summary>
+    public class StrongDudeHealingPotion : GreaterDudeHealingPotion
+    {
+        [Constructable]
+        public StrongDudeHealingPotion()
+            : this(1)
+        {
+        }
+
+        [Constructable]
+        public StrongDudeHealingPotion(int amount)
+            : base(amount)
+        {
+        }
+
+        public StrongDudeHealingPotion(Serial serial)
             : base(serial)
         {
         }
