@@ -5,19 +5,21 @@ using Server.Network;
 namespace Server.Custom.Dudes
 {
     /// <summary>
-    /// Short type-themed summon burst: expanding ring over ~1 second.
+    /// Short type-themed summon/despawn burst (~0.3–0.5s).
     /// Radius scales by Dude tier (weak 1 / basic+medium 2 / strong 3).
     /// Despawn mirrors Play with rings collapsing inward.
     /// </summary>
     public static class DudeSummonEffects
     {
+        private const int RingStepMs = 100;
+        private const int DespawnTailMs = 50;
+
         public static int GetSummonRadius(DudeType type, string definitionId)
         {
             if (!string.IsNullOrEmpty(definitionId))
             {
                 switch (definitionId.ToLowerInvariant())
                 {
-                    // Weak fodder + Embit
                     case "sparkmite":
                     case "puddling":
                     case "pebblet":
@@ -25,7 +27,6 @@ namespace Server.Custom.Dudes
                     case "embit":
                         return 1;
 
-                    // Basic starters + medium + Emberon
                     case "emberling":
                     case "tideling":
                     case "stonepaw":
@@ -36,14 +37,12 @@ namespace Server.Custom.Dudes
                     case "emberon":
                         return 2;
 
-                    // Strong elite + Infernox
                     case "pyreclaw":
                     case "infernox":
                         return 3;
                 }
             }
 
-            // Fallback by type only — medium-small default
             return 2;
         }
 
@@ -69,22 +68,19 @@ namespace Server.Custom.Dudes
 
             Effects.PlaySound(center, map, GetSound(type));
 
-            // Center burst, then rings at r=1..maxRadius (~300ms apart).
+            // Center burst, then quick rings (~100ms apart → ~0.3–0.4s total).
             PlayAt(type, center, map, 0);
 
             for (int r = 1; r <= maxRadius; r++)
             {
                 int radius = r;
-                Timer.DelayCall(TimeSpan.FromMilliseconds(300 * radius), () =>
+                Timer.DelayCall(TimeSpan.FromMilliseconds(RingStepMs * radius), () =>
                 {
                     PlayRing(type, center, map, radius);
                 });
             }
         }
 
-        /// <summary>
-        /// Inward despawn: outer ring first, then collapse to center.
-        /// </summary>
         /// <summary>Total inward despawn length (matches PlayDespawn timers).</summary>
         public static TimeSpan GetDespawnDuration(int maxRadius)
         {
@@ -92,8 +88,8 @@ namespace Server.Custom.Dudes
                 maxRadius = 1;
             if (maxRadius > 3)
                 maxRadius = 3;
-            // Outer rings + final center burst at 300*maxRadius ms, plus a short tail.
-            return TimeSpan.FromMilliseconds(300 * maxRadius + 150);
+
+            return TimeSpan.FromMilliseconds(RingStepMs * maxRadius + DespawnTailMs);
         }
 
         public static TimeSpan GetDespawnDuration(DudeType type, string definitionId)
@@ -123,18 +119,17 @@ namespace Server.Custom.Dudes
 
             Effects.PlaySound(center, map, GetSound(type));
 
-            // Outer ring first, then collapse — delays 0, 300, ... then center.
             for (int r = maxRadius; r >= 1; r--)
             {
                 int radius = r;
                 int delayIndex = maxRadius - radius;
-                Timer.DelayCall(TimeSpan.FromMilliseconds(300 * delayIndex), () =>
+                Timer.DelayCall(TimeSpan.FromMilliseconds(RingStepMs * delayIndex), () =>
                 {
                     PlayRing(type, center, map, radius);
                 });
             }
 
-            Timer.DelayCall(TimeSpan.FromMilliseconds(300 * maxRadius), () =>
+            Timer.DelayCall(TimeSpan.FromMilliseconds(RingStepMs * maxRadius), () =>
             {
                 PlayAt(type, center, map, 0);
             });
@@ -152,7 +147,6 @@ namespace Server.Custom.Dudes
                     int adx = dx < 0 ? -dx : dx;
                     int ady = dy < 0 ? -dy : dy;
 
-                    // Chebyshev ring; skip far corners so it reads rounder.
                     if (Math.Max(adx, ady) != radius)
                         continue;
                     if (adx == radius && ady == radius && radius > 1)
@@ -180,30 +174,28 @@ namespace Server.Custom.Dudes
             switch (type)
             {
                 case DudeType.Fire:
-                    Effects.SendLocationParticles(ent, 0x3709, 10, 30, 5052);
-                    if (wave == 0 || Utility.RandomBool())
-                        Effects.SendLocationEffect(p, map, 0x36BD, 16);
+                    // Short particle flash (was 10/30).
+                    Effects.SendLocationParticles(ent, 0x3709, 5, 10, 5052);
+                    if (wave == 0)
+                        Effects.SendLocationEffect(p, map, 0x36BD, 8);
                     break;
 
                 case DudeType.Water:
-                    // Particle splashes — muted hues, no ugly 0x352D water tiles.
-                    Effects.SendLocationParticles(ent, 0x3728, 10, 20, 0x59B, 0, 5029, 0);
-                    Effects.SendLocationParticles(
-                        EffectItem.Create(p, map, EffectItem.DefaultDuration),
-                        0x36B0, 10, 16, 0x966, 0, 5044, 0);
-                    if (wave == 0 || Utility.RandomBool())
-                        Effects.SendLocationEffect(p, map, 0x3728, 12, 2101, 0);
+                    Effects.SendLocationParticles(ent, 0x3728, 5, 8, 0x59B, 0, 5029, 0);
+                    if (wave == 0)
+                        Effects.SendLocationEffect(p, map, 0x3728, 6, 2101, 0);
                     break;
 
                 case DudeType.Earth:
-                    Effects.SendLocationParticles(ent, 0x36B0, 10, 20, 0x3F, 0, 5044, 0);
-                    Effects.SendLocationEffect(p, map, 0x3728, 12, 0x3B2, 0);
+                    Effects.SendLocationParticles(ent, 0x36B0, 5, 8, 0x3F, 0, 5044, 0);
+                    if (wave == 0)
+                        Effects.SendLocationEffect(p, map, 0x3728, 6, 0x3B2, 0);
                     break;
 
                 case DudeType.Air:
                 default:
-                    Effects.SendLocationParticles(ent, 0x37CC, 1, 20, 0x47E, 3, 9917, 0);
-                    if (wave == 0 || Utility.Random(3) == 0)
+                    Effects.SendLocationParticles(ent, 0x37CC, 1, 8, 0x47E, 3, 9917, 0);
+                    if (wave == 0)
                         Effects.SendBoltEffect(new Entity(Serial.Zero, p, map), true, 0);
                     break;
             }
