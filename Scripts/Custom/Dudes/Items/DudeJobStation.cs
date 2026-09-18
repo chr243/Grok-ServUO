@@ -801,26 +801,41 @@ private Point3D GetSpawnLocation()
             if (!worker.HasGoal || worker.Goal != goal)
                 worker.SetGoal(goal);
 
-            bool arrived = worker.FollowGoal(1);
-
             TimeSpan stageElapsed = DateTime.UtcNow - m_StageStartUtc;
             TimeSpan expected = outbound ? m_OutboundDuration : m_ReturnDuration;
-
-            // Walk first. Teleport only if stuck (no movement), overdue, or max travel.
-            // Do NOT teleport just because MovementPath fails — that skips walking outdoors.
             TimeSpan overdueGrace = outbound ? TimeSpan.FromSeconds(30.0) : TimeSpan.FromSeconds(15.0);
-            bool stuck = worker.IsStuck(DudeJobConfig.StuckTimeout);
             bool overdue = stageElapsed >= expected + overdueGrace;
             bool maxed = stageElapsed >= DudeJobConfig.MaxTravelDuration;
 
-            if (!arrived && (stuck || overdue || maxed))
+            int dist = (int)worker.GetDistanceToSqrt(goal);
+            bool arrived = worker.InRange(goal, 1);
+
+            // Far travel or already abandoned path: teleport once, never pathfind-spam.
+            // Short trips may walk; on first stuck, teleport and abandon path until SetGoal.
+            if (!arrived && (worker.PathAbandoned || dist > 8 || overdue || maxed || worker.IsStuck(DudeJobConfig.StuckTimeout)))
             {
+                worker.AbandonPath();
                 if (outbound)
                     worker.TeleportToGoal();
                 else
                     worker.TeleportTo(GetSpawnLocation(), Map); // house Z for return
 
                 arrived = true;
+            }
+            else if (!arrived)
+            {
+                arrived = worker.FollowGoal(1);
+
+                // FollowGoal may abandon on stuck mid-tick — teleport same tick, no retry loop.
+                if (!arrived && worker.PathAbandoned)
+                {
+                    if (outbound)
+                        worker.TeleportToGoal();
+                    else
+                        worker.TeleportTo(GetSpawnLocation(), Map);
+
+                    arrived = true;
+                }
             }
 
             if (arrived)

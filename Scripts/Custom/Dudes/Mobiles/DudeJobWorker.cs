@@ -18,6 +18,7 @@ namespace Server.Mobiles
         private bool m_HasGoal;
         private DateTime m_LastProgress;
         private Point3D m_LastLocation;
+        private bool m_PathAbandoned;
 
         public DudeJobWorker()
             : base(AIType.AI_Melee, FightMode.None, 10, 1, 0.2, 0.4)
@@ -92,11 +93,17 @@ namespace Server.Mobiles
             Hits = HitsMax;
         }
 
+        public bool PathAbandoned
+        {
+            get { return m_PathAbandoned; }
+        }
+
         public void SetGoal(Point3D goal)
         {
             m_Goal = goal;
             m_HasGoal = true;
             m_Path = null;
+            m_PathAbandoned = false;
             m_LastProgress = DateTime.UtcNow;
             m_LastLocation = Location;
         }
@@ -105,15 +112,30 @@ namespace Server.Mobiles
         {
             m_HasGoal = false;
             m_Path = null;
+            m_PathAbandoned = false;
+        }
+
+        public void AbandonPath()
+        {
+            m_PathAbandoned = true;
+            m_Path = null;
         }
 
         /// <summary>
         /// Pathfind one step toward goal. Returns true if within range.
+        /// Once abandoned (stuck), does not pathfind again until SetGoal.
         /// </summary>
         public bool FollowGoal(int range)
         {
             if (!m_HasGoal || Deleted || Map == null || Map == Map.Internal)
                 return true;
+
+            if (InRange(m_Goal, range))
+                return true;
+
+            // Do not rebuild MovementPath while blocked — station will teleport.
+            if (m_PathAbandoned)
+                return false;
 
             if (m_Path == null)
                 m_Path = new PathFollower(this, m_Goal);
@@ -124,6 +146,10 @@ namespace Server.Mobiles
             {
                 m_LastLocation = Location;
                 m_LastProgress = DateTime.UtcNow;
+            }
+            else if (!arrived && IsStuck(DudeJobConfig.StuckTimeout))
+            {
+                AbandonPath();
             }
 
             return arrived;
@@ -137,34 +163,52 @@ namespace Server.Mobiles
             return (DateTime.UtcNow - m_LastProgress) >= timeout;
         }
 
-        /// <summary>True if MovementPath can currently reach the goal (false into many houses).</summary>
-        public bool CanPathToGoal()
-        {
-            if (!m_HasGoal || Deleted || Map == null || Map == Map.Internal)
-                return true;
-
-            MovementPath path = new MovementPath(this, m_Goal);
-            return path.Success;
-        }
-
         public void TeleportToGoal()
         {
             if (!m_HasGoal || Map == null || Map == Map.Internal)
                 return;
 
-            // Force move — house tiles often fail CanFit/average-Z checks.
-            TeleportTo(m_Goal, Map);
+            TeleportNear(m_Goal, Map, 2);
         }
 
         public void TeleportTo(Point3D loc, Map map)
         {
+            TeleportNear(loc, map, 0);
+        }
+
+        /// <summary>Teleport onto loc, or a nearby walkable tile if CanFit fails.</summary>
+        public void TeleportNear(Point3D loc, Map map, int searchRange)
+        {
             if (map == null || map == Map.Internal)
                 return;
 
-            MoveToWorld(loc, map);
+            Point3D dest = loc;
+            if (searchRange > 0 && !map.CanFit(loc, 16, false, false))
+            {
+                bool found = false;
+                for (int r = 1; r <= searchRange && !found; r++)
+                {
+                    for (int dx = -r; dx <= r && !found; dx++)
+                    {
+                        for (int dy = -r; dy <= r && !found; dy++)
+                        {
+                            Point3D p = new Point3D(loc.X + dx, loc.Y + dy, loc.Z);
+                            if (map.CanFit(p, 16, false, false))
+                            {
+                                dest = p;
+                                found = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            MoveToWorld(dest, map);
             m_LastLocation = Location;
             m_LastProgress = DateTime.UtcNow;
             m_Path = null;
+            // Stay abandoned until SetGoal — prevents path spam after teleport to same dest.
+            m_PathAbandoned = true;
         }
 
         public void PlayWorkAnimation(DudeJob job, DudeData data)
