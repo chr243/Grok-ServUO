@@ -28,7 +28,6 @@ namespace Server.Custom.Dudes
             public DateTime NextBurnPulse;
             public DateTime NextSpringPulse;
             public DateTime NextFaultlinePulse;
-            public DateTime NextSkillGainPulse;
             public bool FollowersApplied;
         }
 
@@ -429,15 +428,6 @@ namespace Server.Custom.Dudes
 
                 TryStage3PassivesLinked(m, ball.StoredDude, rt);
 
-                Mobile combatant = m.Combatant as Mobile;
-                if (combatant != null && !combatant.Deleted && combatant.Alive)
-                {
-                    if (DateTime.UtcNow >= rt.NextSkillGainPulse)
-                    {
-                        rt.NextSkillGainPulse = DateTime.UtcNow + TimeSpan.FromSeconds(3.0);
-                        DudeCombatSkills.TryGainOnHit(ball.StoredDude, ball, m);
-                    }
-                }
             }
         }
 
@@ -690,7 +680,6 @@ namespace Server.Custom.Dudes
 
             ApplyLinkedLevelUpStats(master, data);
             DudeCombatSkills.ApplyToMobile(master, data);
-            master.SendSpeedControl(SpeedControlType.MountSpeed);
         }
     }
 }

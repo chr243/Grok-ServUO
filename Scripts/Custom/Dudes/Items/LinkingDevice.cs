@@ -251,8 +251,6 @@ namespace Server.Items
 
             DudeCombatSkills.ApplyToMobile(from, data);
 
-            from.SendSpeedControl(SpeedControlType.MountSpeed);
-
             from.Followers += DudeLinkSystem.LinkFollowerSlots;
             m_FollowersHeld = true;
 

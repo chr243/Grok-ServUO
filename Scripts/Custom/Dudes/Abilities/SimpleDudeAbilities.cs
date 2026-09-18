@@ -292,19 +292,8 @@ namespace Server.Custom.Dudes
             if (m == null || m.Deleted || !m.Alive)
                 return;
 
-            m.SendSpeedControl(SpeedControlType.MountSpeed);
+            // Linked form uses Dude Dex; MountSpeed omitted to avoid client packet flood.
             PlayAirBuff(m);
-
-            Timer.DelayCall(duration, () =>
-            {
-                if (m == null || m.Deleted)
-                    return;
-                // Linked form already wants mount run-speed; keep it if still linked.
-                if (DudeLinkSystem.IsLinked(m))
-                    m.SendSpeedControl(SpeedControlType.MountSpeed);
-                else
-                    m.SendSpeedControl(SpeedControlType.Disable);
-            });
         }
 
         public static void ApplyTailwindSpeed(DudeCreature dude, TimeSpan duration, double speedFactor)
