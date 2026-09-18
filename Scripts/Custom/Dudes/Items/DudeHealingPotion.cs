@@ -65,9 +65,7 @@ namespace Server.Items
         {
             base.GetProperties(list);
             int pct = (int)(HealFraction * 100.0 + 0.5);
-            list.Add("Double-click and target a summoned Dude (8 tiles).");
-            list.Add("Throws like an explosion potion, then heals {0}% HP.", pct);
-            list.Add("10 second cooldown (shared with [healdude]).");
+            list.Add("Double-click and target a summoned Dude in range 8. Heals {0}%.", pct);
         }
 
         public override void OnDoubleClick(Mobile from)

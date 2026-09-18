@@ -32,7 +32,7 @@ namespace Server.Items
         public override void GetProperties(ObjectPropertyList list)
         {
             base.GetProperties(list);
-            list.Add("Rare drop from Stonewarden (future crafting)");
+            list.Add("Evolution material");
         }
 
         public override void Serialize(GenericWriter writer)

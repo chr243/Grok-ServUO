@@ -36,8 +36,6 @@ namespace Server.Items
         public override void GetProperties(ObjectPropertyList list)
         {
             base.GetProperties(list);
-            list.Add("Recycled Dude essence");
-            list.Add("Used to craft empty Dude Balls");
         }
 
         public override void Serialize(GenericWriter writer)

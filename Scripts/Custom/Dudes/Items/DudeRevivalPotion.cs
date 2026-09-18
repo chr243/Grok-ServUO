@@ -35,7 +35,7 @@ namespace Server.Items
         public override void GetProperties(ObjectPropertyList list)
         {
             base.GetProperties(list);
-            list.Add("Double-click and target a fainted Dude Ball to revive it.");
+            list.Add("Double-click and target a fainted Dude Ball.");
         }
 
         public override void OnDoubleClick(Mobile from)

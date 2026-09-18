@@ -36,8 +36,7 @@ namespace Server.Items
         public override void GetProperties(ObjectPropertyList list)
         {
             base.GetProperties(list);
-            list.Add("Use on a max-level Fire evolution Dude to evolve it");
-            list.Add("Embit (Lv10) → Emberon; Emberon (Lv20) → Infernox");
+            list.Add("Evolution material");
         }
 
         public override void OnDoubleClick(Mobile from)

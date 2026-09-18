@@ -29,8 +29,7 @@ namespace Server.Items
         public override void GetProperties(ObjectPropertyList list)
         {
             base.GetProperties(list);
-            list.Add("A field guide for inspecting Dudes");
-            list.Add("Double-click and target a Dude, Dude Ball, or boss");
+            list.Add("Double-click and target a Dude, Dude Ball, or boss.");
         }
 
         public override void OnSingleClick(Mobile from)

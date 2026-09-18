@@ -29,9 +29,7 @@ namespace Server.Items
         public override void GetProperties(ObjectPropertyList list)
         {
             base.GetProperties(list);
-            list.Add("Double-click and target a Dude to grant +1 level.");
-            list.Add("Reusable testing juice. Does not consume.");
-            list.Add("Tastes like secrets.");
+            list.Add("Double-click and target a Dude. +1 level.");
         }
 
         public override void OnDoubleClick(Mobile from)
