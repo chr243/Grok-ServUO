@@ -204,9 +204,7 @@ namespace Server.Custom.Dudes
                 skill.Base = Cap;
 
             SetDataSkill(data, skill.SkillName, v);
-
-            if (ball != null && !ball.Deleted)
-                ball.InvalidateProperties();
+            // Do not InvalidateProperties here — OPL rebuild mid-combat spikes ping while linked.
         }
     }
 }

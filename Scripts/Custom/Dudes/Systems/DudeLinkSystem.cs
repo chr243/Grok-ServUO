@@ -634,13 +634,47 @@ namespace Server.Custom.Dudes
                 return;
 
             int oldLevel = ball.StoredDude.Level;
-            DudeExperience.AwardExperience(ball, amount, master);
+            DudeExperience.AwardExperience(ball, amount, master, true);
 
-            // Full form refresh only on level-up — per-kill RawStr/skill rewrite caused huge lag spikes.
+            // Level-up: only nudge stats/HP that changed. No skill/body/OPL work mid-kill.
             if (ball.StoredDude != null && ball.StoredDude.Level > oldLevel)
-                RefreshLinkedFormFromBall(master, ball);
+                ApplyLinkedLevelUpStats(master, ball.StoredDude);
         }
 
+        /// <summary>
+        /// Minimal linked level-up apply — RawStr/Dex/Int/Hits only when values differ.
+        /// Skills do not change on level-up; HitsMax is read live from DudeData while linked.
+        /// </summary>
+        public static void ApplyLinkedLevelUpStats(Mobile master, DudeData data)
+        {
+            if (master == null || master.Deleted || data == null)
+                return;
+
+            int str = Math.Max(1, data.Str);
+            int dex = Math.Max(1, data.Dex);
+            int intel = Math.Max(1, data.Int);
+
+            if (master.RawStr != str)
+                master.RawStr = str;
+            if (master.RawDex != dex)
+                master.RawDex = dex;
+            if (master.RawInt != intel)
+                master.RawInt = intel;
+
+            int hits = data.Hits;
+            if (hits < 1)
+                hits = 1;
+            int max = data.HitsMax;
+            if (max < 1)
+                max = 1;
+            if (hits > max)
+                hits = max;
+
+            if (master.Hits != hits)
+                master.Hits = hits;
+        }
+
+        /// <summary>Full refresh (link start / rare). Avoid during combat kill/EXP.</summary>
         public static void RefreshLinkedFormFromBall(Mobile master, DudeBall ball)
         {
             if (master == null || master.Deleted || ball == null || ball.StoredDude == null)
@@ -654,20 +688,7 @@ namespace Server.Custom.Dudes
                 master.HueMod = def.Hue;
             }
 
-            master.RawStr = Math.Max(1, data.Str);
-            master.RawDex = Math.Max(1, data.Dex);
-            master.RawInt = Math.Max(1, data.Int);
-
-            int hits = data.Hits;
-            if (hits < 1)
-                hits = 1;
-            int max = data.HitsMax;
-            if (max < 1)
-                max = 1;
-            if (hits > max)
-                hits = max;
-            master.Hits = hits;
-
+            ApplyLinkedLevelUpStats(master, data);
             DudeCombatSkills.ApplyToMobile(master, data);
             master.SendSpeedControl(SpeedControlType.MountSpeed);
         }

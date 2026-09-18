@@ -192,6 +192,14 @@ namespace Server.Custom.Dudes
 
         public static void AwardExperience(DudeBall ball, int amount, Mobile notify)
         {
+            AwardExperience(ball, amount, notify, false);
+        }
+
+        /// <param name="linkedQuiet">
+        /// Linked combat path: no OPL rebuild / ApplyData during the kill packet (avoids ping spikes).
+        /// </param>
+        public static void AwardExperience(DudeBall ball, int amount, Mobile notify, bool linkedQuiet)
+        {
             if (ball == null || ball.StoredDude == null || amount <= 0)
                 return;
 
@@ -209,7 +217,7 @@ namespace Server.Custom.Dudes
 
             data.CurrentEXP += amount;
 
-            if (live != null && !live.Deleted && live.Map != null && live.Map != Map.Internal)
+            if (!linkedQuiet && live != null && !live.Deleted && live.Map != null && live.Map != Map.Internal)
             {
                 live.PublicOverheadMessage(MessageType.Regular, 0x59, false,
                     string.Format("+{0} EXP", amount));
@@ -232,10 +240,13 @@ namespace Server.Custom.Dudes
             if (data.Level >= maxLevel && data.CurrentEXP > data.EXPToNext)
                 data.CurrentEXP = data.EXPToNext;
 
-            ball.InvalidateProperties();
+            if (!linkedQuiet)
+            {
+                ball.InvalidateProperties();
 
-            if (live != null && !live.Deleted)
-                live.ApplyData(data, false);
+                if (live != null && !live.Deleted)
+                    live.ApplyData(data, false);
+            }
         }
 
         /// <summary>
