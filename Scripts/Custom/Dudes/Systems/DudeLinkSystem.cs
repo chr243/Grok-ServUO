@@ -234,6 +234,13 @@ namespace Server.Custom.Dudes
             DudeData data = ball.StoredDude;
             DudeExperience.EnsureEvolutionAbilities(data);
 
+            int evo = GetEffectiveEvolutionStage(data);
+            if (stage >= 2 && evo < 2)
+            {
+                from.SendMessage(0x22, "Stage 2 abilities unlock when this Dude evolves.");
+                return;
+            }
+
             DudeAbility ability = FindActiveAbility(data, stage);
             if (ability == null)
             {
@@ -270,7 +277,7 @@ namespace Server.Custom.Dudes
             }
 
             TimeSpan cd = ability.Cooldown;
-            if (HasUnlocked(data, "slipstream"))
+            if (GetEffectiveEvolutionStage(data) >= 3 && HasUnlocked(data, "slipstream"))
             {
                 DudeAbilityConfig.EnsureLoaded();
                 DudeAbilityTune slip = DudeAbilityConfig.Get("slipstream");
@@ -308,9 +315,43 @@ namespace Server.Custom.Dudes
             return null;
         }
 
+        /// <summary>
+        /// Evolution stage for link gates (definition id can imply stage 2/3 forms).
+        /// </summary>
+        private static int GetEffectiveEvolutionStage(DudeData data)
+        {
+            if (data == null)
+                return 1;
+
+            int stage = data.EvolutionStage;
+            if (stage < 1)
+                stage = 1;
+
+            string id = data.DefinitionId;
+            if (string.IsNullOrEmpty(id))
+                return stage;
+
+            id = id.ToLowerInvariant();
+            if (id == "flame" || id == "ripple" || id == "boulder" || id == "gale")
+            {
+                if (stage < 2)
+                    stage = 2;
+            }
+            else if (id == "blaze" || id == "torrent" || id == "quake" || id == "hurricane")
+            {
+                if (stage < 3)
+                    stage = 3;
+            }
+
+            return stage;
+        }
+
         private static DudeAbility FindActiveAbility(DudeData data, int stage)
         {
             if (data == null)
+                return null;
+
+            if (GetEffectiveEvolutionStage(data) < stage)
                 return null;
 
             List<string> ids = data.GetUnlockedAbilityIds();
@@ -386,6 +427,10 @@ namespace Server.Custom.Dudes
                 return;
 
             if (!caster.Alive || caster.Map == null || caster.Map == Map.Internal)
+                return;
+
+            // Passives are stage 3 only — abi1/abi2 stay stage-gated separately.
+            if (GetEffectiveEvolutionStage(data) < 3)
                 return;
 
             Mobile combatant = caster.Combatant as Mobile;
