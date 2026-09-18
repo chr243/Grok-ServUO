@@ -55,6 +55,11 @@ namespace Server.Mobiles
                 def = DudeRegistry.GetByType(DudeType.Fire);
 
             ApplyDefinition(def);
+
+            // Species ControlSlots mirrors stage (1/2/3) for named / wild spawns.
+            if (def != null && def.ControlSlots >= 1 && def.ControlSlots <= 3)
+                m_EvolutionStage = def.ControlSlots;
+
             ApplyDudeSpeeds();
 
             if (m_IsWild)
