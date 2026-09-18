@@ -1951,6 +1951,10 @@ namespace Server.Mobiles
 		{
 			get
 			{
+				int linkedMax;
+				if (Server.Custom.Dudes.DudeLinkSystem.TryGetLinkedHitsMax(this, out linkedMax))
+					return linkedMax;
+
 				int strBase;
 				int strOffs = GetStatOffset(StatType.Str);
 

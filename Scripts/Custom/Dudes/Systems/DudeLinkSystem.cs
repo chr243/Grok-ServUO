@@ -60,6 +60,26 @@ namespace Server.Custom.Dudes
             return rt.Device != null && !rt.Device.Deleted && rt.Device.IsLinked;
         }
 
+        /// <summary>
+        /// While linked, player HitsMax must match the ball Dude — not Str/2+50 (AOS/UOR player formula).
+        /// </summary>
+        public static bool TryGetLinkedHitsMax(Mobile m, out int hitsMax)
+        {
+            hitsMax = 0;
+            if (!IsLinked(m))
+                return false;
+
+            DudeBall ball = GetLinkedBall(m);
+            if (ball == null || ball.Deleted || ball.StoredDude == null)
+                return false;
+
+            hitsMax = ball.StoredDude.HitsMax;
+            if (hitsMax < 1)
+                hitsMax = 1;
+            return true;
+        }
+
+
         public static LinkingDevice GetDevice(Mobile m)
         {
             LinkRuntime rt;
@@ -603,39 +623,53 @@ namespace Server.Custom.Dudes
             if (ball == null || ball.Deleted || ball.StoredDude == null)
                 return;
 
-            // Sync current hits onto ball before EXP/level-up ApplyData side-effects.
-            ball.StoredDude.Hits = Math.Max(0, Math.Min(master.Hits, ball.StoredDude.HitsMax));
+            // Sync current hits onto ball (cap to Dude HitsMax, not inflated player HitsMax).
+            int cap = ball.StoredDude.HitsMax;
+            if (cap < 1)
+                cap = 1;
+            ball.StoredDude.Hits = Math.Max(0, Math.Min(master.Hits, cap));
 
             int amount = DudeExperience.CalculateKillExp(ball.StoredDude, victim);
             if (amount <= 0)
                 return;
 
+            int oldLevel = ball.StoredDude.Level;
             DudeExperience.AwardExperience(ball, amount, master);
 
-            // Refresh linked form after possible level-up (stats / skills stay on Dude).
-            if (ball.StoredDude != null)
+            // Full form refresh only on level-up — per-kill RawStr/skill rewrite caused huge lag spikes.
+            if (ball.StoredDude != null && ball.StoredDude.Level > oldLevel)
+                RefreshLinkedFormFromBall(master, ball);
+        }
+
+        public static void RefreshLinkedFormFromBall(Mobile master, DudeBall ball)
+        {
+            if (master == null || master.Deleted || ball == null || ball.StoredDude == null)
+                return;
+
+            DudeData data = ball.StoredDude;
+            DudeDefinition def = DudeRegistry.Get(data.DefinitionId);
+            if (def != null)
             {
-                DudeDefinition def = DudeRegistry.Get(ball.StoredDude.DefinitionId);
-                if (def != null)
-                {
-                    master.BodyMod = def.Body;
-                    master.HueMod = def.Hue;
-                }
-
-                master.RawStr = Math.Max(1, ball.StoredDude.Str);
-                master.RawDex = Math.Max(1, ball.StoredDude.Dex);
-                master.RawInt = Math.Max(1, ball.StoredDude.Int);
-
-                int hits = ball.StoredDude.Hits;
-                if (hits < 1)
-                    hits = 1;
-                if (hits > master.HitsMax)
-                    hits = master.HitsMax;
-                master.Hits = hits;
-
-                DudeCombatSkills.ApplyToMobile(master, ball.StoredDude);
-                master.SendSpeedControl(SpeedControlType.MountSpeed);
+                master.BodyMod = def.Body;
+                master.HueMod = def.Hue;
             }
+
+            master.RawStr = Math.Max(1, data.Str);
+            master.RawDex = Math.Max(1, data.Dex);
+            master.RawInt = Math.Max(1, data.Int);
+
+            int hits = data.Hits;
+            if (hits < 1)
+                hits = 1;
+            int max = data.HitsMax;
+            if (max < 1)
+                max = 1;
+            if (hits > max)
+                hits = max;
+            master.Hits = hits;
+
+            DudeCombatSkills.ApplyToMobile(master, data);
+            master.SendSpeedControl(SpeedControlType.MountSpeed);
         }
     }
 }

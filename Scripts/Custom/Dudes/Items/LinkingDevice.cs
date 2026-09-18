@@ -242,8 +242,11 @@ namespace Server.Items
             int hits = data.Hits;
             if (hits < 1)
                 hits = 1;
-            if (hits > from.HitsMax)
-                hits = from.HitsMax;
+            int dudeMax = data.HitsMax;
+            if (dudeMax < 1)
+                dudeMax = 1;
+            if (hits > dudeMax)
+                hits = dudeMax;
             from.Hits = hits;
 
             DudeCombatSkills.ApplyToMobile(from, data);
@@ -306,6 +309,12 @@ namespace Server.Items
 
             if (from != null && !from.Deleted)
             {
+                // Unlink FX (same family as recall despawn) before restoring human form.
+                if (data != null)
+                    DudeSummonEffects.PlayDespawn(data.Type, from.Location, from.Map, data.DefinitionId);
+                else if (ball != null && ball.StoredDude != null)
+                    DudeSummonEffects.PlayDespawn(ball.StoredDude.Type, from.Location, from.Map, ball.StoredDude.DefinitionId);
+
                 RestoreBackup(from, true);
                 DudeLinkSystem.Unregister(from);
             }

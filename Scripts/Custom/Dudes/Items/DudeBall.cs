@@ -312,6 +312,16 @@ namespace Server.Items
                 return;
             }
 
+            if (DudeLinkSystem.IsLinked(from))
+            {
+                DudeBall linked = DudeLinkSystem.GetLinkedBall(from);
+                if (linked == this)
+                {
+                    from.SendMessage("You cannot summon the Dude you are linked with.");
+                    return;
+                }
+            }
+
             int slots = DudeRegistry.GetControlSlots(m_StoredDude);
 
             if (DudeLinkSystem.IsLinked(from) && slots > 2)
