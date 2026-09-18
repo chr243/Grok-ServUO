@@ -509,10 +509,14 @@ namespace Server.Items
 
             m_SummonedDude = reader.ReadMobile() as DudeCreature;
 
-            if (m_StoredDude == null && m_SummonedDude != null && !m_SummonedDude.Deleted)
+            // Never Delete() during World.Loading — it can hang/cascade the dual-save load.
+            // Drop the link now; orphan summoned mobiles are cleaned after load if needed.
+            if (m_StoredDude == null && m_SummonedDude != null)
             {
-                m_SummonedDude.Delete();
+                DudeCreature orphan = m_SummonedDude;
                 m_SummonedDude = null;
+                if (!World.Loading && orphan != null && !orphan.Deleted)
+                    orphan.Delete();
             }
 
             if (version >= 1)
