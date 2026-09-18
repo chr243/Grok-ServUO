@@ -141,12 +141,8 @@ namespace Server.Custom.Dudes
             {
                 for (int dy = -radius; dy <= radius; dy++)
                 {
-                    int adx = dx < 0 ? -dx : dx;
-                    int ady = dy < 0 ? -dy : dy;
-
-                    if (Math.Max(adx, ady) != radius)
-                        continue;
-                    if (adx == radius && ady == radius && radius > 1)
+                    double d = Math.Sqrt(dx * dx + dy * dy);
+                    if (Math.Abs(d - radius) > 0.6)
                         continue;
 
                     PlayAt(type, new Point3D(center.X + dx, center.Y + dy, center.Z), map, radius);
