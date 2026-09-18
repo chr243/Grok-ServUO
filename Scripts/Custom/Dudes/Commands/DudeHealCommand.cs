@@ -1,5 +1,6 @@
 using System;
 using Server.Commands;
+using Server.Custom.Dudes;
 using Server.Items;
 using Server.Mobiles;
 
@@ -14,7 +15,7 @@ namespace Server.Custom.Dudes.Commands
         }
 
         [Usage("healdude")]
-        [Description("Throws a Dude healing potion from your backpack at a summoned Dude within 8 tiles that needs healing.")]
+        [Description("Uses a Dude healing potion on a linked self or throws it at a summoned Dude within 8 tiles that needs healing.")]
         private static void HealDude_OnCommand(CommandEventArgs e)
         {
             Mobile from = e.Mobile;
@@ -28,6 +29,12 @@ namespace Server.Custom.Dudes.Commands
             if (potion == null)
             {
                 from.SendMessage("You need a Dude Healing Potion in your backpack.");
+                return;
+            }
+
+            if (DudeLinkSystem.IsLinked(from))
+            {
+                potion.BeginDrinkLinked(from);
                 return;
             }
 

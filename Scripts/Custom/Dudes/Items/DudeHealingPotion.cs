@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Server.Custom.Dudes;
 using Server.Mobiles;
 using Server.Network;
 using Server.Targeting;
@@ -65,7 +66,7 @@ namespace Server.Items
         {
             base.GetProperties(list);
             int pct = (int)(HealFraction * 100.0 + 0.5);
-            list.Add("Double-click and target a summoned Dude in range 8. Heals {0}%.", pct);
+            list.Add("Double-click and target a summoned Dude (range 8), or yourself if linked. Heals {0}%.", pct);
         }
 
         public override void OnDoubleClick(Mobile from)
@@ -82,8 +83,79 @@ namespace Server.Items
             if (!CheckHealCooldown(from, true))
                 return;
 
-            from.SendMessage("Target a summoned Dude to heal.");
+            from.SendMessage("Target a summoned Dude to heal, or yourself if linked.");
             from.Target = new ThrowHealTarget(this);
+        }
+
+        public void BeginDrinkLinked(Mobile from)
+        {
+            if (from == null || from.Deleted || !from.Alive || Deleted)
+                return;
+
+            if (!IsChildOf(from.Backpack))
+            {
+                from.SendLocalizedMessage(1042001);
+                return;
+            }
+
+            if (!DudeLinkSystem.IsLinked(from))
+            {
+                from.SendMessage("You can only drink this when linked as a Dude.");
+                return;
+            }
+
+            DudeBall ball = DudeLinkSystem.GetLinkedBall(from);
+            if (ball == null || ball.Deleted)
+            {
+                from.SendMessage("Your linked Dude Ball is unavailable.");
+                return;
+            }
+
+            DudeData data = ball.StoredDude;
+            if (data == null)
+            {
+                from.SendMessage("Your linked Dude Ball has no Dude stored.");
+                return;
+            }
+
+            if (data.IsFainted)
+            {
+                from.SendMessage("Your linked Dude is fainted. Use a Dude Revival Potion first.");
+                return;
+            }
+
+            if (from.Hits >= from.HitsMax)
+            {
+                from.SendMessage("You are already at full health.");
+                return;
+            }
+
+            if (!CheckHealCooldown(from, true))
+                return;
+
+            MarkHealCooldown(from);
+
+            int heal = Math.Max(1, (int)(data.HitsMax * HealFraction));
+            int before = from.Hits;
+            from.Hits = Math.Min(from.HitsMax, from.Hits + heal);
+            int actual = from.Hits - before;
+
+            data.Hits = from.Hits;
+            data.IsFainted = false;
+            ball.InvalidateProperties();
+
+            if (Amount > 1)
+                Amount--;
+            else
+            {
+                Internalize();
+                Delete();
+            }
+
+            from.RevealingAction();
+            from.PlaySound(0x1F2);
+            from.FixedEffect(0x376A, 9, 32);
+            from.SendMessage(0x59, "You heal yourself for {0} hit points.", actual);
         }
 
         public bool CanHeal(Mobile from, DudeCreature dude, bool message)
@@ -260,6 +332,12 @@ namespace Server.Items
             {
                 if (m_Potion == null || m_Potion.Deleted)
                     return;
+
+                if (targeted == from)
+                {
+                    m_Potion.BeginDrinkLinked(from);
+                    return;
+                }
 
                 DudeCreature dude = targeted as DudeCreature;
                 if (dude == null)
