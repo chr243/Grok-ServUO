@@ -29,6 +29,21 @@ namespace Server.Custom.Dudes
         /// <summary>Multiplies ability / blast damage formulas.</summary>
         public static double AbilityDamageMultiplier = 1.0;
 
+        /// <summary>
+        /// Str gained each level-up. Defaults aim ~high Str at L30 from starter bases (~40–65).
+        /// </summary>
+        public static int StrGainPerLevel = 5;
+
+        /// <summary>
+        /// Dex gained each level-up. Default 6 → L30 Dex ~220–240 from bases ~40–65 (29 level-ups).
+        /// </summary>
+        public static int DexGainPerLevel = 6;
+
+        /// <summary>
+        /// Int gained each level-up. Lower than Str/Dex (caster-lite).
+        /// </summary>
+        public static int IntGainPerLevel = 2;
+
         private static bool m_Loaded;
 
         public static void Configure()
@@ -53,6 +68,9 @@ namespace Server.Custom.Dudes
             HitsGainL21to30 = 50;
             MeleeDamagePerLevel = 2;
             AbilityDamageMultiplier = 1.0;
+            StrGainPerLevel = 5;
+            DexGainPerLevel = 6;
+            IntGainPerLevel = 2;
 
             if (!File.Exists(FilePath))
                 return;
@@ -113,6 +131,24 @@ namespace Server.Custom.Dudes
                         if (TryParseDouble(val, out d) && d > 0.0)
                             AbilityDamageMultiplier = d;
                     }
+                    else if (string.Equals(key, "StrGainPerLevel", StringComparison.OrdinalIgnoreCase))
+                    {
+                        int n;
+                        if (int.TryParse(val, out n) && n >= 0)
+                            StrGainPerLevel = n;
+                    }
+                    else if (string.Equals(key, "DexGainPerLevel", StringComparison.OrdinalIgnoreCase))
+                    {
+                        int n;
+                        if (int.TryParse(val, out n) && n >= 0)
+                            DexGainPerLevel = n;
+                    }
+                    else if (string.Equals(key, "IntGainPerLevel", StringComparison.OrdinalIgnoreCase))
+                    {
+                        int n;
+                        if (int.TryParse(val, out n) && n >= 0)
+                            IntGainPerLevel = n;
+                    }
                 }
             }
             catch (Exception ex)
@@ -139,6 +175,9 @@ namespace Server.Custom.Dudes
                     writer.WriteLine("HitsGainL21to30={0}", HitsGainL21to30);
                     writer.WriteLine("MeleeDamagePerLevel={0}", MeleeDamagePerLevel);
                     writer.WriteLine("AbilityDamageMultiplier={0}", FormatDouble(AbilityDamageMultiplier));
+                    writer.WriteLine("StrGainPerLevel={0}", StrGainPerLevel);
+                    writer.WriteLine("DexGainPerLevel={0}", DexGainPerLevel);
+                    writer.WriteLine("IntGainPerLevel={0}", IntGainPerLevel);
                 }
 
                 m_Loaded = true;
@@ -159,6 +198,9 @@ namespace Server.Custom.Dudes
             HitsGainL21to30 = 50;
             MeleeDamagePerLevel = 2;
             AbilityDamageMultiplier = 1.0;
+            StrGainPerLevel = 5;
+            DexGainPerLevel = 6;
+            IntGainPerLevel = 2;
         }
 
         private static bool TryParseDouble(string val, out double d)

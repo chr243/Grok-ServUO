@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Server;
 
 namespace Server.Custom.Dudes
 {
@@ -17,6 +18,9 @@ namespace Server.Custom.Dudes
         private int m_Str;
         private int m_Dex;
         private int m_Int;
+        private int m_StrMod;
+        private int m_DexMod;
+        private int m_IntMod;
         private int m_HitsMax;
         private int m_Hits;
         private int m_MinDamage;
@@ -91,6 +95,25 @@ namespace Server.Custom.Dudes
         {
             get { return m_Int; }
             set { m_Int = value; }
+        }
+
+        /// <summary>One-time IV-style Str roll at create/catch. Never re-rolled on level-up.</summary>
+        public int StrMod
+        {
+            get { return m_StrMod; }
+            set { m_StrMod = value; }
+        }
+
+        public int DexMod
+        {
+            get { return m_DexMod; }
+            set { m_DexMod = value; }
+        }
+
+        public int IntMod
+        {
+            get { return m_IntMod; }
+            set { m_IntMod = value; }
         }
 
         public int HitsMax
@@ -260,9 +283,13 @@ namespace Server.Custom.Dudes
             data.m_Level = 1;
             data.m_CurrentEXP = 0;
             data.m_EXPToNext = DudeExperience.GetExpRequiredForLevel(1);
-            data.m_Str = def.Str;
-            data.m_Dex = def.Dex;
-            data.m_Int = def.Int;
+            // One-time IV roll; baked into Str/Dex/Int and stored as mods (no re-roll later).
+            data.m_StrMod = Utility.RandomMinMax(-4, 4);
+            data.m_DexMod = Utility.RandomMinMax(-4, 4);
+            data.m_IntMod = Utility.RandomMinMax(-4, 4);
+            data.m_Str = Math.Max(1, def.Str + data.m_StrMod);
+            data.m_Dex = Math.Max(1, def.Dex + data.m_DexMod);
+            data.m_Int = Math.Max(1, def.Int + data.m_IntMod);
             data.m_HitsMax = def.Hits;
             data.m_Hits = def.Hits;
             data.m_MinDamage = def.MinDamage;
@@ -279,7 +306,7 @@ namespace Server.Custom.Dudes
 
         public void Serialize(GenericWriter writer)
         {
-            writer.Write((int)2); // version
+            writer.Write((int)3); // version
 
             writer.Write(m_DefinitionId);
             writer.Write(m_CustomName);
@@ -301,6 +328,9 @@ namespace Server.Custom.Dudes
             writer.Write(m_GatherSkill);
             writer.Write(m_EvolutionStage);
             writer.Write(m_UnlockedAbilities);
+            writer.Write(m_StrMod);
+            writer.Write(m_DexMod);
+            writer.Write(m_IntMod);
         }
 
         public void Deserialize(GenericReader reader)
@@ -346,6 +376,19 @@ namespace Server.Custom.Dudes
                 m_UnlockedAbilities = m_AbilityId;
             }
 
+            if (version >= 3)
+            {
+                m_StrMod = reader.ReadInt();
+                m_DexMod = reader.ReadInt();
+                m_IntMod = reader.ReadInt();
+            }
+            else
+            {
+                m_StrMod = 0;
+                m_DexMod = 0;
+                m_IntMod = 0;
+            }
+
             if (m_EvolutionStage < 1)
                 m_EvolutionStage = 1;
 
@@ -371,6 +414,9 @@ namespace Server.Custom.Dudes
             copy.m_Str = m_Str;
             copy.m_Dex = m_Dex;
             copy.m_Int = m_Int;
+            copy.m_StrMod = m_StrMod;
+            copy.m_DexMod = m_DexMod;
+            copy.m_IntMod = m_IntMod;
             copy.m_HitsMax = m_HitsMax;
             copy.m_Hits = m_Hits;
             copy.m_MinDamage = m_MinDamage;

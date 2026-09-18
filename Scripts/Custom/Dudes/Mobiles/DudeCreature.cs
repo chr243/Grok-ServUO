@@ -231,9 +231,13 @@ namespace Server.Mobiles
             Hue = def.Hue;
             BaseSoundID = def.BaseSoundID;
 
-            SetStr(def.Str);
-            SetDex(def.Dex);
-            SetInt(def.Int);
+            // One-time IV-style variance for wild / freshly defined Dudes.
+            int strMod = Utility.RandomMinMax(-4, 4);
+            int dexMod = Utility.RandomMinMax(-4, 4);
+            int intMod = Utility.RandomMinMax(-4, 4);
+            SetStr(Math.Max(1, def.Str + strMod));
+            SetDex(Math.Max(1, def.Dex + dexMod));
+            SetInt(Math.Max(1, def.Int + intMod));
 
             SetHits(def.Hits);
             SetMana(30);
@@ -576,6 +580,14 @@ namespace Server.Mobiles
 
             if (!m_IsWild)
                 return;
+
+            // Guaranteed Dude Dust: 5–10 × EvolutionStage (wilds are stage 1 → 5–10).
+            int stage = m_EvolutionStage;
+            if (stage < 1)
+                stage = 1;
+            int dustMin = 5 * stage;
+            int dustMax = 10 * stage;
+            PackItem(new DudeDust(Utility.RandomMinMax(dustMin, dustMax)));
 
             PackGold(10, 50);
 

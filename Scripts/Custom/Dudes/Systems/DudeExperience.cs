@@ -219,10 +219,10 @@ namespace Server.Custom.Dudes
             data.Level++;
             data.EXPToNext = GetExpRequiredForLevel(data.Level);
 
-            // Classic UO-style bumps; Hits scaled for late-game evo tanks; melee from config.
-            data.Str += 2;
-            data.Dex += 2;
-            data.Int += 1;
+            // Stat bumps from live config (defaults: Str+5 / Dex+6 / Int+2 → L30 Dex ~220–240).
+            data.Str += DudeScalingConfig.StrGainPerLevel;
+            data.Dex += DudeScalingConfig.DexGainPerLevel;
+            data.Int += DudeScalingConfig.IntGainPerLevel;
             data.HitsMax += GetHitsGainForLevel(data.Level);
             data.Hits = data.HitsMax;
             data.MinDamage += DudeScalingConfig.MeleeDamagePerLevel;

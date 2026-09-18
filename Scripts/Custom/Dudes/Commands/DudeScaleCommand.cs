@@ -40,6 +40,9 @@ namespace Server.Custom.Dudes.Commands
         private const int EntryHits21to30 = 4;
         private const int EntryMelee = 5;
         private const int EntryAbility = 6;
+        private const int EntryStrGain = 7;
+        private const int EntryDexGain = 8;
+        private const int EntryIntGain = 9;
 
         private const int BtnSave = 1;
         private const int BtnReload = 2;
@@ -51,8 +54,8 @@ namespace Server.Custom.Dudes.Commands
             DudeScalingConfig.EnsureLoaded();
 
             AddPage(0);
-            AddBackground(0, 0, 420, 360, 9270);
-            AddAlphaRegion(10, 10, 400, 340);
+            AddBackground(0, 0, 420, 450, 9270);
+            AddAlphaRegion(10, 10, 400, 430);
 
             AddHtml(20, 18, 380, 20, "<CENTER><BASEFONT COLOR=#FFFFFF>Dude Scaling Admin</BASEFONT></CENTER>", false, false);
             AddHtml(20, 40, 380, 36,
@@ -87,6 +90,18 @@ namespace Server.Custom.Dudes.Commands
             AddLabel(24, y, labelHue, "Ability damage multiplier");
             AddTextEntry(280, y, 100, 20, entryHue, EntryAbility,
                 DudeScalingConfig.AbilityDamageMultiplier.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
+            y += 28;
+
+            AddLabel(24, y, labelHue, "Str gain per level");
+            AddTextEntry(280, y, 100, 20, entryHue, EntryStrGain, DudeScalingConfig.StrGainPerLevel.ToString());
+            y += 28;
+
+            AddLabel(24, y, labelHue, "Dex gain per level (L30 ~220–240)");
+            AddTextEntry(280, y, 100, 20, entryHue, EntryDexGain, DudeScalingConfig.DexGainPerLevel.ToString());
+            y += 28;
+
+            AddLabel(24, y, labelHue, "Int gain per level");
+            AddTextEntry(280, y, 100, 20, entryHue, EntryIntGain, DudeScalingConfig.IntGainPerLevel.ToString());
             y += 36;
 
             AddButton(24, y, 4005, 4007, BtnSave, GumpButtonType.Reply, 0);
@@ -151,7 +166,7 @@ namespace Server.Custom.Dudes.Commands
                 return false;
             }
 
-            int h2, h11, h21, melee;
+            int h2, h11, h21, melee, strG, dexG, intG;
             if (!TryReadInt(info, EntryHits2to10, out h2) || h2 < 0
                 || !TryReadInt(info, EntryHits11to20, out h11) || h11 < 0
                 || !TryReadInt(info, EntryHits21to30, out h21) || h21 < 0)
@@ -176,12 +191,24 @@ namespace Server.Custom.Dudes.Commands
                 return false;
             }
 
+            if (!TryReadInt(info, EntryStrGain, out strG) || strG < 0
+                || !TryReadInt(info, EntryDexGain, out dexG) || dexG < 0
+                || !TryReadInt(info, EntryIntGain, out intG) || intG < 0)
+            {
+                from.SendMessage(0x22, "Invalid Str/Dex/Int gain per level (must be >= 0).");
+                from.SendGump(new DudeScaleGump());
+                return false;
+            }
+
             DudeScalingConfig.ExpScale = expScale;
             DudeScalingConfig.HitsGainL2to10 = h2;
             DudeScalingConfig.HitsGainL11to20 = h11;
             DudeScalingConfig.HitsGainL21to30 = h21;
             DudeScalingConfig.MeleeDamagePerLevel = melee;
             DudeScalingConfig.AbilityDamageMultiplier = ability;
+            DudeScalingConfig.StrGainPerLevel = strG;
+            DudeScalingConfig.DexGainPerLevel = dexG;
+            DudeScalingConfig.IntGainPerLevel = intG;
             return true;
         }
 
