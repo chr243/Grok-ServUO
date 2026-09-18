@@ -1,4 +1,5 @@
 using System;
+using Server.Items;
 using Server.Mobiles;
 
 namespace Server.Custom.Dudes
@@ -76,5 +77,35 @@ namespace Server.Custom.Dudes
         }
 
         public abstract void Execute(DudeCreature dude, Mobile target);
+
+        /// <summary>Linked-player path: caster is the player in Dude form.</summary>
+        public virtual bool CanExecuteLinked(Mobile caster, DudeData data, Mobile target)
+        {
+            if (caster == null || caster.Deleted || !caster.Alive)
+                return false;
+            if (data == null)
+                return false;
+            if (target == null || target.Deleted || !target.Alive)
+                return false;
+            if (m_ManaCost > 0 && caster.Mana < m_ManaCost)
+                return false;
+            return true;
+        }
+
+        public virtual bool TryExecuteLinked(Mobile caster, DudeData data, DudeBall ball, Mobile target)
+        {
+            if (!CanExecuteLinked(caster, data, target))
+                return false;
+
+            if (m_ManaCost > 0)
+                caster.Mana -= m_ManaCost;
+
+            ExecuteLinked(caster, data, ball, target);
+            return true;
+        }
+
+        public virtual void ExecuteLinked(Mobile caster, DudeData data, DudeBall ball, Mobile target)
+        {
+        }
     }
 }

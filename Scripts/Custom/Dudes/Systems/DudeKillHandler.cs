@@ -39,6 +39,10 @@ namespace Server.Custom.Dudes
             List<DudeCreature> recipients = FindEligibleDudesInRange(victim, masters);
             for (int i = 0; i < recipients.Count; i++)
                 TryAward(recipients[i], victim);
+
+            // Linked players: award EXP to their linked ball (no DudeCreature out).
+            for (int i = 0; i < masters.Count; i++)
+                DudeLinkSystem.TryAwardLinkedKill(masters[i], victim);
         }
 
         /// <summary>

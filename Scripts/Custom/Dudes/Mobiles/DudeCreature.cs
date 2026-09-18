@@ -310,14 +310,25 @@ namespace Server.Mobiles
         }
 
         /// <summary>
-        /// Wrestling / Tactics / MagicResist capped by evolution stage (100 / 110 / 120), not level.
+        /// Apply stored DudeData combat skills (Wrestling/Tactics/Anatomy/MagicResist), capped at 100.
+        /// Wild (no data): roll 40–60 each. Stage GetCombatSkillCap is unused for these four.
         /// </summary>
         public void ApplyCombatSkills(DudeData data)
         {
-            double skill = DudeExperience.GetCombatSkillCap(data);
-            SetSkill(SkillName.Tactics, skill);
-            SetSkill(SkillName.Wrestling, skill);
-            SetSkill(SkillName.MagicResist, skill); // Resist Spells — stage caps 100 / 110 / 120
+            if (data != null)
+            {
+                DudeCombatSkills.EnsureRolled(data);
+                SetSkill(SkillName.Wrestling, DudeCombatSkills.Clamp(data.Wrestling));
+                SetSkill(SkillName.Tactics, DudeCombatSkills.Clamp(data.Tactics));
+                SetSkill(SkillName.Anatomy, DudeCombatSkills.Clamp(data.Anatomy));
+                SetSkill(SkillName.MagicResist, DudeCombatSkills.Clamp(data.MagicResist));
+                return;
+            }
+
+            SetSkill(SkillName.Wrestling, DudeCombatSkills.Roll());
+            SetSkill(SkillName.Tactics, DudeCombatSkills.Roll());
+            SetSkill(SkillName.Anatomy, DudeCombatSkills.Roll());
+            SetSkill(SkillName.MagicResist, DudeCombatSkills.Roll());
         }
 
         /// <summary>Legacy name — redirects to ApplyCombatSkills with stage 1.</summary>
@@ -373,6 +384,7 @@ namespace Server.Mobiles
             data.VirtualArmor = VirtualArmor;
             data.Level = m_DudeLevel;
             data.CustomName = Name;
+            DudeCombatSkills.WriteFromMobile(this, data);
             m_BoundBall.InvalidateProperties();
         }
 
@@ -423,6 +435,19 @@ namespace Server.Mobiles
                 base.DoHarmful(target, true);
             else
                 base.DoHarmful(target, indirect);
+        }
+
+        public override void OnGaveMeleeAttack(Mobile defender)
+        {
+            base.OnGaveMeleeAttack(defender);
+
+            if (m_IsWild || m_Fainting || m_Despawning)
+                return;
+
+            if (m_BoundBall == null || m_BoundBall.Deleted || m_BoundBall.StoredDude == null)
+                return;
+
+            DudeCombatSkills.TryGainOnHit(m_BoundBall.StoredDude, m_BoundBall, this);
         }
 
         public override void OnThink()
@@ -480,7 +505,7 @@ namespace Server.Mobiles
             return list;
         }
 
-        private static bool IsPassiveAbilityId(string id)
+        public static bool IsPassiveAbilityId(string id)
         {
             if (string.IsNullOrEmpty(id))
                 return false;

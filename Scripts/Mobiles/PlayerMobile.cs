@@ -3736,6 +3736,9 @@ namespace Server.Mobiles
 
         public override bool OnBeforeDeath()
         {
+            // Dude linking: revert to human before corpse so the corpse is a player corpse.
+            Server.Custom.Dudes.DudeLinkSystem.HandleBeforeDeath(this);
+
             NetState state = NetState;
 
             if (state != null)

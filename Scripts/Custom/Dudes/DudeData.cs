@@ -32,6 +32,10 @@ namespace Server.Custom.Dudes
         private double m_GatherSkill;
         private int m_EvolutionStage;
         private string m_UnlockedAbilities;
+        private double m_Wrestling;
+        private double m_Tactics;
+        private double m_Anatomy;
+        private double m_MagicResist;
 
         public DudeData()
         {
@@ -193,6 +197,31 @@ namespace Server.Custom.Dudes
             set { m_UnlockedAbilities = value; }
         }
 
+        /// <summary>Persistent combat skill (cap 100). Wild catch rolls 40–60.</summary>
+        public double Wrestling
+        {
+            get { return m_Wrestling; }
+            set { m_Wrestling = DudeCombatSkills.Clamp(value); }
+        }
+
+        public double Tactics
+        {
+            get { return m_Tactics; }
+            set { m_Tactics = DudeCombatSkills.Clamp(value); }
+        }
+
+        public double Anatomy
+        {
+            get { return m_Anatomy; }
+            set { m_Anatomy = DudeCombatSkills.Clamp(value); }
+        }
+
+        public double MagicResist
+        {
+            get { return m_MagicResist; }
+            set { m_MagicResist = DudeCombatSkills.Clamp(value); }
+        }
+
         public string DisplayName
         {
             get
@@ -301,12 +330,16 @@ namespace Server.Custom.Dudes
             data.m_IsFainted = false;
             data.m_Catcher = catcher;
             data.m_GatherSkill = Server.Custom.Dudes.Jobs.DudeJobConfig.BaseGatherSkill;
+            data.m_Wrestling = DudeCombatSkills.Roll();
+            data.m_Tactics = DudeCombatSkills.Roll();
+            data.m_Anatomy = DudeCombatSkills.Roll();
+            data.m_MagicResist = DudeCombatSkills.Roll();
             return data;
         }
 
         public void Serialize(GenericWriter writer)
         {
-            writer.Write((int)3); // version
+            writer.Write((int)4); // version
 
             writer.Write(m_DefinitionId);
             writer.Write(m_CustomName);
@@ -331,6 +364,10 @@ namespace Server.Custom.Dudes
             writer.Write(m_StrMod);
             writer.Write(m_DexMod);
             writer.Write(m_IntMod);
+            writer.Write(m_Wrestling);
+            writer.Write(m_Tactics);
+            writer.Write(m_Anatomy);
+            writer.Write(m_MagicResist);
         }
 
         public void Deserialize(GenericReader reader)
@@ -389,6 +426,26 @@ namespace Server.Custom.Dudes
                 m_IntMod = 0;
             }
 
+            if (version >= 4)
+            {
+                m_Wrestling = reader.ReadDouble();
+                m_Tactics = reader.ReadDouble();
+                m_Anatomy = reader.ReadDouble();
+                m_MagicResist = reader.ReadDouble();
+            }
+            else
+            {
+                m_Wrestling = DudeCombatSkills.Roll();
+                m_Tactics = DudeCombatSkills.Roll();
+                m_Anatomy = DudeCombatSkills.Roll();
+                m_MagicResist = DudeCombatSkills.Roll();
+            }
+
+            m_Wrestling = DudeCombatSkills.Clamp(m_Wrestling);
+            m_Tactics = DudeCombatSkills.Clamp(m_Tactics);
+            m_Anatomy = DudeCombatSkills.Clamp(m_Anatomy);
+            m_MagicResist = DudeCombatSkills.Clamp(m_MagicResist);
+
             if (m_EvolutionStage < 1)
                 m_EvolutionStage = 1;
 
@@ -428,6 +485,10 @@ namespace Server.Custom.Dudes
             copy.m_GatherSkill = m_GatherSkill;
             copy.m_EvolutionStage = m_EvolutionStage;
             copy.m_UnlockedAbilities = m_UnlockedAbilities;
+            copy.m_Wrestling = m_Wrestling;
+            copy.m_Tactics = m_Tactics;
+            copy.m_Anatomy = m_Anatomy;
+            copy.m_MagicResist = m_MagicResist;
             return copy;
         }
     }

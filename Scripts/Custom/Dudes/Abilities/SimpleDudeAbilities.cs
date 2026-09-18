@@ -114,6 +114,63 @@ namespace Server.Custom.Dudes
         }
 
         /// <summary>
+        /// Collect Combatant + Aggressors/Aggressed for any Mobile (linked player). No GetMobilesInRange.
+        /// </summary>
+        public static void CollectFightList(Mobile caster, Mobile master, List<Mobile> list)
+        {
+            if (caster == null || list == null)
+                return;
+
+            AddFightCandidateMobile(caster, master, list, caster.Combatant as Mobile);
+
+            List<AggressorInfo> aggressors = caster.Aggressors;
+            if (aggressors != null)
+            {
+                for (int i = 0; i < aggressors.Count; i++)
+                {
+                    AggressorInfo info = aggressors[i];
+                    if (info == null || info.Expired)
+                        continue;
+                    AddFightCandidateMobile(caster, master, list, info.Attacker);
+                }
+            }
+
+            List<AggressorInfo> aggressed = caster.Aggressed;
+            if (aggressed != null)
+            {
+                for (int i = 0; i < aggressed.Count; i++)
+                {
+                    AggressorInfo info = aggressed[i];
+                    if (info == null || info.Expired)
+                        continue;
+                    AddFightCandidateMobile(caster, master, list, info.Defender);
+                }
+            }
+        }
+
+        private static void AddFightCandidateMobile(Mobile caster, Mobile master, List<Mobile> list, Mobile m)
+        {
+            if (m == null || m == caster || m.Deleted || !m.Alive)
+                return;
+            if (master != null && m == master)
+                return;
+            if (!caster.CanBeHarmful(m))
+                return;
+
+            BaseCreature bc = m as BaseCreature;
+            if (bc != null && master != null && bc.Controlled && bc.ControlMaster == master)
+                return;
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (list[i] == m)
+                    return;
+            }
+
+            list.Add(m);
+        }
+
+        /// <summary>
         /// Collect Combatant + Aggressors/Aggressed (fight-list). No GetMobilesInRange.
         /// </summary>
         public static void CollectFightList(DudeCreature dude, List<Mobile> list)
@@ -229,6 +286,26 @@ namespace Server.Custom.Dudes
             }
         }
 
+        public static void ApplyTailwindSpeedPlayer(Mobile m, TimeSpan duration)
+        {
+            if (m == null || m.Deleted || !m.Alive)
+                return;
+
+            m.SendSpeedControl(SpeedControlType.MountSpeed);
+            PlayAirBuff(m);
+
+            Timer.DelayCall(duration, () =>
+            {
+                if (m == null || m.Deleted)
+                    return;
+                // Linked form already wants mount run-speed; keep it if still linked.
+                if (DudeLinkSystem.IsLinked(m))
+                    m.SendSpeedControl(SpeedControlType.MountSpeed);
+                else
+                    m.SendSpeedControl(SpeedControlType.Disable);
+            });
+        }
+
         public static void ApplyTailwindSpeed(DudeCreature dude, TimeSpan duration, double speedFactor)
         {
             if (dude == null || dude.Deleted || dude.IsWild)
@@ -275,6 +352,16 @@ namespace Server.Custom.Dudes
             Effects.SendMovingEffect(dude, target, 0x36BD, 7, 0, false, false, 0, 0);
             DudeAbilityVfx.PlayFireHit(target, true);
         }
+
+        public override void ExecuteLinked(Mobile caster, DudeData data, DudeBall ball, Mobile target)
+        {
+            DudeAbilityConfig.EnsureLoaded();
+            int damage = DudeExperience.GetBlastDamage(data != null ? data.Level : 1);
+            caster.PublicOverheadMessage(MessageType.Regular, 0x22, false, "*Fire Blast*");
+            AOS.Damage(target, caster, damage, 0, 100, 0, 0, 0);
+            Effects.SendMovingEffect(caster, target, 0x36BD, 7, 0, false, false, 0, 0);
+            DudeAbilityVfx.PlayFireHit(target, true);
+        }
     }
 
     public sealed class TideMendAbility : DudeAbility
@@ -304,6 +391,26 @@ namespace Server.Custom.Dudes
             dude.PublicOverheadMessage(MessageType.Regular, 0x3B2, false, "*Tide Mend*");
             dude.Hits = Math.Min(dude.HitsMax, dude.Hits + heal);
             DudeAbilityVfx.PlayWaterHeal(dude);
+        }
+
+        public override bool CanExecuteLinked(Mobile caster, DudeData data, Mobile target)
+        {
+            if (caster == null || caster.Deleted || !caster.Alive)
+                return false;
+            if (data == null)
+                return false;
+            if (ManaCost > 0 && caster.Mana < ManaCost)
+                return false;
+            return true;
+        }
+
+        public override void ExecuteLinked(Mobile caster, DudeData data, DudeBall ball, Mobile target)
+        {
+            DudeAbilityConfig.EnsureLoaded();
+            int heal = DudeExperience.GetBlastDamage(data != null ? data.Level : 1);
+            caster.PublicOverheadMessage(MessageType.Regular, 0x3B2, false, "*Tide Mend*");
+            caster.Hits = Math.Min(caster.HitsMax, caster.Hits + heal);
+            DudeAbilityVfx.PlayWaterHeal(caster);
         }
     }
 
@@ -338,6 +445,31 @@ namespace Server.Custom.Dudes
             DudeAbilityVfx.PlayEarthHit(target);
             target.Paralyze(TimeSpan.FromSeconds(stun));
         }
+
+        public override bool CanExecuteLinked(Mobile caster, DudeData data, Mobile target)
+        {
+            if (!base.CanExecuteLinked(caster, data, target))
+                return false;
+            if (target is PlayerMobile)
+                return false;
+            return true;
+        }
+
+        public override void ExecuteLinked(Mobile caster, DudeData data, DudeBall ball, Mobile target)
+        {
+            if (target is PlayerMobile)
+                return;
+
+            DudeAbilityConfig.EnsureLoaded();
+            DudeAbilityTune tune = DudeAbilityConfig.Get("fault_strike");
+            double stun = tune != null && tune.StunSeconds > 0.0 ? tune.StunSeconds : 1.0;
+
+            int damage = DudeExperience.GetBlastDamage(data != null ? data.Level : 1);
+            caster.PublicOverheadMessage(MessageType.Regular, 0x3F, false, "*Fault Strike*");
+            AOS.Damage(target, caster, damage, 100, 0, 0, 0, 0);
+            DudeAbilityVfx.PlayEarthHit(target);
+            target.Paralyze(TimeSpan.FromSeconds(stun));
+        }
     }
 
     public sealed class TailwindSelfAbility : DudeAbility
@@ -369,6 +501,27 @@ namespace Server.Custom.Dudes
 
             dude.PublicOverheadMessage(MessageType.Regular, 0x47E, false, "*Tailwind*");
             DudeAbilityVfx.ApplyTailwindSpeed(dude, TimeSpan.FromSeconds(duration), speed);
+        }
+
+        public override bool CanExecuteLinked(Mobile caster, DudeData data, Mobile target)
+        {
+            if (caster == null || caster.Deleted || !caster.Alive)
+                return false;
+            if (data == null)
+                return false;
+            if (ManaCost > 0 && caster.Mana < ManaCost)
+                return false;
+            return true;
+        }
+
+        public override void ExecuteLinked(Mobile caster, DudeData data, DudeBall ball, Mobile target)
+        {
+            DudeAbilityConfig.EnsureLoaded();
+            DudeAbilityTune tune = DudeAbilityConfig.Get("tailwind_self");
+            double duration = tune != null && tune.DurationSeconds > 0.0 ? tune.DurationSeconds : 5.0;
+
+            caster.PublicOverheadMessage(MessageType.Regular, 0x47E, false, "*Tailwind*");
+            DudeAbilityVfx.ApplyTailwindSpeedPlayer(caster, TimeSpan.FromSeconds(duration));
         }
     }
 
@@ -418,12 +571,52 @@ namespace Server.Custom.Dudes
                     if (dude == null || dude.Deleted || map == null || map == Map.Internal)
                         return;
 
-                    PlayExpandingRing(dude, center, map, radius, damage);
+                    PlayExpandingRing(dude, dude.ControlMaster, center, map, radius, damage);
                 });
             }
         }
 
-        private static void PlayExpandingRing(DudeCreature dude, Point3D center, Map map, int radius, int damage)
+        public override bool CanExecuteLinked(Mobile caster, DudeData data, Mobile target)
+        {
+            if (caster == null || caster.Deleted || !caster.Alive)
+                return false;
+            if (data == null)
+                return false;
+            if (ManaCost > 0 && caster.Mana < ManaCost)
+                return false;
+            if (target == null || target.Deleted || !target.Alive)
+                return false;
+            return true;
+        }
+
+        public override void ExecuteLinked(Mobile caster, DudeData data, DudeBall ball, Mobile target)
+        {
+            DudeAbilityConfig.EnsureLoaded();
+            DudeAbilityTune tune = DudeAbilityConfig.Get("ring_of_fire");
+            double vs = tune != null && tune.DamageVsBlast > 0.0 ? tune.DamageVsBlast : 0.5;
+            int damage = Math.Max(1, (int)(DudeExperience.GetBlastDamage(data != null ? data.Level : 1) * vs));
+            caster.PublicOverheadMessage(MessageType.Regular, 0x22, false, "*Ring of Fire*");
+            caster.PlaySound(0x208);
+
+            Point3D center = caster.Location;
+            Map map = caster.Map;
+            if (map == null || map == Map.Internal)
+                return;
+
+            for (int r = 1; r <= AoERange; r++)
+            {
+                int radius = r;
+                Timer.DelayCall(TimeSpan.FromMilliseconds(250 * (radius - 1)), () =>
+                {
+                    if (caster == null || caster.Deleted || map == null || map == Map.Internal)
+                        return;
+
+                    PlayExpandingRing(caster, caster, center, map, radius, damage);
+                });
+            }
+        }
+
+        private static void PlayExpandingRing(Mobile caster, Mobile master, Point3D center, Map map, int radius, int damage)
         {
             for (int dx = -radius; dx <= radius; dx++)
             {
@@ -448,23 +641,23 @@ namespace Server.Custom.Dudes
 
             foreach (Mobile m in map.GetMobilesInRange(center, radius))
             {
-                if (m == null || m == dude || m.Deleted || !m.Alive)
+                if (m == null || m == caster || m.Deleted || !m.Alive)
                     continue;
-                if (m == dude.ControlMaster)
+                if (master != null && m == master)
                     continue;
-                if (!dude.CanBeHarmful(m))
+                if (!caster.CanBeHarmful(m))
                     continue;
 
                 BaseCreature bc = m as BaseCreature;
-                if (bc != null && bc.Controlled && bc.ControlMaster == dude.ControlMaster)
+                if (bc != null && master != null && bc.Controlled && bc.ControlMaster == master)
                     continue;
 
                 int dist = Math.Max(Math.Abs(m.X - center.X), Math.Abs(m.Y - center.Y));
                 if (dist != radius)
                     continue;
 
-                dude.DoHarmful(m);
-                AOS.Damage(m, dude, damage, 0, 100, 0, 0, 0);
+                caster.DoHarmful(m);
+                AOS.Damage(m, caster, damage, 0, 100, 0, 0, 0);
                 DudeAbilityVfx.PlayFireHit(m, false);
             }
         }
@@ -517,6 +710,53 @@ namespace Server.Custom.Dudes
             double healFrac = tune != null && tune.HealHitsFraction > 0.0 ? tune.HealHitsFraction : 0.20;
 
             int blastHeal = DudeExperience.GetBlastDamage(dude.DudeLevel);
+
+            for (int i = 0; i < allies.Count; i++)
+            {
+                DudeCreature ally = allies[i];
+                if (ally == null || ally.Deleted || !ally.Alive)
+                    continue;
+
+                int pctHeal = Math.Max(1, (int)(ally.HitsMax * healFrac));
+                int heal = Math.Min(pctHeal, blastHeal);
+                if (heal < 1)
+                    heal = 1;
+
+                ally.Hits = Math.Min(ally.HitsMax, ally.Hits + heal);
+                DudeAbilityVfx.PlayWaterHeal(ally);
+            }
+        }
+
+        public override bool CanExecuteLinked(Mobile caster, DudeData data, Mobile target)
+        {
+            if (caster == null || caster.Deleted || !caster.Alive)
+                return false;
+            if (data == null)
+                return false;
+            if (ManaCost > 0 && caster.Mana < ManaCost)
+                return false;
+            return true;
+        }
+
+        public override void ExecuteLinked(Mobile caster, DudeData data, DudeBall ball, Mobile target)
+        {
+            caster.PublicOverheadMessage(MessageType.Regular, 0x3B2, false, "*Tide Chorus*");
+
+            List<DudeCreature> allies = new List<DudeCreature>();
+            DudeAbilityVfx.CollectPartyOwnedDudes(caster, caster.Location, caster.Map, ChorusRange, allies);
+
+            DudeAbilityConfig.EnsureLoaded();
+            DudeAbilityTune tune = DudeAbilityConfig.Get("tide_chorus");
+            double healFrac = tune != null && tune.HealHitsFraction > 0.0 ? tune.HealHitsFraction : 0.20;
+            int blastHeal = DudeExperience.GetBlastDamage(data != null ? data.Level : 1);
+
+            // Heal linked caster
+            int selfPct = Math.Max(1, (int)(caster.HitsMax * healFrac));
+            int selfHeal = Math.Min(selfPct, blastHeal);
+            if (selfHeal < 1)
+                selfHeal = 1;
+            caster.Hits = Math.Min(caster.HitsMax, caster.Hits + selfHeal);
+            DudeAbilityVfx.PlayWaterHeal(caster);
 
             for (int i = 0; i < allies.Count; i++)
             {
@@ -591,6 +831,53 @@ namespace Server.Custom.Dudes
                 m.Paralyze(TimeSpan.FromSeconds(stun));
             }
         }
+
+        public override bool CanExecuteLinked(Mobile caster, DudeData data, Mobile target)
+        {
+            if (caster == null || caster.Deleted || !caster.Alive)
+                return false;
+            if (data == null)
+                return false;
+            if (ManaCost > 0 && caster.Mana < ManaCost)
+                return false;
+            return true;
+        }
+
+        public override void ExecuteLinked(Mobile caster, DudeData data, DudeBall ball, Mobile target)
+        {
+            DudeAbilityConfig.EnsureLoaded();
+            DudeAbilityTune tune = DudeAbilityConfig.Get("aftershock");
+            double vs = tune != null && tune.DamageVsBlast > 0.0 ? tune.DamageVsBlast : 0.5;
+            double stun = tune != null && tune.StunSeconds > 0.0 ? tune.StunSeconds : 1.0;
+            int radius = tune != null && tune.Radius > 0 ? tune.Radius : 3;
+
+            int damage = Math.Max(1, (int)(DudeExperience.GetBlastDamage(data != null ? data.Level : 1) * vs));
+            caster.PublicOverheadMessage(MessageType.Regular, 0x3F, false, "*Aftershock*");
+            caster.PlaySound(0x1F3);
+
+            List<Mobile> list = new List<Mobile>();
+            DudeAbilityVfx.CollectFightList(caster, caster, list);
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                Mobile m = list[i];
+                if (m == null || m.Deleted || !m.Alive)
+                    continue;
+                if (m is PlayerMobile)
+                    continue;
+                if (m is DudeCreature)
+                    continue;
+
+                int dist = Math.Max(Math.Abs(m.X - caster.X), Math.Abs(m.Y - caster.Y));
+                if (dist > radius)
+                    continue;
+
+                caster.DoHarmful(m);
+                AOS.Damage(m, caster, damage, 100, 0, 0, 0, 0);
+                DudeAbilityVfx.PlayEarthHit(m);
+                m.Paralyze(TimeSpan.FromSeconds(stun));
+            }
+        }
     }
 
     public sealed class TailwindAbility : DudeAbility
@@ -638,6 +925,35 @@ namespace Server.Custom.Dudes
             DudeAbilityTune tune = DudeAbilityConfig.Get("tailwind");
             double duration = tune != null && tune.DurationSeconds > 0.0 ? tune.DurationSeconds : 5.0;
             double speed = tune != null && tune.SpeedFactor > 0.0 ? tune.SpeedFactor : 0.5;
+
+            for (int i = 0; i < allies.Count; i++)
+                DudeAbilityVfx.ApplyTailwindSpeed(allies[i], TimeSpan.FromSeconds(duration), speed);
+        }
+
+        public override bool CanExecuteLinked(Mobile caster, DudeData data, Mobile target)
+        {
+            if (caster == null || caster.Deleted || !caster.Alive)
+                return false;
+            if (data == null)
+                return false;
+            if (ManaCost > 0 && caster.Mana < ManaCost)
+                return false;
+            return true;
+        }
+
+        public override void ExecuteLinked(Mobile caster, DudeData data, DudeBall ball, Mobile target)
+        {
+            caster.PublicOverheadMessage(MessageType.Regular, 0x47E, false, "*Tailwind*");
+
+            List<DudeCreature> allies = new List<DudeCreature>();
+            DudeAbilityVfx.CollectPartyOwnedDudes(caster, caster.Location, caster.Map, TailwindRange, allies);
+
+            DudeAbilityConfig.EnsureLoaded();
+            DudeAbilityTune tune = DudeAbilityConfig.Get("tailwind");
+            double duration = tune != null && tune.DurationSeconds > 0.0 ? tune.DurationSeconds : 5.0;
+            double speed = tune != null && tune.SpeedFactor > 0.0 ? tune.SpeedFactor : 0.5;
+
+            DudeAbilityVfx.ApplyTailwindSpeedPlayer(caster, TimeSpan.FromSeconds(duration));
 
             for (int i = 0; i < allies.Count; i++)
                 DudeAbilityVfx.ApplyTailwindSpeed(allies[i], TimeSpan.FromSeconds(duration), speed);

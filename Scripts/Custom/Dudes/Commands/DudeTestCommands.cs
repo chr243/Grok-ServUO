@@ -40,6 +40,7 @@ namespace Server.Custom.Dudes.Commands
             CommandSystem.Register("CreateBeginnersBall", AccessLevel.GameMaster, new CommandEventHandler(CreateBeginnersBall_OnCommand));
             CommandSystem.Register("CreateDudeSpawners", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeSpawners_OnCommand));
             CommandSystem.Register("CreateDudeBallDispenser", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeBallDispenser_OnCommand));
+            CommandSystem.Register("CreateLinkingDevice", AccessLevel.GameMaster, new CommandEventHandler(CreateLinkingDevice_OnCommand));
             CommandSystem.Register("CreateDudeHealthPotDispenser", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeHealthPotDispenser_OnCommand));
             CommandSystem.Register("CreateDudeRevivalPotDispenser", AccessLevel.GameMaster, new CommandEventHandler(CreateDudeRevivalPotDispenser_OnCommand));
         }
@@ -86,6 +87,18 @@ namespace Server.Custom.Dudes.Commands
             DudeBall ball = new DudeBall();
             from.Backpack.DropItem(ball);
             from.SendMessage(0x59, "TEST: Empty Dude Ball created.");
+        }
+
+        [Usage("CreateLinkingDevice")]
+        [Description("TEST: Creates a Linking Device in your backpack.")]
+        private static void CreateLinkingDevice_OnCommand(CommandEventArgs e)
+        {
+            Mobile from = e.Mobile;
+            if (from == null || from.Backpack == null)
+                return;
+
+            from.Backpack.DropItem(new LinkingDevice());
+            from.SendMessage(0x59, "TEST: Linking Device created.");
         }
 
 

@@ -202,6 +202,8 @@ namespace Server.Items
                 list.Add("Level: {0}", m_StoredDude.Level);
                 list.Add("EXP: {0} / {1}", m_StoredDude.CurrentEXP, m_StoredDude.EXPToNext);
                 list.Add("HP: {0} / {1}", m_StoredDude.Hits, m_StoredDude.HitsMax);
+                list.Add("Wrest {0:0.0} / Tact {1:0.0}", m_StoredDude.Wrestling, m_StoredDude.Tactics);
+                list.Add("Anat {0:0.0} / Resist {1:0.0}", m_StoredDude.Anatomy, m_StoredDude.MagicResist);
 
                 if (IsAssignedToJob)
                     list.Add("Status: At Job Station");
@@ -311,6 +313,12 @@ namespace Server.Items
             }
 
             int slots = DudeRegistry.GetControlSlots(m_StoredDude);
+
+            if (DudeLinkSystem.IsLinked(from) && slots > 2)
+            {
+                from.SendMessage("While linked, you cannot summon a Dude that requires more than 2 follower slots.");
+                return;
+            }
 
             if (from.Followers + slots > from.FollowersMax)
             {
