@@ -156,6 +156,10 @@ namespace Server.Custom.Dudes
 
             DudeData data = DudeData.FromDefinition(def, thrower);
 
+            // Keep the wild skin so summon matches the caught Dude.
+            if (wild.Hue > 0)
+                data.SkinHue = wild.Hue;
+
             // Preserve live HP ratio into storage (UOR-simple).
             if (wild.HitsMax > 0)
             {

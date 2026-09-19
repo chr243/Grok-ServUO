@@ -36,6 +36,7 @@ namespace Server.Custom.Dudes
         private double m_Tactics;
         private double m_Anatomy;
         private double m_MagicResist;
+        private int m_SkinHue;
 
         public DudeData()
         {
@@ -228,6 +229,13 @@ namespace Server.Custom.Dudes
             set { m_MagicResist = DudeCombatSkills.Clamp(value, this); }
         }
 
+        /// <summary>Persistent human skin hue. 0 = unset (roll on apply).</summary>
+        public int SkinHue
+        {
+            get { return m_SkinHue; }
+            set { m_SkinHue = value; }
+        }
+
         public string DisplayName
         {
             get
@@ -377,7 +385,7 @@ namespace Server.Custom.Dudes
 
         public void Serialize(GenericWriter writer)
         {
-            writer.Write((int)4); // version
+            writer.Write((int)5); // version
 
             writer.Write(m_DefinitionId);
             writer.Write(m_CustomName);
@@ -406,6 +414,7 @@ namespace Server.Custom.Dudes
             writer.Write(m_Tactics);
             writer.Write(m_Anatomy);
             writer.Write(m_MagicResist);
+            writer.Write(m_SkinHue);
         }
 
         public void Deserialize(GenericReader reader)
@@ -479,6 +488,11 @@ namespace Server.Custom.Dudes
                 m_MagicResist = DudeCombatSkills.Roll();
             }
 
+            if (version >= 5)
+                m_SkinHue = reader.ReadInt();
+            else
+                m_SkinHue = 0;
+
             if (m_EvolutionStage < 1)
                 m_EvolutionStage = 1;
 
@@ -527,6 +541,7 @@ namespace Server.Custom.Dudes
             copy.m_Tactics = m_Tactics;
             copy.m_Anatomy = m_Anatomy;
             copy.m_MagicResist = m_MagicResist;
+            copy.m_SkinHue = m_SkinHue;
             return copy;
         }
     }

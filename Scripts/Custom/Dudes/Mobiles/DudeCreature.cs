@@ -331,7 +331,7 @@ namespace Server.Mobiles
             }
 
             Name = ResolveDudeName(data, def);
-            ApplyHumanMaleAppearance(def);
+            ApplyHumanMaleAppearance(def, data);
             m_DudeLevel = data.Level;
             m_AbilityId = data.AbilityId;
             m_EvolutionStage = data.EvolutionStage;
@@ -364,14 +364,30 @@ namespace Server.Mobiles
 
 
         /// <summary>
-        /// All Dudes are human males; type is shown by shorts hue (def.Hue), not body tint.
+        /// All Dudes are human males; type is shown by shorts hue (def.Hue) and starter sash.
+        /// Skin uses RandomSkinHue (or persisted DudeData.SkinHue). Never Hue = 0 after apply.
         /// </summary>
-        public void ApplyHumanMaleAppearance(DudeDefinition def)
+        public void ApplyHumanMaleAppearance(DudeDefinition def, DudeData data = null)
         {
             Body = 0x190;
             Female = false;
-            Hue = 0; // natural skin; type color lives on shorts
             EnsureTypeShorts(def);
+            EnsureTypeSash(def);
+
+            if (data != null && data.SkinHue > 0)
+            {
+                Hue = data.SkinHue;
+            }
+            else if (data != null)
+            {
+                Hue = Utility.RandomSkinHue();
+                data.SkinHue = Hue;
+            }
+            else if (Hue <= 0)
+            {
+                // Wild / first spawn (or legacy Hue 0). Preserve Hue after world load.
+                Hue = Utility.RandomSkinHue();
+            }
         }
 
         /// <summary>
@@ -439,6 +455,44 @@ namespace Server.Mobiles
 
             shorts = new DudeTypeShorts(hue);
             AddItem(shorts);
+        }
+
+        /// <summary>
+        /// Equip matching type sash on InnerTorso if none already (server AddItem; bypasses wild CanAcceptGear).
+        /// Blessed / immovable while on the Dude so it is not stripped by accident.
+        /// </summary>
+        public void EnsureTypeSash(DudeDefinition def)
+        {
+            Item existing = FindItemOnLayer(Layer.InnerTorso);
+            if (existing is DudeGear)
+                return;
+
+            if (existing != null)
+                existing.Delete();
+
+            DudeType type = def != null ? def.Type : DudeType.Fire;
+            DudeGear sash = CreateTypeSash(type);
+            if (sash == null)
+                return;
+
+            sash.LootType = LootType.Blessed;
+            sash.Movable = false;
+            AddItem(sash);
+        }
+
+        private static DudeGear CreateTypeSash(DudeType type)
+        {
+            switch (type)
+            {
+                case DudeType.Water:
+                    return new TideSash();
+                case DudeType.Earth:
+                    return new StoneSash();
+                case DudeType.Air:
+                    return new GaleSash();
+                default:
+                    return new EmberSash();
+            }
         }
 
         /// <summary>
@@ -516,6 +570,8 @@ namespace Server.Mobiles
             data.VirtualArmor = VirtualArmor;
             data.Level = m_DudeLevel;
             data.CustomName = Name;
+            if (Hue > 0)
+                data.SkinHue = Hue;
             DudeCombatSkills.WriteFromMobile(this, data);
             m_BoundBall.InvalidateProperties();
         }
