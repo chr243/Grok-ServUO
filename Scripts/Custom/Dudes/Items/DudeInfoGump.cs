@@ -658,29 +658,29 @@ namespace Server.Items
             switch (abilityId.ToLowerInvariant())
             {
                 case "blast":
-                    return "Fire Blast: instant fire strike on a nearby foe (scales with level).";
+                    return "Instant fire strike on a nearby foe.";
                 case "ring_of_fire":
                     return "Expanding ring of flames that scorches nearby enemies.";
                 case "burn":
-                    return "Passive: every 1s in combat, 50% chance per fight-list foe to Burn for ~30% of Blast damage.";
+                    return "Passive. In combat, may Burn nearby foes.";
                 case "tide_mend":
-                    return "Heal yourself for Blast-scale amount.";
+                    return "Heals itself.";
                 case "tide_chorus":
-                    return "Heal owned and party Dudes nearby (~20% HitsMax, capped by Blast).";
+                    return "Heals nearby allied Dudes.";
                 case "spring":
-                    return "Passive: every 2s in combat, small self heal and heal owned Dudes within range 2.";
+                    return "Passive. Slowly heals itself and nearby allied Dudes.";
                 case "fault_strike":
-                    return "Earth strike for Blast damage plus 1s Paralyze (not players).";
+                    return "Earth strike that can paralyze a foe. Does not paralyze players.";
                 case "aftershock":
-                    return "Small fight-list AoE damage plus short stun (not players or Dudes).";
+                    return "Damages nearby foes and may briefly stun them. Does not stun players or Dudes.";
                 case "faultline":
-                    return "Passive: every 10s, strike one fight-list foe for small damage plus brief Paralyze.";
+                    return "Passive. Periodically strikes a nearby foe and may paralyze them.";
                 case "tailwind_self":
-                    return "Brief attack-speed boost on yourself.";
+                    return "Brief attack-speed boost on itself.";
                 case "tailwind":
-                    return "Brief attack-speed boost on owned and party Dudes nearby.";
+                    return "Brief attack-speed boost on nearby allied Dudes.";
                 case "slipstream":
-                    return "Passive: ability cooldowns reduced by 2s (minimum 7s).";
+                    return "Passive. Ability cooldowns are shorter.";
                 default:
                     return "A special Dude technique.";
             }
