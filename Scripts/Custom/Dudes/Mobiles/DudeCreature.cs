@@ -682,6 +682,7 @@ namespace Server.Mobiles
             }
 
             TrySpreadFollowOffset();
+            TrySpreadAttackOffset();
             TryUseAbility();
             TryStage3Passives();
         }
@@ -702,7 +703,7 @@ namespace Server.Mobiles
             if (CurrentSpeed != ActiveSpeed)
                 return;
 
-            // Leave Guard combat alone — attack path unchanged.
+            // Leave Guard combat alone — attack spread handles that.
             Mobile combatant = Combatant as Mobile;
             if (combatant != null && !combatant.Deleted && combatant.Alive)
                 return;
@@ -716,16 +717,92 @@ namespace Server.Mobiles
             if (master == null || master.Deleted || Map == null || Map != master.Map)
                 return;
 
+            int index;
+            int packCount;
+            if (!TryGetPackIndex(master, out index, out packCount))
+                return;
+
+            Point3D dest;
+            if (!TryResolveRingOffset(master.Location, master.Map, master.Z, index, packCount, out dest))
+                return;
+
+            // Already on a valid offset tile — do not shuffle every tick.
+            if (X == dest.X && Y == dest.Y)
+                return;
+
+            if (AIObject != null)
+                AIObject.WalkMobileRange(dest, 1, false, 0, 0);
+        }
+
+        /// <summary>
+        /// Spread attacking Dudes onto ring tiles around the combatant so they do not stack
+        /// on the target tile. Only micro-adjusts when already near the target (within 3).
+        /// Does not cancel Attack or change RangeFight.
+        /// </summary>
+        private void TrySpreadAttackOffset()
+        {
+            Mobile target = Combatant as Mobile;
+            if (target == null || target.Deleted || !target.Alive)
+            {
+                if (ControlOrder != OrderType.Attack)
+                    return;
+
+                target = ControlTarget as Mobile;
+                if (target == null || target.Deleted || !target.Alive)
+                    return;
+            }
+
+            if (Map == null || target.Map != Map)
+                return;
+
+            // Only micro-adjust when already near — do not pull across the map.
+            if (!InRange(target, 3))
+                return;
+
+            DateTime now = DateTime.UtcNow;
+            if (now < m_NextFollowSpread)
+                return;
+            m_NextFollowSpread = now + TimeSpan.FromSeconds(1.0);
+
+            Mobile master = ControlMaster;
+            if (master == null || master.Deleted)
+                return;
+
+            int index;
+            int packCount;
+            if (!TryGetPackIndex(master, out index, out packCount))
+                return;
+
+            Point3D dest;
+            if (!TryResolveRingOffset(target.Location, target.Map, target.Z, index, packCount, out dest))
+                return;
+
+            // Already on a valid adjacent/offset tile — do not shuffle every tick.
+            if (X == dest.X && Y == dest.Y)
+                return;
+
+            // Do not kite out of melee: if already hitting, stay unless dest is also melee-range.
+            if (InRange(target, 1) && !target.InRange(dest, 1))
+                return;
+
+            if (AIObject != null)
+                AIObject.WalkMobileRange(dest, 1, false, 0, 0);
+        }
+
+        private bool TryGetPackIndex(Mobile master, out int index, out int packCount)
+        {
+            index = -1;
+            packCount = 0;
+
             List<DudeCreature> pack = CollectPackDudes(master);
             if (pack.Count == 0)
-                return;
+                return false;
 
             pack.Sort(delegate(DudeCreature a, DudeCreature b)
             {
                 return a.Serial.CompareTo(b.Serial);
             });
 
-            int index = -1;
             for (int i = 0; i < pack.Count; i++)
             {
                 if (pack[i] == this)
@@ -735,18 +812,10 @@ namespace Server.Mobiles
                 }
             }
             if (index < 0)
-                return;
+                return false;
 
-            Point3D dest;
-            if (!TryResolveFollowOffset(master, index, pack.Count, out dest))
-                return;
-
-            // Already on a valid offset tile — do not shuffle every tick.
-            if (X == dest.X && Y == dest.Y)
-                return;
-
-            if (AIObject != null)
-                AIObject.WalkMobileRange(dest, 1, false, 0, 0);
+            packCount = pack.Count;
+            return true;
         }
 
         private static List<DudeCreature> CollectPackDudes(Mobile master)
@@ -771,10 +840,13 @@ namespace Server.Mobiles
             return pack;
         }
 
-        private static bool TryResolveFollowOffset(Mobile master, int index, int packCount, out Point3D dest)
+        /// <summary>
+        /// Resolve a walkable 8-way ring tile around <paramref name="center"/> for pack index.
+        /// Prefers distance 1; if blocked, next ring slot; then outer rings as pack grows.
+        /// </summary>
+        private static bool TryResolveRingOffset(Point3D center, Map map, int centerZ, int index, int packCount, out Point3D dest)
         {
             dest = Point3D.Zero;
-            Map map = master.Map;
             if (map == null || map == Map.Internal)
                 return false;
 
@@ -786,9 +858,9 @@ namespace Server.Mobiles
                 int slot = (index + attempt) % slotCount;
                 int ring = (slot / 8) + 1;
                 int dir = slot % 8;
-                int x = master.X + FollowRingDX[dir] * ring;
-                int y = master.Y + FollowRingDY[dir] * ring;
-                int z = master.Z;
+                int x = center.X + FollowRingDX[dir] * ring;
+                int y = center.Y + FollowRingDY[dir] * ring;
+                int z = centerZ;
 
                 Point3D p = new Point3D(x, y, z);
                 if (map.CanFit(p, 16, false, false))
