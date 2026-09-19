@@ -485,6 +485,7 @@ namespace Server.Items
             if (dude == null || dude.Deleted)
                 return;
 
+            dude.ClearPoisonForPark();
             dude.Combatant = null;
             dude.Warmode = false;
             dude.Internalize();

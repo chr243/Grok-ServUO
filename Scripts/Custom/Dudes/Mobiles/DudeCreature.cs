@@ -1798,6 +1798,16 @@ namespace Server.Mobiles
             return base.OnBeforeDeath();
         }
 
+
+        /// <summary>
+        /// Clear poison before parking (recall / faint) so Map.Internal Dudes stay cured.
+        /// </summary>
+        public void ClearPoisonForPark()
+        {
+            CurePoison(this);
+            Poison = null;
+        }
+
         private void FinishFaintPark(DudeBall ball, Mobile master, string dudeName)
         {
             m_Fainting = false;
@@ -1805,6 +1815,8 @@ namespace Server.Mobiles
 
             if (Deleted)
                 return;
+
+            ClearPoisonForPark();
 
             m_SyncingDeath = true;
             Internalize();
