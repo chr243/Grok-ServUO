@@ -92,12 +92,6 @@ namespace Server.Custom.Dudes
                 exp += Math.Max(0, bc.HitsMax / 10) * KillExpPerVictimHits;
             }
 
-            if (data.Level > 1)
-            {
-                // Mild soft-scaling so high-level Dudes still gain, but slower vs trash.
-                exp = Math.Max(5, exp - (data.Level - 1) * 2);
-            }
-
             return exp;
         }
 
