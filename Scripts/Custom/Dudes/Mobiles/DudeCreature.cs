@@ -310,6 +310,9 @@ namespace Server.Mobiles
 
             Name = ResolveDudeName(null, def);
             ApplyHumanMaleAppearance(def);
+            // Starter type sash only on first wild spawn — never re-equip if owner removed it.
+            if (m_IsWild)
+                EnsureTypeSash(def);
             BaseSoundID = def.BaseSoundID;
 
             // One-time IV-style variance for wild / freshly defined Dudes.
@@ -398,7 +401,7 @@ namespace Server.Mobiles
             Body = 0x190;
             Female = false;
             EnsureTypeShorts(def);
-            EnsureTypeSash(def);
+            // EnsureTypeSash: wild ApplyDefinition only — do not re-equip on ApplyData / Deserialize / Refresh.
 
             if (data != null && data.SkinHue > 0)
             {
@@ -485,6 +488,7 @@ namespace Server.Mobiles
 
         /// <summary>
         /// Equip matching type sash on InnerTorso if none already (server AddItem; bypasses wild CanAcceptGear).
+        /// Call only from wild ApplyDefinition (first spawn). Never from ApplyData / appearance / Refresh / Deserialize.
         /// Never AddItem a second sash; never drop a new sash into the backpack.
         /// Blessed; Movable so the owner can lift it into the backpack.
         /// </summary>
@@ -1116,6 +1120,9 @@ namespace Server.Mobiles
                 DudeGear gear = Items[i] as DudeGear;
                 if (gear == null || gear == exclude || gear.Deleted)
                     continue;
+                // Backpack / loose Items do not consume gear slots — only the layer winner.
+                if (FindItemOnLayer(gear.Layer) != gear)
+                    continue;
                 used += gear.SlotCost;
             }
             return used;
@@ -1212,6 +1219,9 @@ namespace Server.Mobiles
                 DudeGear gear = Items[i] as DudeGear;
                 if (gear == null || gear.Deleted)
                     continue;
+                // Ignore backpack / loose DudeGear — only paperdoll layer winners count.
+                if (FindItemOnLayer(gear.Layer) != gear)
+                    continue;
                 m_EquippedGear.Add(gear);
                 if (!string.IsNullOrEmpty(gear.AbilityId))
                     m_EquippedAbilityIds.Add(gear.AbilityId);
@@ -1288,10 +1298,9 @@ namespace Server.Mobiles
                 DudeCombatSkills.SetGearCopySkill(this, SkillName.Parry, 0.0, cap);
         }
 
-        /// <summary>Cleanup sash dupes + rebuild equipped-ability cache (load / summon / gump refresh).</summary>
+        /// <summary>Rebuild equipped-ability cache from worn layers only. Does not ApplyData / EnsureTypeSash / AddItem.</summary>
         public void Refresh()
         {
-            CleanupDuplicateTypeSashes();
             RebuildGearCache();
         }
 
