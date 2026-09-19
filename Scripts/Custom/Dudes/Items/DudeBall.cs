@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
+using Server.ContextMenus;
 using Server.Custom.Dudes;
+using Server.Gumps;
 using Server.Mobiles;
 using Server.Network;
 using Server.Targeting;
@@ -227,6 +230,14 @@ namespace Server.Items
                 LabelTo(from, "an empty Dude Ball");
             else
                 LabelTo(from, "a Dude Ball containing {0} (Lv {1})", m_StoredDude.DisplayName, m_StoredDude.Level);
+        }
+
+        public override void GetContextMenuEntries(Mobile from, List<ContextMenuEntry> list)
+        {
+            base.GetContextMenuEntries(from, list);
+
+            if (HasDude && StoredDude != null && from != null && from.Alive)
+                list.Add(new LookCloserEntry(this));
         }
 
         public override void OnDoubleClick(Mobile from)
@@ -536,6 +547,44 @@ namespace Server.Items
 
             ItemID = BallItemId; // migrate older ball art
             RefreshHue(); // migrate steel/charged hues to green / type colors
+        }
+
+        private class LookCloserEntry : ContextMenuEntry
+        {
+            private readonly DudeBall m_Ball;
+
+            // Stock cliloc 3006121 = "Look At" (closest readable label; this fork has no custom-text CME).
+            public LookCloserEntry(DudeBall ball)
+                : base(6121, 2)
+            {
+                m_Ball = ball;
+            }
+
+            public override void OnClick()
+            {
+                if (Owner == null || Owner.From == null)
+                    return;
+
+                Mobile from = Owner.From;
+
+                if (m_Ball == null || m_Ball.Deleted || !m_Ball.HasDude)
+                    return;
+
+                if (!from.Alive)
+                    return;
+
+                bool inPack = m_Ball.IsChildOf(from.Backpack) || m_Ball.RootParent == from;
+                bool inRange = from.InRange(m_Ball.GetWorldLocation(), 2);
+
+                if (!inPack && !inRange)
+                {
+                    from.SendLocalizedMessage(500446); // That is too far away.
+                    return;
+                }
+
+                from.CloseGump(typeof(DudeInfoGump));
+                from.SendGump(new DudeInfoGump(DudeInfoView.FromDudeBall(m_Ball)));
+            }
         }
 
         private class CatchTarget : Target
