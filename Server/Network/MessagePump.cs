@@ -144,53 +144,43 @@ namespace Server.Network
 			{
 				// new packet in client	6.0.5.0	replaces the traditional seed method with a	seed packet
 				// 0xEF	= 239 =	multicast IP, so this should never appear in a normal seed.	 So	this is	backwards compatible with older	clients.
-				// Wait for full 0xEF login seed (21 bytes) before marking seeded — do not Dispose on partial peek
-				int need = PacketHandlers.LoginSeedLength;
-				if (need < 1) need = 21;
-				if (buffer.Length < need)
-					return false; // WAIT, do not Dispose
 				ns.Seeded = true;
 				return true;
 			}
-
-			if (buffer.Length < 4)
-				return false; // WAIT, do not Dispose
-
-			var m_Peek = new byte[4];
-
-			buffer.Dequeue(m_Peek, 0, 4);
-
-			uint seed = (uint)((m_Peek[0] << 24) | (m_Peek[1] << 16) | (m_Peek[2] << 8) | m_Peek[3]);
-
-			if (seed == 0)
+			
+			if (buffer.Length >= 4)
 			{
-				Utility.PushColor(ConsoleColor.Red);
-				Console.WriteLine("Login: {0}: Invalid Client", ns);
-				Utility.PopColor();
-				ConnectionLog.Write("Invalid Client {0}", ns);
+				var m_Peek = new byte[4];
 
-				ns.Dispose();
+				buffer.Dequeue(m_Peek, 0, 4);
 
-				return false;
+				uint seed = (uint)((m_Peek[0] << 24) | (m_Peek[1] << 16) | (m_Peek[2] << 8) | m_Peek[3]);
+
+				if (seed == 0)
+				{
+					Utility.PushColor(ConsoleColor.Red);
+					Console.WriteLine("Login: {0}: Invalid Client", ns);
+					Utility.PopColor();
+					ConnectionLog.Write("Invalid Client {0}", ns);
+
+					ns.Dispose();
+
+					return false;
+				}
+
+				ns.Seed = seed;
+				ns.Seeded = true;
+
+				return true;
 			}
 
-			ns.Seed = seed;
-			ns.Seeded = true;
-
-			return true;
+			return false;
 		}
 
         public static bool CheckEncrypted(NetState ns, int packetID)
         {
             if (ns.SentFirstPacket || !CheckEncrypted(packetID))
             {
-                return false;
-            }
-
-            ByteQueue buffer = ns.Buffer;
-            if (buffer == null || buffer.Length < 4)
-            {
-                // Incomplete peek — WAIT, do NOT Dispose
                 return false;
             }
 
@@ -232,10 +222,6 @@ namespace Server.Network
 				{
 					return;
 				}
-
-				// After seeded, wait for at least 4 bytes before first-packet encrypt check
-				if (!ns.SentFirstPacket && buffer.Length < 4)
-					return;
 
 				int length = buffer.Length;
 
