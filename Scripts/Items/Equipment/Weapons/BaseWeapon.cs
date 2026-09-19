@@ -5516,6 +5516,25 @@ namespace Server.Items
         {
             base.AddNameProperties(list);
 
+            if (!Core.AOS)
+            {
+                if (m_Identified)
+                {
+                    if (m_DurabilityLevel != WeaponDurabilityLevel.Regular)
+                        list.Add(1038000 + (int)m_DurabilityLevel);
+                    if (m_DamageLevel != WeaponDamageLevel.Regular)
+                        list.Add(1038015 + (int)m_DamageLevel);
+                    if (m_AccuracyLevel != WeaponAccuracyLevel.Regular)
+                        list.Add(1038010 + (int)m_AccuracyLevel);
+                }
+                else if (m_DurabilityLevel != WeaponDurabilityLevel.Regular ||
+                         m_DamageLevel != WeaponDamageLevel.Regular ||
+                         m_AccuracyLevel != WeaponAccuracyLevel.Regular)
+                {
+                    list.Add(1038000); // Unidentified
+                }
+            }
+
             #region Factions
             FactionEquipment.AddFactionProperties(this, list);
 			#endregion
@@ -5958,7 +5977,14 @@ namespace Server.Items
 				list.Add(1060413, prop.ToString()); // faster casting ~1_val~
 			}
 			
-			if ((prop = (GetHitChanceBonus() + m_AosAttributes.AttackChance)) != 0)
+			if (Core.AOS)
+			{
+				if ((prop = (GetHitChanceBonus() + m_AosAttributes.AttackChance)) != 0)
+				{
+					list.Add(1060415, prop.ToString()); // hit chance increase ~1_val~%
+				}
+			}
+			else if ((prop = m_AosAttributes.AttackChance) != 0)
 			{
 				list.Add(1060415, prop.ToString()); // hit chance increase ~1_val~%
 			}
@@ -5983,7 +6009,14 @@ namespace Server.Items
 				list.Add(1060486, prop.ToString()); // swing speed increase ~1_val~%
 			}
 			
-			if ((prop = (GetDamageBonus() + m_AosAttributes.WeaponDamage + damBonus)) != 0)
+			if (Core.AOS)
+			{
+				if ((prop = (GetDamageBonus() + m_AosAttributes.WeaponDamage + damBonus)) != 0)
+				{
+					list.Add(1060401, prop.ToString()); // damage increase ~1_val~%
+				}
+			}
+			else if ((prop = m_AosAttributes.WeaponDamage) != 0)
 			{
 				list.Add(1060401, prop.ToString()); // damage increase ~1_val~%
 			}
