@@ -658,6 +658,10 @@ namespace Server.Mobiles
 
         private void TryUseAbility()
         {
+            // Temporary: no gear ability cache yet — GetUnlockedAbilityIds is empty until gear grants abilities.
+            if (GetUnlockedAbilityIds().Count == 0)
+                return;
+
             if (m_Fainting || Frozen)
                 return;
 

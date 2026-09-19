@@ -190,6 +190,12 @@ namespace Server.Custom.Dudes
             set { m_EvolutionStage = value < 1 ? 1 : value; }
         }
 
+        /// <summary>Gear slots unlocked at this Dude's evolution stage (2 / 3 / 4).</summary>
+        public int GetGearSlots()
+        {
+            return DudeExperience.GetGearSlots(EvolutionStage);
+        }
+
         /// <summary>Comma-separated unlocked ability ids (always includes primary).</summary>
         public string UnlockedAbilities
         {
@@ -258,7 +264,18 @@ namespace Server.Custom.Dudes
                 || string.Equals(name, "Dude", StringComparison.OrdinalIgnoreCase);
         }
 
+        /// <summary>
+        /// Ability ids available for combat. Temporary: empty until gear cache grants them.
+        /// Evolution no longer unlocks kit abilities for combat.
+        /// </summary>
         public List<string> GetUnlockedAbilityIds()
+        {
+            // Next step: return ids from equipped gear cache when present.
+            return new List<string>();
+        }
+
+        /// <summary>Legacy storage helper for persisted unlock strings (not used by combat).</summary>
+        private List<string> ParseStoredUnlockedAbilityIds()
         {
             List<string> list = new List<string>();
 
@@ -310,7 +327,7 @@ namespace Server.Custom.Dudes
             if (string.IsNullOrEmpty(abilityId))
                 return;
 
-            List<string> list = GetUnlockedAbilityIds();
+            List<string> list = ParseStoredUnlockedAbilityIds();
             for (int i = 0; i < list.Count; i++)
             {
                 if (string.Equals(list[i], abilityId, StringComparison.OrdinalIgnoreCase))

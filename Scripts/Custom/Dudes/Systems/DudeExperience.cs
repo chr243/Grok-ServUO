@@ -29,76 +29,30 @@ namespace Server.Custom.Dudes
 
 
         /// <summary>
-        /// Unlocks all kit abilities up through the Dude's current evolution stage.
+        /// Gear slots unlocked by evolution stage: stage1=2, stage2=3, stage3+=4.
+        /// </summary>
+        public static int GetGearSlots(int stage)
+        {
+            if (stage <= 1)
+                return 2;
+            if (stage == 2)
+                return 3;
+            return 4;
+        }
+
+        public static int GetGearSlots(DudeData data)
+        {
+            int stage = data != null ? data.EvolutionStage : 1;
+            return GetGearSlots(stage);
+        }
+
+        /// <summary>
+        /// Legacy no-op. Evolution unlocks gear slots, not kit abilities.
+        /// Combat abilities will come from equipped gear (next step).
         /// </summary>
         public static void EnsureEvolutionAbilities(DudeData data)
         {
-            if (data == null)
-                return;
-
-            string id = data.DefinitionId;
-            if (string.IsNullOrEmpty(id))
-                return;
-
-            id = id.ToLowerInvariant();
-            int stage = data.EvolutionStage;
-            if (stage < 1)
-                stage = 1;
-
-            // Infer stage from definition when needed (evolved forms).
-            if (id == "flame" || id == "ripple" || id == "boulder" || id == "gale")
-            {
-                if (stage < 2)
-                    stage = 2;
-            }
-            else if (id == "blaze" || id == "torrent" || id == "quake" || id == "hurricane")
-            {
-                if (stage < 3)
-                    stage = 3;
-            }
-
-            // Fire: blast / ring_of_fire / burn
-            if (id == "ember" || id == "flame" || id == "blaze")
-            {
-                data.UnlockAbility("blast");
-                if (stage >= 2)
-                    data.UnlockAbility("ring_of_fire");
-                if (stage >= 3)
-                    data.UnlockAbility("burn");
-                return;
-            }
-
-            // Water: tide_mend / tide_chorus / spring
-            if (id == "droplet" || id == "ripple" || id == "torrent")
-            {
-                data.UnlockAbility("tide_mend");
-                if (stage >= 2)
-                    data.UnlockAbility("tide_chorus");
-                if (stage >= 3)
-                    data.UnlockAbility("spring");
-                return;
-            }
-
-            // Earth: fault_strike / aftershock / faultline
-            if (id == "pebble" || id == "boulder" || id == "quake")
-            {
-                data.UnlockAbility("fault_strike");
-                if (stage >= 2)
-                    data.UnlockAbility("aftershock");
-                if (stage >= 3)
-                    data.UnlockAbility("faultline");
-                return;
-            }
-
-            // Air: tailwind_self / tailwind / slipstream
-            if (id == "breeze" || id == "gale" || id == "hurricane")
-            {
-                data.UnlockAbility("tailwind_self");
-                if (stage >= 2)
-                    data.UnlockAbility("tailwind");
-                if (stage >= 3)
-                    data.UnlockAbility("slipstream");
-            }
+            // Intentionally empty — stage no longer grants kit abilities.
         }
 
         public static int GetMaxLevel(int evolutionStage)

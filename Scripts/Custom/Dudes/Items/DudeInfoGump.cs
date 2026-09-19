@@ -15,6 +15,8 @@ namespace Server.Items
     public class DudeInfoGump : Gump
     {
         private readonly Serial m_BallSerial;
+        private readonly Serial m_CreatureSerial;
+        private readonly Serial m_BossSerial;
         private readonly bool m_ShowEvolve;
 
         public DudeInfoGump(DudeInfoView view)
@@ -24,6 +26,8 @@ namespace Server.Items
                 view = DudeInfoView.Empty;
 
             m_BallSerial = view.BallSerial;
+            m_CreatureSerial = view.CreatureSerial;
+            m_BossSerial = view.BossSerial;
             m_ShowEvolve = view.ShowEvolve;
 
             Closable = true;
@@ -101,57 +105,34 @@ namespace Server.Items
             y += 18;
             AddLabel(24, y, labelHue, string.Format("Magic Resist: {0:0.0} / {1:0.0}", view.SkillMagicResist, DudeCombatSkills.GetCap(view.EvolutionStage)));
 
-            // RIGHT column — kit abilities by stage
+            // RIGHT column — gear slots by evolution stage
             int ry = 48;
-            AddHtml(370, ry, 320, 18, "<BASEFONT COLOR=#FFFFFF>Abilities</BASEFONT>", false, false);
+            AddHtml(370, ry, 320, 18, "<BASEFONT COLOR=#FFFFFF>Gear</BASEFONT>", false, false);
             ry += 22;
 
-            DudeType kit = view.KitType;
-            bool any = false;
+            int unlockedSlots = DudeExperience.GetGearSlots(view.EvolutionStage);
+            if (unlockedSlots < 0)
+                unlockedSlots = 0;
+            if (unlockedSlots > 4)
+                unlockedSlots = 4;
 
-            for (int stage = 1; stage <= 3; stage++)
+            for (int slot = 1; slot <= 4; slot++)
             {
-                DudeAbility ability = DudeAbilityRegistry.GetByKitStage(kit, stage);
-                if (ability == null)
-                    continue;
-
-                any = true;
-
-                bool unlocked = view.EvolutionStage >= ability.Stage;
-                if (!unlocked && view.UnlockedAbilityIds != null)
+                if (slot <= unlockedSlots)
                 {
-                    for (int i = 0; i < view.UnlockedAbilityIds.Count; i++)
-                    {
-                        if (string.Equals(view.UnlockedAbilityIds[i], ability.Id, StringComparison.OrdinalIgnoreCase))
-                        {
-                            unlocked = true;
-                            break;
-                        }
-                    }
-                }
-
-                string nameColor = unlocked ? "#66FF66" : "#808080";
-                string descColor = unlocked ? "#C0C0C0" : "#808080";
-
-                AddHtml(370, ry, 320, 18, string.Format("<BASEFONT COLOR={0}>{1} — unlocks at stage {2}</BASEFONT>",
-                    nameColor, ability.Name, ability.Stage), false, false);
-                ry += 18;
-
-                int level = view.Level > 0 ? view.Level : 1;
-                string desc = DudeInfoView.GetAbilityDescription(ability.Id, level, view.HitsMax);
-                if (!string.IsNullOrEmpty(desc))
-                {
-                    AddHtml(370, ry, 320, 40, string.Format("<BASEFONT COLOR={0}>{1}</BASEFONT>", descColor, desc), false, false);
-                    ry += 44;
+                    AddHtml(370, ry, 320, 18, string.Format("<BASEFONT COLOR=#66FF66>Slot {0}: Empty</BASEFONT>", slot), false, false);
                 }
                 else
                 {
-                    ry += 8;
+                    int unlockStage = slot <= 2 ? 1 : (slot == 3 ? 2 : 3);
+                    AddHtml(370, ry, 320, 18, string.Format("<BASEFONT COLOR=#808080>Slot {0} — unlocks at stage {1}</BASEFONT>",
+                        slot, unlockStage), false, false);
                 }
+                ry += 20;
             }
 
-            if (!any)
-                AddHtml(370, ry, 320, 18, "<BASEFONT COLOR=#808080>None</BASEFONT>", false, false);
+            AddButton(24, 478, 4011, 4013, 3, GumpButtonType.Reply, 0);
+            AddLabel(59, 480, 0x480, "Refresh");
 
             if (view.ShowEvolve)
             {
@@ -168,6 +149,22 @@ namespace Server.Items
         {
             if (info == null || sender == null || sender.Mobile == null)
                 return;
+
+            if (info.ButtonID == 3)
+            {
+                Mobile from = sender.Mobile;
+                DudeInfoView view = RebuildView();
+
+                if (view == null || view == DudeInfoView.Empty)
+                {
+                    from.SendMessage("That Dude is no longer available.");
+                    return;
+                }
+
+                from.CloseGump(typeof(DudeInfoGump));
+                from.SendGump(new DudeInfoGump(view));
+                return;
+            }
 
             if (info.ButtonID == 2)
             {
@@ -194,6 +191,31 @@ namespace Server.Items
                 from.SendMessage("Target {0} {1} in your backpack.", cost, name);
                 from.Target = new EvolveCoreTarget(ball.Serial, cost, coreType, data.Type);
             }
+        }
+
+        /// <summary>
+        /// Rebuild snapshot from live ball / creature / boss. No OnThink — manual Refresh only.
+        /// </summary>
+        private DudeInfoView RebuildView()
+        {
+            DudeBall ball = World.FindItem(m_BallSerial) as DudeBall;
+            if (ball != null && !ball.Deleted && ball.HasDude && ball.StoredDude != null)
+            {
+                if (ball.IsSummoned && ball.SummonedDude != null && !ball.SummonedDude.Deleted)
+                    return DudeInfoView.FromDudeCreature(ball.SummonedDude);
+
+                return DudeInfoView.FromDudeBall(ball);
+            }
+
+            DudeCreature dude = World.FindMobile(m_CreatureSerial) as DudeCreature;
+            if (dude != null && !dude.Deleted)
+                return DudeInfoView.FromDudeCreature(dude);
+
+            DudeBoss boss = World.FindMobile(m_BossSerial) as DudeBoss;
+            if (boss != null && !boss.Deleted)
+                return DudeInfoView.FromDudeBoss(boss);
+
+            return null;
         }
 
         private static string Truncate(string text, int max)
@@ -296,6 +318,8 @@ namespace Server.Items
             KitType = DudeType.Fire,
             UnlockedAbilityIds = null,
             BallSerial = Serial.MinusOne,
+            CreatureSerial = Serial.MinusOne,
+            BossSerial = Serial.MinusOne,
             ShowEvolve = false,
             EvolveCost = 0,
             EvolveHint = null
@@ -329,6 +353,8 @@ namespace Server.Items
         public List<string> UnlockedAbilityIds { get; set; }
 
         public Serial BallSerial { get; set; }
+        public Serial CreatureSerial { get; set; }
+        public Serial BossSerial { get; set; }
         public bool ShowEvolve { get; set; }
         public int EvolveCost { get; set; }
         public string EvolveHint { get; set; }
@@ -338,8 +364,7 @@ namespace Server.Items
             if (view == null)
                 return;
 
-            if (ball == null || ball.Deleted || !ball.HasDude || ball.StoredDude == null
-                || !DudeEvolution.CanEvolve(ball.StoredDude))
+            if (ball == null || ball.Deleted || !ball.HasDude || ball.StoredDude == null)
             {
                 view.ShowEvolve = false;
                 view.BallSerial = Serial.MinusOne;
@@ -348,9 +373,19 @@ namespace Server.Items
                 return;
             }
 
+            // Keep ball serial for Refresh even when evolve is unavailable.
+            view.BallSerial = ball.Serial;
+
+            if (!DudeEvolution.CanEvolve(ball.StoredDude))
+            {
+                view.ShowEvolve = false;
+                view.EvolveCost = 0;
+                view.EvolveHint = null;
+                return;
+            }
+
             int cost = DudeEvolution.GetCoreCost(ball.StoredDude.EvolutionStage);
             view.ShowEvolve = true;
-            view.BallSerial = ball.Serial;
             view.EvolveCost = cost;
             view.EvolveHint = string.Format("Needs {0} essences", cost);
         }
@@ -519,6 +554,9 @@ namespace Server.Items
             view.MaxDamage = data.MaxDamage;
             view.VirtualArmor = data.VirtualArmor;
             FillCombatSkillsFromData(view, data);
+            view.BallSerial = Serial.MinusOne;
+            view.CreatureSerial = Serial.MinusOne;
+            view.BossSerial = Serial.MinusOne;
             return view;
         }
 
@@ -544,6 +582,8 @@ namespace Server.Items
                 fromBall.Level = dude.DudeLevel > 0 ? dude.DudeLevel : 1;
                 // Keep KitType / EvolutionStage from data; refresh skill values from live mobile when present.
                 TryOverlayLiveCombatSkills(fromBall, dude);
+                fromBall.CreatureSerial = dude.Serial;
+                fromBall.BossSerial = Serial.MinusOne;
                 FillEvolve(fromBall, dude.BoundBall);
                 return fromBall;
             }
@@ -595,6 +635,9 @@ namespace Server.Items
                 view.UnlockedAbilityIds = null;
             }
 
+            view.CreatureSerial = dude.Serial;
+            view.BossSerial = Serial.MinusOne;
+            view.BallSerial = Serial.MinusOne;
             return view;
         }
 
@@ -628,6 +671,8 @@ namespace Server.Items
             view.UnlockedAbilityIds = null;
             view.ShowEvolve = false;
             view.BallSerial = Serial.MinusOne;
+            view.CreatureSerial = Serial.MinusOne;
+            view.BossSerial = boss.Serial;
             view.EvolveCost = 0;
             view.EvolveHint = null;
             return view;
@@ -649,6 +694,8 @@ namespace Server.Items
                 status = "Captured";
 
             DudeInfoView view = FromDudeData(ball.StoredDude, status);
+            view.CreatureSerial = Serial.MinusOne;
+            view.BossSerial = Serial.MinusOne;
             FillEvolve(view, ball);
             return view;
         }
