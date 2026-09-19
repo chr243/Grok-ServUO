@@ -137,7 +137,8 @@ namespace Server.Items
                     nameColor, ability.Name, ability.Stage), false, false);
                 ry += 18;
 
-                string desc = DudeInfoView.GetAbilityDescription(ability.Id);
+                int level = view.Level > 0 ? view.Level : 1;
+                string desc = DudeInfoView.GetAbilityDescription(ability.Id, level, view.HitsMax);
                 if (!string.IsNullOrEmpty(desc))
                 {
                     AddHtml(370, ry, 320, 40, string.Format("<BASEFONT COLOR={0}>{1}</BASEFONT>", descColor, desc), false, false);
@@ -281,6 +282,7 @@ namespace Server.Items
             TypeText = "N/A",
             Status = "N/A",
             LevelText = "N/A",
+            Level = 1,
             ExpText = "N/A",
             JobSkillText = "N/A",
             EvolutionText = null,
@@ -303,6 +305,7 @@ namespace Server.Items
         public string TypeText { get; set; }
         public string Status { get; set; }
         public string LevelText { get; set; }
+        public int Level { get; set; }
         public string ExpText { get; set; }
         public string JobSkillText { get; set; }
         public string EvolutionText { get; set; }
@@ -467,7 +470,10 @@ namespace Server.Items
                     names.Append("<BR>");
                 names.Append(name);
 
-                string desc = GetAbilityDescription(ids[i]);
+                int level = view.Level > 0 ? view.Level : 1;
+                if (data != null && data.Level > 0)
+                    level = data.Level;
+                string desc = GetAbilityDescription(ids[i], level, view.HitsMax);
                 if (!string.IsNullOrEmpty(desc))
                 {
                     if (descs.Length > 0)
@@ -500,6 +506,7 @@ namespace Server.Items
             view.TypeText = data.Type.ToString();
             view.Status = !string.IsNullOrEmpty(statusOverride) ? statusOverride : BuildCapturedStatus(data);
             view.LevelText = string.Format("{0} / {1}", data.Level, DudeExperience.GetMaxLevel(data));
+            view.Level = data.Level > 0 ? data.Level : 1;
             view.ExpText = string.Format("{0} / {1}", data.CurrentEXP, data.EXPToNext);
             view.EvolutionText = BuildEvolutionText(data);
             FillSkillTexts(view, data);
@@ -534,6 +541,7 @@ namespace Server.Items
                 fromBall.VirtualArmor = dude.VirtualArmor;
                 fromBall.Name = dude.Name;
                 fromBall.LevelText = string.Format("{0} / {1}", dude.DudeLevel, DudeExperience.GetMaxLevel(dude.BoundBall.StoredDude));
+                fromBall.Level = dude.DudeLevel > 0 ? dude.DudeLevel : 1;
                 // Keep KitType / EvolutionStage from data; refresh skill values from live mobile when present.
                 TryOverlayLiveCombatSkills(fromBall, dude);
                 FillEvolve(fromBall, dude.BoundBall);
@@ -547,6 +555,7 @@ namespace Server.Items
             view.TypeText = def != null ? def.Type.ToString() : "Unknown";
             view.Status = dude.IsWild ? "Wild" : "Summoned";
             view.LevelText = dude.DudeLevel > 0 ? dude.DudeLevel.ToString() : "1";
+            view.Level = dude.DudeLevel > 0 ? dude.DudeLevel : 1;
             view.ExpText = dude.IsWild ? "N/A (wild)" : "N/A";
             view.EvolutionText = dude.EvolutionStage > 1
                 ? string.Format("Stage {0}", dude.EvolutionStage)
@@ -599,6 +608,7 @@ namespace Server.Items
             view.TypeText = boss.DudeAffinity.ToString();
             view.Status = "Boss (uncatchable)";
             view.LevelText = "Boss";
+            view.Level = 1;
             view.ExpText = "N/A";
             view.JobSkillText = "N/A";
             view.Str = boss.RawStr;
@@ -650,37 +660,122 @@ namespace Server.Items
             return "Captured";
         }
 
-        public static string GetAbilityDescription(string abilityId)
+        public static string GetAbilityDescription(string abilityId, int level, int hitsMax)
         {
             if (string.IsNullOrEmpty(abilityId))
                 return null;
 
+            if (level < 1)
+                level = 1;
+
+            int blast = DudeExperience.GetBlastDamage(level);
+            DudeAbilityTune tune = DudeAbilityConfig.Get(abilityId);
+
             switch (abilityId.ToLowerInvariant())
             {
                 case "blast":
-                    return "Instant fire strike on a nearby foe.";
+                    return string.Format("Deals {0} fire damage to a nearby foe.", blast);
+
                 case "ring_of_fire":
-                    return "Expanding ring of flames that scorches nearby enemies.";
+                {
+                    double vs = tune != null && tune.DamageVsBlast > 0.0 ? tune.DamageVsBlast : 0.5;
+                    int damage = Math.Max(1, (int)(blast * vs));
+                    return string.Format("Deals {0} fire damage in an expanding ring.", damage);
+                }
+
                 case "burn":
-                    return "Passive. In combat, may Burn nearby foes.";
+                {
+                    double vs = tune != null && tune.DamageVsBlast > 0.0 ? tune.DamageVsBlast : 0.3;
+                    int dmg = Math.Max(1, (int)(blast * vs));
+                    double chance = tune != null && tune.HitChance > 0.0 ? tune.HitChance : 0.5;
+                    double tick = tune != null && tune.TickSeconds > 0.0 ? tune.TickSeconds : 1.0;
+                    return string.Format(
+                        "Passive. Every {0:0.#}s in combat, {1}% chance to Burn a nearby foe for {2} damage.",
+                        tick, (int)Math.Round(chance * 100.0), dmg);
+                }
+
                 case "tide_mend":
-                    return "Heals itself.";
+                    return string.Format("Heals itself for {0} hit points.", blast);
+
                 case "tide_chorus":
-                    return "Heals nearby allied Dudes.";
+                {
+                    double frac = tune != null && tune.HealHitsFraction > 0.0 ? tune.HealHitsFraction : 0.20;
+                    int heal = Math.Min(blast, Math.Max(1, (int)(hitsMax * frac)));
+                    return string.Format("Heals nearby allied Dudes for {0} hit points.", heal);
+                }
+
                 case "spring":
-                    return "Passive. Slowly heals itself and nearby allied Dudes.";
+                {
+                    // Same formula as DudeCreature.TrySpringPassive / DudeLinkSystem.TrySpringPassive.
+                    double tick = tune != null && tune.TickSeconds > 0.0 ? tune.TickSeconds : 2.0;
+                    double healFrac = tune != null && tune.HealHitsFraction > 0.0 ? tune.HealHitsFraction : 0.05;
+                    int selfHeal = Math.Max(1, (int)(blast * 0.15));
+                    int pctHeal = Math.Max(1, (int)(hitsMax * healFrac));
+                    int heal = Math.Min(selfHeal, pctHeal);
+                    if (heal < 1)
+                        heal = 1;
+                    return string.Format("Passive. Every {0:0.#}s, heals itself and nearby allied Dudes for {1}.", tick, heal);
+                }
+
                 case "fault_strike":
-                    return "Earth strike that can paralyze a foe. Does not paralyze players.";
+                {
+                    double stun = tune != null && tune.StunSeconds > 0.0 ? tune.StunSeconds : 1.0;
+                    return string.Format(
+                        "Deals {0} damage and paralyzes a foe for {1:0.#}s. Does not paralyze players.",
+                        blast, stun);
+                }
+
                 case "aftershock":
-                    return "Damages nearby foes and may briefly stun them. Does not stun players or Dudes.";
+                {
+                    double vs = tune != null && tune.DamageVsBlast > 0.0 ? tune.DamageVsBlast : 0.5;
+                    int dmg = Math.Max(1, (int)(blast * vs));
+                    // Stun comes from StunSeconds (Execute); StunMin/StunMax used by faultline passive.
+                    return string.Format(
+                        "Deals {0} damage to nearby foes and may stun them briefly. Does not stun players or Dudes.",
+                        dmg);
+                }
+
                 case "faultline":
-                    return "Passive. Periodically strikes a nearby foe and may paralyze them.";
+                {
+                    // Same as DudeCreature.TryFaultlinePassive: GapSeconds + DamageVsBlast fraction.
+                    double gap = tune != null && tune.GapSeconds > 0.0 ? tune.GapSeconds : 10.0;
+                    double vs = tune != null && tune.DamageVsBlast > 0.0 ? tune.DamageVsBlast : 0.33;
+                    int dmg = Math.Max(1, (int)(blast * vs));
+                    return string.Format(
+                        "Passive. Every {0:0.#}s, deals {1} damage to a nearby foe and may paralyze them.",
+                        gap, dmg);
+                }
+
                 case "tailwind_self":
-                    return "Brief attack-speed boost on itself.";
+                {
+                    // Execute defaults: SpeedFactor 0.5 (ActiveSpeed multiplier), DurationSeconds 5.
+                    double speed = tune != null && tune.SpeedFactor > 0.0 ? tune.SpeedFactor : 0.5;
+                    double dur = tune != null && tune.DurationSeconds > 0.0 ? tune.DurationSeconds : 5.0;
+                    int pct = speed > 0.0 && speed < 1.0
+                        ? (int)Math.Round((1.0 / speed - 1.0) * 100.0)
+                        : (int)Math.Round((speed - 1.0) * 100.0);
+                    return string.Format("Attack speed +{0}% for {1:0.#}s on itself.", pct, dur);
+                }
+
                 case "tailwind":
-                    return "Brief attack-speed boost on nearby allied Dudes.";
+                {
+                    double speed = tune != null && tune.SpeedFactor > 0.0 ? tune.SpeedFactor : 0.5;
+                    double dur = tune != null && tune.DurationSeconds > 0.0 ? tune.DurationSeconds : 5.0;
+                    int pct = speed > 0.0 && speed < 1.0
+                        ? (int)Math.Round((1.0 / speed - 1.0) * 100.0)
+                        : (int)Math.Round((speed - 1.0) * 100.0);
+                    return string.Format("Attack speed +{0}% for {1:0.#}s on nearby allied Dudes.", pct, dur);
+                }
+
                 case "slipstream":
-                    return "Passive. Ability cooldowns are shorter.";
+                {
+                    double reduce = tune != null && tune.ReduceSeconds > 0.0 ? tune.ReduceSeconds : 2.0;
+                    double floor = tune != null && tune.FloorSeconds > 0.0 ? tune.FloorSeconds : 7.0;
+                    return string.Format(
+                        "Passive. Ability cooldowns are {0:0.#}s faster (minimum {1:0.#}s).",
+                        reduce, floor);
+                }
+
                 default:
                     return "A special Dude technique.";
             }
