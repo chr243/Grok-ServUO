@@ -86,6 +86,7 @@ namespace Server.Mobiles
             Female = false;
             Hue = 0;
             EnsureTypeShorts(def);
+            EnsureWorkTool(data);
 
             Name = DudeCreature.ResolveDudeName(data, def) + " (Working)";
             SetStr(data.Str);
@@ -120,6 +121,49 @@ namespace Server.Mobiles
                 outer.Delete();
 
             AddItem(new DudeTypeShorts(hue));
+        }
+
+        private void EnsureWorkTool(DudeData data)
+        {
+            ClearWorkTool();
+
+            if (data == null)
+                return;
+
+            Item tool = null;
+
+            switch (data.Type)
+            {
+                case DudeType.Earth:
+                    tool = new DudeWorkPickaxe();
+                    break;
+                case DudeType.Air:
+                    tool = new DudeWorkHatchet();
+                    break;
+                default:
+                    return;
+            }
+
+            tool.LootType = LootType.Blessed;
+            tool.Movable = false;
+            tool.Layer = Layer.OneHanded;
+            AddItem(tool);
+        }
+
+        private void ClearWorkTool()
+        {
+            Item one = FindItemOnLayer(Layer.OneHanded);
+            if (IsWorkTool(one))
+                one.Delete();
+
+            Item two = FindItemOnLayer(Layer.TwoHanded);
+            if (IsWorkTool(two))
+                two.Delete();
+        }
+
+        private static bool IsWorkTool(Item item)
+        {
+            return item is DudeWorkPickaxe || item is DudeWorkHatchet;
         }
 
         public bool PathAbandoned
