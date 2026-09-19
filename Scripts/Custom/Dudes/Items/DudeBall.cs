@@ -564,9 +564,9 @@ namespace Server.Items
         {
             private readonly DudeBall m_Ball;
 
-            // No exact Trainer's Manual cliloc or custom-text CME exists in this fork; use the requested stock fallback.
+            // Verified Cliloc.enu 3006121 = "Look At". No "Trainer's Manual"/"Examine" cliloc or custom-text CME in this fork.
             public LookCloserEntry(DudeBall ball)
-                : base(1044014, 2)
+                : base(3006121, 2)
             {
                 m_Ball = ball;
             }
