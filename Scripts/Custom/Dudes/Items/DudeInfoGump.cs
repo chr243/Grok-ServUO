@@ -407,7 +407,7 @@ namespace Server.Items
         public bool HasMagicalHat { get; set; }
         public bool HasDudeShield { get; set; }
         public List<string> EquippedGearNames { get; set; }
-        /// <summary>Per-gear ability line (same index as EquippedGearNames); null/empty for hat/shield.</summary>
+        /// <summary>Per-gear ability/skill line (same index as EquippedGearNames); hat/shield show effective skills.</summary>
         public List<string> EquippedGearAbilityLines { get; set; }
         public int EvolutionStage { get; set; }
         public DudeType KitType { get; set; }
@@ -518,7 +518,7 @@ namespace Server.Items
                 view.SkillParry = parry.Base;
         }
 
-        /// <summary>Read equipped DudeGear names + scaled ability lines + hat/shield flags from a live Dude.</summary>
+        /// <summary>Read equipped DudeGear names + scaled ability/skill lines + hat/shield flags from a live Dude.</summary>
         private static void FillEquippedGear(DudeInfoView view, DudeCreature dude)
         {
             if (view == null || dude == null || dude.Deleted)
@@ -529,6 +529,7 @@ namespace Server.Items
             StringBuilder abilityNames = new StringBuilder();
             StringBuilder abilityDescs = new StringBuilder();
             int dudeLevel = view.Level > 0 ? view.Level : 1;
+            double stageCap = DudeCombatSkills.GetCap(view.EvolutionStage);
 
             for (int i = 0; i < dude.Items.Count; i++)
             {
@@ -543,7 +544,46 @@ namespace Server.Items
                 // e.g. "Stone Sash  Lv 3  +30%"
                 names.Add(string.Format("{0}  Lv {1}  +{2}%", n, lv, pct));
 
-                // Hat/shield: name + skill lines only (no fake ability id).
+                MagicalDudeHat hat = gear as MagicalDudeHat;
+                if (hat != null)
+                {
+                    // Effective = stored * gear multiplier, then stage cap (100/110/120).
+                    double mult = hat.GetEffectMultiplier();
+                    double magery = Math.Min(hat.Magery * mult, stageCap);
+                    double eval = Math.Min(hat.EvalInt * mult, stageCap);
+                    double med = Math.Min(hat.Meditation * mult, stageCap);
+                    string hatLine = string.Format("Magery {0:0.0} / Eval {1:0.0} / Med {2:0.0}", magery, eval, med);
+                    abilityLines.Add(hatLine);
+
+                    if (abilityNames.Length > 0)
+                        abilityNames.Append("<BR>");
+                    abilityNames.Append(n);
+
+                    if (abilityDescs.Length > 0)
+                        abilityDescs.Append("<BR><BR>");
+                    abilityDescs.Append(hatLine);
+                    continue;
+                }
+
+                DudeShield shield = gear as DudeShield;
+                if (shield != null)
+                {
+                    double mult = shield.GetEffectMultiplier();
+                    double parry = Math.Min(shield.Parrying * mult, stageCap);
+                    string shieldLine = string.Format("Parrying {0:0.0}", parry);
+                    abilityLines.Add(shieldLine);
+
+                    if (abilityNames.Length > 0)
+                        abilityNames.Append("<BR>");
+                    abilityNames.Append(n);
+
+                    if (abilityDescs.Length > 0)
+                        abilityDescs.Append("<BR><BR>");
+                    abilityDescs.Append(shieldLine);
+                    continue;
+                }
+
+                // Other gear without ability id: name only.
                 if (string.IsNullOrEmpty(gear.AbilityId))
                 {
                     abilityLines.Add(null);
