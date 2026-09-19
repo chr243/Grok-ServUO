@@ -117,6 +117,28 @@ namespace Server.Mobiles
         }
 
         /// <summary>
+        /// Summoned Dudes keep full AI move delay when Stam/Hits are low.
+        /// Wild Dudes keep stock SpeedInfo.TransformMoveDelay wound slowdown.
+        /// </summary>
+        public override bool ReduceSpeedWithDamage
+        {
+            get { return m_IsWild; }
+        }
+
+        /// <summary>
+        /// If movement ever goes through Mobile.ComputeMovementSpeed, summoned Dudes
+        /// still use the forced delay (ms) instead of foot/mount tables.
+        /// </summary>
+        public override int ComputeMovementSpeed(Direction dir, bool checkTurning)
+        {
+            if (m_IsWild)
+                return base.ComputeMovementSpeed(dir, checkTurning);
+
+            double speed = ForceActiveSpeed > 0.0 ? ForceActiveSpeed : DudeForceSpeed;
+            return Math.Max(1, (int)(speed * 1000.0));
+        }
+
+        /// <summary>
         /// Wild companions are catchable; bosses / special Dudes override to false.
         /// </summary>
         public virtual bool CanBeCaught
@@ -644,6 +666,11 @@ namespace Server.Mobiles
         public override void OnThink()
         {
             base.OnThink();
+
+            // Keep summoned run speed at ForceActiveSpeed / DudeForceSpeed — do not let
+            // AI / wound logic leave CurrentSpeed slower than the forced value.
+            if (!m_IsWild)
+                CurrentSpeed = ForceActiveSpeed > 0.0 ? ForceActiveSpeed : DudeForceSpeed;
 
             if (m_IsWild || Deleted || Map == null || Map == Map.Internal || m_Fainting)
                 return;
