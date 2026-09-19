@@ -24,8 +24,9 @@ namespace Server.Mobiles
             : base(AIType.AI_Melee, FightMode.None, 10, 1, 0.2, 0.4)
         {
             Name = "Dude Worker";
-            Body = 14;
-            Hue = 2413;
+            Body = 0x190;
+            Female = false;
+            Hue = 0;
             Blessed = true;
             CantWalk = false;
             Tamable = false;
@@ -79,18 +80,46 @@ namespace Server.Mobiles
 
             DudeDefinition def = DudeRegistry.Get(data.DefinitionId);
             if (def != null)
-            {
-                Body = def.Body;
-                Hue = def.Hue;
                 BaseSoundID = def.BaseSoundID;
-            }
 
-            Name = data.DisplayName + " (Working)";
+            Body = 0x190;
+            Female = false;
+            Hue = 0;
+            EnsureTypeShorts(def);
+
+            Name = DudeCreature.ResolveDudeName(data, def) + " (Working)";
             SetStr(data.Str);
             SetDex(data.Dex);
             SetInt(data.Int);
             SetHits(Math.Max(10, data.HitsMax));
             Hits = HitsMax;
+        }
+
+        private void EnsureTypeShorts(DudeDefinition def)
+        {
+            int hue = def != null ? def.Hue : 0;
+
+            Item existing = FindItemOnLayer(Layer.Pants);
+            DudeTypeShorts shorts = existing as DudeTypeShorts;
+
+            if (shorts != null)
+            {
+                if (shorts.Hue != hue)
+                    shorts.Hue = hue;
+                shorts.Name = "Type shorts";
+                shorts.LootType = LootType.Blessed;
+                shorts.Movable = false;
+                return;
+            }
+
+            if (existing != null)
+                existing.Delete();
+
+            Item outer = FindItemOnLayer(Layer.OuterLegs);
+            if (outer is Kilt)
+                outer.Delete();
+
+            AddItem(new DudeTypeShorts(hue));
         }
 
         public bool PathAbandoned

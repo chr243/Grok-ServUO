@@ -267,9 +267,8 @@ namespace Server.Mobiles
             m_DudeLevel = 1;
             m_EvolutionStage = 1;
 
-            Name = def.Name;
-            Body = def.Body;
-            Hue = def.Hue;
+            Name = ResolveDudeName(null, def);
+            ApplyHumanMaleAppearance(def);
             BaseSoundID = def.BaseSoundID;
 
             // One-time IV-style variance for wild / freshly defined Dudes.
@@ -311,13 +310,12 @@ namespace Server.Mobiles
             DudeDefinition def = DudeRegistry.Get(data.DefinitionId);
             if (def != null)
             {
-                Body = def.Body;
-                Hue = def.Hue;
                 BaseSoundID = def.BaseSoundID;
                 m_DefinitionId = def.Id;
             }
 
-            Name = data.DisplayName;
+            Name = ResolveDudeName(data, def);
+            ApplyHumanMaleAppearance(def);
             m_DudeLevel = data.Level;
             m_AbilityId = data.AbilityId;
             m_EvolutionStage = data.EvolutionStage;
@@ -345,6 +343,85 @@ namespace Server.Mobiles
 
             ApplyCombatSkills(data);
             ApplyDudeSpeeds();
+        }
+
+
+        /// <summary>
+        /// All Dudes are human males; type is shown by shorts hue (def.Hue), not body tint.
+        /// </summary>
+        public void ApplyHumanMaleAppearance(DudeDefinition def)
+        {
+            Body = 0x190;
+            Female = false;
+            Hue = 0; // natural skin; type color lives on shorts
+            EnsureTypeShorts(def);
+        }
+
+        /// <summary>
+        /// Display name "{Name} Dude". Uses data.DisplayName when present; if that has no
+        /// "Dude" suffix and matches the species name, uses def.Name + " Dude".
+        /// </summary>
+        public static string ResolveDudeName(DudeData data, DudeDefinition def)
+        {
+            string display = data != null ? data.DisplayName : null;
+            string species = def != null ? def.Name : null;
+
+            if (string.IsNullOrEmpty(display))
+            {
+                if (!string.IsNullOrEmpty(species))
+                    return species + " Dude";
+                return "Dude";
+            }
+
+            if (HasDudeSuffix(display))
+                return display;
+
+            if (!string.IsNullOrEmpty(species)
+                && string.Equals(display, species, StringComparison.OrdinalIgnoreCase))
+                return species + " Dude";
+
+            return display;
+        }
+
+        private static bool HasDudeSuffix(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return false;
+
+            return name.EndsWith(" Dude", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "Dude", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Equip (or force) type shorts with Hue = def.Hue. Replace if wrong hue / wrong item.
+        /// </summary>
+        public void EnsureTypeShorts(DudeDefinition def)
+        {
+            int hue = def != null ? def.Hue : 0;
+
+            Item existing = FindItemOnLayer(Layer.Pants);
+            DudeTypeShorts shorts = existing as DudeTypeShorts;
+
+            if (shorts != null)
+            {
+                if (shorts.Hue != hue)
+                    shorts.Hue = hue;
+                shorts.Name = "Type shorts";
+                shorts.LootType = LootType.Blessed;
+                shorts.Movable = false;
+                return;
+            }
+
+            if (existing != null)
+                existing.Delete();
+
+            // Also clear a kilt on OuterLegs if somehow present.
+            Item outer = FindItemOnLayer(Layer.OuterLegs);
+            if (outer is Kilt)
+                outer.Delete();
+
+            shorts = new DudeTypeShorts(hue);
+            AddItem(shorts);
         }
 
         /// <summary>
@@ -986,6 +1063,14 @@ namespace Server.Mobiles
 
             DudeRegistry.EnsureInitialized();
             DudeAbilityRegistry.EnsureInitialized();
+
+            DudeDefinition loaded = DudeRegistry.Get(m_DefinitionId);
+            ApplyHumanMaleAppearance(loaded);
+            if (loaded != null && string.IsNullOrEmpty(Name))
+                Name = ResolveDudeName(null, loaded);
+            else if (loaded != null && !HasDudeSuffix(Name)
+                && string.Equals(Name, loaded.Name, StringComparison.OrdinalIgnoreCase))
+                Name = loaded.Name + " Dude";
 
             ApplyDudeSpeeds();
         }

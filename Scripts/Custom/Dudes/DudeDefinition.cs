@@ -2,7 +2,7 @@ namespace Server.Custom.Dudes
 {
     /// <summary>
     /// Immutable template for a Dude species. Register new species via DudeRegistry.
-    /// Uses classic UO Body/hue/base sounds suitable for UOR-era clients.
+    /// Body is always human male (0x190). Hue is the type color used on shorts.
     /// </summary>
     public sealed class DudeDefinition
     {

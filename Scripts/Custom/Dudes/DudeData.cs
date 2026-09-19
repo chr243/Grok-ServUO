@@ -226,15 +226,36 @@ namespace Server.Custom.Dudes
         {
             get
             {
-                if (!string.IsNullOrEmpty(m_CustomName))
-                    return m_CustomName;
-
                 DudeDefinition def = DudeRegistry.Get(m_DefinitionId);
-                if (def != null)
-                    return def.Name;
+                string species = def != null ? def.Name : null;
 
-                return "Dude";
+                string raw;
+                if (!string.IsNullOrEmpty(m_CustomName))
+                    raw = m_CustomName;
+                else if (!string.IsNullOrEmpty(species))
+                    raw = species;
+                else
+                    return "Dude";
+
+                if (HasDudeSuffix(raw))
+                    return raw;
+
+                // Species-default name (or CustomName equal to species) → "{Name} Dude"
+                if (!string.IsNullOrEmpty(species)
+                    && string.Equals(raw, species, StringComparison.OrdinalIgnoreCase))
+                    return species + " Dude";
+
+                return raw;
             }
+        }
+
+        private static bool HasDudeSuffix(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return false;
+
+            return name.EndsWith(" Dude", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "Dude", StringComparison.OrdinalIgnoreCase);
         }
 
         public List<string> GetUnlockedAbilityIds()

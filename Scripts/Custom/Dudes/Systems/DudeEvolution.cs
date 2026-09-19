@@ -268,15 +268,17 @@ namespace Server.Custom.Dudes
             data.UnlockAbility(nextDef.AbilityId);
             DudeExperience.EnsureEvolutionAbilities(data);
 
+            string oldSpeciesDude = !string.IsNullOrEmpty(oldSpecies) ? oldSpecies + " Dude" : null;
             if (!string.IsNullOrEmpty(data.CustomName)
                 && (string.Equals(data.CustomName, oldSpecies, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(data.CustomName, oldSpeciesDude, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(data.CustomName, oldName, StringComparison.OrdinalIgnoreCase)))
             {
-                data.CustomName = nextDef.Name;
+                data.CustomName = nextDef.Name + " Dude";
             }
             else if (string.IsNullOrEmpty(data.CustomName))
             {
-                data.CustomName = nextDef.Name;
+                data.CustomName = nextDef.Name + " Dude";
             }
 
             ball.RefreshHue();

@@ -5,6 +5,7 @@ namespace Server.Custom.Dudes
 {
     /// <summary>
     /// Central registry for Dude species. Four elemental lines × three stages (12 total).
+    /// All Dudes use human male body 0x190; Hue is the type color for shorts.
     /// </summary>
     public static class DudeRegistry
     {
@@ -14,6 +15,13 @@ namespace Server.Custom.Dudes
         private static readonly List<DudeDefinition> m_All = new List<DudeDefinition>();
 
         private static bool m_Initialized;
+
+        // Type colors (match DudeBall filled hues) — shown on shorts, not body tint.
+        private const int FireHue = 0x21;
+        private const int WaterHue = 0x5A;
+        private const int EarthHue = 0x22C;
+        private const int AirHue = 0x47E;
+        private const int HumanMaleBody = 0x190;
 
         public static void EnsureInitialized()
         {
@@ -125,81 +133,81 @@ namespace Server.Custom.Dudes
 
         private static void RegisterDefaults()
         {
-            // Hue 0 for all. ControlSlots 1/2/3 by stage. Stats keep S1/S2/S3 separation.
+            // Body always human male 0x190. Hue = type color for shorts.
 
             // --- Fire: Ember → Flame → Blaze ---
             Register(new DudeDefinition(
                 "ember", "Ember", DudeType.Fire,
-                74, 0, 422, // imp body (former Embit)
+                HumanMaleBody, FireHue, 422,
                 45, 40, 15, 50, 4, 7, 14,
                 "blast", 1));
 
             Register(new DudeDefinition(
                 "flame", "Flame", DudeType.Fire,
-                784, 0, 0x174,
+                HumanMaleBody, FireHue, 0x174,
                 70, 70, 35, 100, 9, 14, 20,
                 "ring_of_fire", 2));
 
             Register(new DudeDefinition(
                 "blaze", "Blaze", DudeType.Fire,
-                1433, 0, 357,
+                HumanMaleBody, FireHue, 357,
                 110, 65, 55, 180, 13, 19, 40,
                 "burn", 3));
 
             // --- Water: Droplet → Ripple → Torrent ---
             Register(new DudeDefinition(
                 "droplet", "Droplet", DudeType.Water,
-                51, 0, 0x266,
+                HumanMaleBody, WaterHue, 0x266,
                 45, 40, 15, 50, 4, 7, 14,
                 "tide_mend", 1));
 
             Register(new DudeDefinition(
                 "ripple", "Ripple", DudeType.Water,
-                1244, 0, 278,
+                HumanMaleBody, WaterHue, 278,
                 70, 70, 35, 100, 9, 14, 20,
                 "tide_chorus", 2));
 
             Register(new DudeDefinition(
                 "torrent", "Torrent", DudeType.Water,
-                1427, 0, 278,
+                HumanMaleBody, WaterHue, 278,
                 110, 65, 55, 180, 13, 19, 40,
                 "spring", 3));
 
             // --- Earth: Pebble → Boulder → Quake ---
             Register(new DudeDefinition(
                 "pebble", "Pebble", DudeType.Earth,
-                196, 0, 397,
+                HumanMaleBody, EarthHue, 397,
                 50, 28, 12, 55, 5, 8, 16,
                 "fault_strike", 1));
 
             Register(new DudeDefinition(
                 "boulder", "Boulder", DudeType.Earth,
-                829, 0, 0x174,
+                HumanMaleBody, EarthHue, 0x174,
                 90, 40, 25, 130, 10, 16, 32,
                 "aftershock", 2));
 
             Register(new DudeDefinition(
                 "quake", "Quake", DudeType.Earth,
-                1248, 0, 268,
+                HumanMaleBody, EarthHue, 268,
                 110, 65, 55, 180, 13, 19, 40,
                 "faultline", 3));
 
             // --- Air: Breeze → Gale → Hurricane ---
             Register(new DudeDefinition(
                 "breeze", "Breeze", DudeType.Air,
-                58, 0, 0x1B,
+                HumanMaleBody, AirHue, 0x1B,
                 40, 50, 20, 48, 4, 7, 12,
                 "tailwind_self", 1));
 
             Register(new DudeDefinition(
                 "gale", "Gale", DudeType.Air,
-                199, 0, 655,
+                HumanMaleBody, AirHue, 655,
                 70, 70, 35, 100, 9, 14, 20,
                 "tailwind", 2));
 
             Register(new DudeDefinition(
                 "hurricane", "Hurricane", DudeType.Air,
-                1427, 0, 655,
+                HumanMaleBody, AirHue, 655,
                 110, 65, 55, 180, 13, 19, 40,
                 "slipstream", 3));
         }
