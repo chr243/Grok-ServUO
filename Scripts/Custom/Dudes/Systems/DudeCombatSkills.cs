@@ -6,13 +6,36 @@ namespace Server.Custom.Dudes
 {
     /// <summary>
     /// Persistent Dude combat skills (Wrestling / Tactics / Anatomy / MagicResist).
-    /// Stored on DudeData, capped at 100. Applied on summon and while linked.
+    /// Stored on DudeData; skill cap scales by EvolutionStage (1→100, 2→110, 3→120).
+    /// Applied on summon and while linked.
     /// </summary>
     public static class DudeCombatSkills
     {
+        /// <summary>Stage-1 floor / legacy constant.</summary>
         public const double Cap = 100.0;
         public const int RollMin = 40;
         public const int RollMax = 60;
+
+        public static double GetCap(int evolutionStage)
+        {
+            if (evolutionStage >= 3)
+                return 120.0;
+            if (evolutionStage == 2)
+                return 110.0;
+            return Cap;
+        }
+
+        public static double GetCap(DudeData data)
+        {
+            if (data == null)
+                return Cap;
+
+            int stage = data.EvolutionStage;
+            if (stage < 1)
+                stage = 1;
+
+            return GetCap(stage);
+        }
 
         public static double Roll()
         {
@@ -26,6 +49,21 @@ namespace Server.Custom.Dudes
             if (value > Cap)
                 return Cap;
             return value;
+        }
+
+        public static double Clamp(double value, int stage)
+        {
+            double cap = GetCap(stage);
+            if (value < 0.0)
+                return 0.0;
+            if (value > cap)
+                return cap;
+            return value;
+        }
+
+        public static double Clamp(double value, DudeData data)
+        {
+            return Clamp(value, data == null ? 1 : data.EvolutionStage);
         }
 
         public static bool IsTracked(SkillName skill)
@@ -58,10 +96,10 @@ namespace Server.Custom.Dudes
 
             EnsureRolled(data);
 
-            SetSkillValue(m, SkillName.Wrestling, data.Wrestling);
-            SetSkillValue(m, SkillName.Tactics, data.Tactics);
-            SetSkillValue(m, SkillName.Anatomy, data.Anatomy);
-            SetSkillValue(m, SkillName.MagicResist, data.MagicResist);
+            SetSkillValue(m, SkillName.Wrestling, data.Wrestling, data);
+            SetSkillValue(m, SkillName.Tactics, data.Tactics, data);
+            SetSkillValue(m, SkillName.Anatomy, data.Anatomy, data);
+            SetSkillValue(m, SkillName.MagicResist, data.MagicResist, data);
         }
 
         public static void WriteFromMobile(Mobile m, DudeData data)
@@ -69,13 +107,18 @@ namespace Server.Custom.Dudes
             if (m == null || data == null)
                 return;
 
-            data.Wrestling = Clamp(GetSkillValue(m, SkillName.Wrestling));
-            data.Tactics = Clamp(GetSkillValue(m, SkillName.Tactics));
-            data.Anatomy = Clamp(GetSkillValue(m, SkillName.Anatomy));
-            data.MagicResist = Clamp(GetSkillValue(m, SkillName.MagicResist));
+            data.Wrestling = Clamp(GetSkillValue(m, SkillName.Wrestling), data);
+            data.Tactics = Clamp(GetSkillValue(m, SkillName.Tactics), data);
+            data.Anatomy = Clamp(GetSkillValue(m, SkillName.Anatomy), data);
+            data.MagicResist = Clamp(GetSkillValue(m, SkillName.MagicResist), data);
         }
 
         public static void SetSkillValue(Mobile m, SkillName name, double value)
+        {
+            SetSkillValue(m, name, value, null);
+        }
+
+        public static void SetSkillValue(Mobile m, SkillName name, double value, DudeData data)
         {
             if (m == null || m.Skills == null)
                 return;
@@ -84,9 +127,10 @@ namespace Server.Custom.Dudes
             if (skill == null)
                 return;
 
-            double v = Clamp(value);
-            if (skill.Cap < v)
-                skill.Cap = Cap;
+            double cap = GetCap(data);
+            double v = Clamp(value, data);
+            if (skill.Cap < cap)
+                skill.Cap = cap;
             skill.Base = v;
         }
 
@@ -100,6 +144,31 @@ namespace Server.Custom.Dudes
                 return 0.0;
 
             return skill.Base;
+        }
+
+        /// <summary>
+        /// Raise Cap on the four tracked skills to the Dude's stage cap without changing Base.
+        /// </summary>
+        public static void RaiseCapsOnMobile(Mobile m, DudeData data)
+        {
+            if (m == null || m.Skills == null || data == null)
+                return;
+
+            double cap = GetCap(data);
+            RaiseCapOne(m, SkillName.Wrestling, cap);
+            RaiseCapOne(m, SkillName.Tactics, cap);
+            RaiseCapOne(m, SkillName.Anatomy, cap);
+            RaiseCapOne(m, SkillName.MagicResist, cap);
+        }
+
+        private static void RaiseCapOne(Mobile m, SkillName name, double cap)
+        {
+            Skill skill = m.Skills[name];
+            if (skill == null)
+                return;
+
+            if (skill.Cap < cap)
+                skill.Cap = cap;
         }
 
         /// <summary>
@@ -134,10 +203,10 @@ namespace Server.Custom.Dudes
                 return false;
 
             double before = GetDataSkill(data, skill);
-            if (before >= Cap)
+            if (before >= GetCap(data))
                 return false;
 
-            double after = Clamp(before + amount);
+            double after = Clamp(before + amount, data);
             if (after <= before)
                 return false;
 
@@ -170,7 +239,7 @@ namespace Server.Custom.Dudes
             if (data == null)
                 return;
 
-            double v = Clamp(value);
+            double v = Clamp(value, data);
             switch (skill)
             {
                 case SkillName.Wrestling:
@@ -189,7 +258,7 @@ namespace Server.Custom.Dudes
         }
 
         /// <summary>
-        /// Linked-player SkillGain: keep ball in sync and hard-cap at 100.
+        /// Linked-player SkillGain: keep ball in sync and hard-cap at stage cap.
         /// </summary>
         public static void SyncGainToBall(Mobile from, Skill skill, DudeData data, DudeBall ball)
         {
@@ -199,11 +268,13 @@ namespace Server.Custom.Dudes
             if (!IsTracked(skill.SkillName))
                 return;
 
-            double v = Clamp(skill.Base);
-            if (skill.Base > Cap)
-                skill.Base = Cap;
+            double cap = GetCap(data);
+            if (skill.Cap < cap)
+                skill.Cap = cap;
+            if (skill.Base > cap)
+                skill.Base = cap;
 
-            SetDataSkill(data, skill.SkillName, v);
+            SetDataSkill(data, skill.SkillName, Clamp(skill.Base, data));
             // Do not InvalidateProperties here — OPL rebuild mid-combat spikes ping while linked.
         }
     }

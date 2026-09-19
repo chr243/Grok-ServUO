@@ -109,12 +109,20 @@ namespace Server.Custom.Dudes
             if (live != null && !live.Deleted)
             {
                 live.ApplyData(data, false);
+                DudeCombatSkills.RaiseCapsOnMobile(live, data);
                 if (live.Map != null && live.Map != Map.Internal)
                     DudeSummonEffects.Play(requiredType, live.Location, live.Map, data.DefinitionId);
             }
             else if (from.Map != null && from.Map != Map.Internal)
             {
                 DudeSummonEffects.Play(requiredType, from.Location, from.Map, data.DefinitionId);
+            }
+
+            if (DudeLinkSystem.IsLinked(from))
+            {
+                DudeBall linked = DudeLinkSystem.GetLinkedBall(from);
+                if (linked == ball)
+                    DudeCombatSkills.RaiseCapsOnMobile(from, data);
             }
 
             from.SendMessage(0x44, "{0} evolved into {1}!", oldName, nextDef.Name);

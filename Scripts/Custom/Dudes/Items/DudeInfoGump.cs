@@ -86,13 +86,13 @@ namespace Server.Items
             AddHtml(24, y, 330, 18, "<BASEFONT COLOR=#FFFFFF>Skills</BASEFONT>", false, false);
             y += 20;
 
-            AddLabel(24, y, labelHue, string.Format("Wrestling: {0:0.0} / {1:0.0}", view.SkillWrestling, DudeCombatSkills.Cap));
+            AddLabel(24, y, labelHue, string.Format("Wrestling: {0:0.0} / {1:0.0}", view.SkillWrestling, DudeCombatSkills.GetCap(view.EvolutionStage)));
             y += 18;
-            AddLabel(24, y, labelHue, string.Format("Tactics: {0:0.0} / {1:0.0}", view.SkillTactics, DudeCombatSkills.Cap));
+            AddLabel(24, y, labelHue, string.Format("Tactics: {0:0.0} / {1:0.0}", view.SkillTactics, DudeCombatSkills.GetCap(view.EvolutionStage)));
             y += 18;
-            AddLabel(24, y, labelHue, string.Format("Anatomy: {0:0.0} / {1:0.0}", view.SkillAnatomy, DudeCombatSkills.Cap));
+            AddLabel(24, y, labelHue, string.Format("Anatomy: {0:0.0} / {1:0.0}", view.SkillAnatomy, DudeCombatSkills.GetCap(view.EvolutionStage)));
             y += 18;
-            AddLabel(24, y, labelHue, string.Format("Magic Resist: {0:0.0} / {1:0.0}", view.SkillMagicResist, DudeCombatSkills.Cap));
+            AddLabel(24, y, labelHue, string.Format("Magic Resist: {0:0.0} / {1:0.0}", view.SkillMagicResist, DudeCombatSkills.GetCap(view.EvolutionStage)));
 
             // RIGHT column — kit abilities by stage
             int ry = 48;

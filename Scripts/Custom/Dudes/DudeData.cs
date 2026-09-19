@@ -197,29 +197,29 @@ namespace Server.Custom.Dudes
             set { m_UnlockedAbilities = value; }
         }
 
-        /// <summary>Persistent combat skill (cap 100). Wild catch rolls 40–60.</summary>
+        /// <summary>Persistent combat skill (stage-scaled cap: 100/110/120). Wild catch rolls 40–60.</summary>
         public double Wrestling
         {
             get { return m_Wrestling; }
-            set { m_Wrestling = DudeCombatSkills.Clamp(value); }
+            set { m_Wrestling = DudeCombatSkills.Clamp(value, this); }
         }
 
         public double Tactics
         {
             get { return m_Tactics; }
-            set { m_Tactics = DudeCombatSkills.Clamp(value); }
+            set { m_Tactics = DudeCombatSkills.Clamp(value, this); }
         }
 
         public double Anatomy
         {
             get { return m_Anatomy; }
-            set { m_Anatomy = DudeCombatSkills.Clamp(value); }
+            set { m_Anatomy = DudeCombatSkills.Clamp(value, this); }
         }
 
         public double MagicResist
         {
             get { return m_MagicResist; }
-            set { m_MagicResist = DudeCombatSkills.Clamp(value); }
+            set { m_MagicResist = DudeCombatSkills.Clamp(value, this); }
         }
 
         public string DisplayName
@@ -441,13 +441,13 @@ namespace Server.Custom.Dudes
                 m_MagicResist = DudeCombatSkills.Roll();
             }
 
-            m_Wrestling = DudeCombatSkills.Clamp(m_Wrestling);
-            m_Tactics = DudeCombatSkills.Clamp(m_Tactics);
-            m_Anatomy = DudeCombatSkills.Clamp(m_Anatomy);
-            m_MagicResist = DudeCombatSkills.Clamp(m_MagicResist);
-
             if (m_EvolutionStage < 1)
                 m_EvolutionStage = 1;
+
+            m_Wrestling = DudeCombatSkills.Clamp(m_Wrestling, m_EvolutionStage);
+            m_Tactics = DudeCombatSkills.Clamp(m_Tactics, m_EvolutionStage);
+            m_Anatomy = DudeCombatSkills.Clamp(m_Anatomy, m_EvolutionStage);
+            m_MagicResist = DudeCombatSkills.Clamp(m_MagicResist, m_EvolutionStage);
 
             if (string.IsNullOrEmpty(m_UnlockedAbilities) && !string.IsNullOrEmpty(m_AbilityId))
                 m_UnlockedAbilities = m_AbilityId;
