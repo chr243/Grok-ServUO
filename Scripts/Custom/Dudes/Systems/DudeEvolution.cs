@@ -9,6 +9,179 @@ namespace Server.Custom.Dudes
     /// </summary>
     public static class DudeEvolution
     {
+        public static int GetCoreCost(int currentStage)
+        {
+            if (currentStage == 1)
+                return 10;
+            if (currentStage == 2)
+                return 30;
+            return 0;
+        }
+
+        public static bool CanEvolve(DudeData data)
+        {
+            if (data == null)
+                return false;
+
+            if (data.EvolutionStage == 1 && data.Level >= 10 && data.Level >= DudeExperience.GetMaxLevel(1))
+                return true;
+
+            if (data.EvolutionStage == 2 && data.Level >= 20 && data.Level >= DudeExperience.GetMaxLevel(2))
+                return true;
+
+            return false;
+        }
+
+        public static Type GetRequiredCoreType(DudeType t)
+        {
+            switch (t)
+            {
+                case DudeType.Fire:
+                    return typeof(EmberCore);
+                case DudeType.Water:
+                    return typeof(TideCore);
+                case DudeType.Earth:
+                    return typeof(StoneCore);
+                case DudeType.Air:
+                    return typeof(GaleCore);
+                default:
+                    return null;
+            }
+        }
+
+        public static string GetCoreDisplayName(DudeType t)
+        {
+            switch (t)
+            {
+                case DudeType.Fire:
+                    return "Ember Essence";
+                case DudeType.Water:
+                    return "Tide Essence";
+                case DudeType.Earth:
+                    return "Stone Essence";
+                case DudeType.Air:
+                    return "Gale Essence";
+                default:
+                    return "Essence";
+            }
+        }
+
+        public static bool CanPlayerEvolveBall(Mobile from, DudeBall ball)
+        {
+            if (from == null || ball == null || ball.Deleted || !ball.HasDude)
+                return false;
+
+            if (!CanEvolve(ball.StoredDude))
+                return false;
+
+            if (ball.IsChildOf(from.Backpack))
+                return true;
+
+            DudeCreature live = ball.SummonedDude;
+            if (live != null && !live.Deleted && live.ControlMaster == from)
+                return true;
+
+            return false;
+        }
+
+        public static bool ConsumeMatchingCores(Mobile from, Type coreType, int cost, Item preferredStack)
+        {
+            if (from == null || from.Backpack == null || coreType == null || cost < 1)
+                return false;
+
+            if (preferredStack != null
+                && (preferredStack.Deleted
+                    || preferredStack.GetType() != coreType
+                    || !preferredStack.IsChildOf(from.Backpack)))
+            {
+                preferredStack = null;
+            }
+
+            Item[] found = from.Backpack.FindItemsByType(coreType, true);
+            int total = 0;
+
+            for (int i = 0; i < found.Length; i++)
+            {
+                Item item = found[i];
+                if (item != null && !item.Deleted)
+                    total += item.Amount;
+            }
+
+            string name = ResolveCoreName(coreType, preferredStack, found);
+
+            if (total < cost)
+            {
+                from.SendMessage("You need {0} {1}.", cost, name);
+                return false;
+            }
+
+            int remaining = cost;
+
+            if (preferredStack != null && !preferredStack.Deleted)
+                remaining = ConsumeFromStack(preferredStack, remaining);
+
+            if (remaining > 0)
+            {
+                found = from.Backpack.FindItemsByType(coreType, true);
+
+                for (int i = 0; i < found.Length && remaining > 0; i++)
+                {
+                    Item item = found[i];
+                    if (item == null || item.Deleted)
+                        continue;
+
+                    remaining = ConsumeFromStack(item, remaining);
+                }
+            }
+
+            return remaining <= 0;
+        }
+
+        private static int ConsumeFromStack(Item stack, int remaining)
+        {
+            if (stack == null || stack.Deleted || remaining <= 0)
+                return remaining;
+
+            if (stack.Amount <= remaining)
+            {
+                remaining -= stack.Amount;
+                stack.Delete();
+            }
+            else
+            {
+                stack.Amount -= remaining;
+                remaining = 0;
+            }
+
+            return remaining;
+        }
+
+        private static string ResolveCoreName(Type coreType, Item preferredStack, Item[] found)
+        {
+            if (preferredStack != null && !string.IsNullOrEmpty(preferredStack.Name))
+                return preferredStack.Name;
+
+            if (found != null)
+            {
+                for (int i = 0; i < found.Length; i++)
+                {
+                    if (found[i] != null && !found[i].Deleted && !string.IsNullOrEmpty(found[i].Name))
+                        return found[i].Name;
+                }
+            }
+
+            if (coreType == typeof(EmberCore))
+                return "Ember Essence";
+            if (coreType == typeof(TideCore))
+                return "Tide Essence";
+            if (coreType == typeof(StoneCore))
+                return "Stone Essence";
+            if (coreType == typeof(GaleCore))
+                return "Gale Essence";
+
+            return "essences";
+        }
+
         public static bool TryEvolve(Mobile from, DudeBall ball, Item core, DudeType requiredType,
             string stage1Id, string stage2Id, string stage3Id)
         {
@@ -76,6 +249,10 @@ namespace Server.Custom.Dudes
                 return false;
             }
 
+            int cost = GetCoreCost(requiredStage);
+            if (cost < 1 || !ConsumeMatchingCores(from, core.GetType(), cost, core))
+                return false;
+
             string oldName = data.DisplayName;
             string oldSpecies = null;
             DudeDefinition oldDef = DudeRegistry.Get(data.DefinitionId);
@@ -128,7 +305,6 @@ namespace Server.Custom.Dudes
             from.SendMessage(0x44, "{0} evolved into {1}!", oldName, nextDef.Name);
             from.PlaySound(0x208);
 
-            core.Consume();
             return true;
         }
 
