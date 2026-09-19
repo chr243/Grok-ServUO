@@ -127,6 +127,35 @@ namespace Server.Mobiles
         {
         }
 
+        /// <summary>
+        /// Packs 1–2 distinct DudeGear items chosen at random from the given type pool.
+        /// </summary>
+        protected void PackExtraRandomDudeGear(params Type[] pool)
+        {
+            if (pool == null || pool.Length == 0)
+                return;
+
+            int extra = Utility.RandomMinMax(1, 2);
+            if (extra > pool.Length)
+                extra = pool.Length;
+
+            int[] order = new int[pool.Length];
+            for (int i = 0; i < pool.Length; i++)
+                order[i] = i;
+
+            for (int i = 0; i < extra; i++)
+            {
+                int j = Utility.RandomMinMax(i, pool.Length - 1);
+                int tmp = order[i];
+                order[i] = order[j];
+                order[j] = tmp;
+
+                Item item = Activator.CreateInstance(pool[order[i]]) as Item;
+                if (item != null)
+                    PackItem(item);
+            }
+        }
+
         public override void Serialize(GenericWriter writer)
         {
             base.Serialize(writer);

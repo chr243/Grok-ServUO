@@ -5,6 +5,7 @@ using Server.Accounting;
 using Server.Items;
 using Server.Mobiles;
 using Server.Network;
+using Server.Custom.Dudes.Commands;
 #endregion
 
 namespace Server.Misc
@@ -68,6 +69,7 @@ namespace Server.Misc
 			bag.DropItem(new TrainersDiaryPart1());
 			bag.DropItem(new SevenSkillBall());
 			bag.DropItem(new TrainersManual());
+			bag.DropItem(DudeGearBagCommand.CreateBag());
 			bag.DropItem(new DudeCraftingKit());
 			bag.DropItem(new MysteryJuice());
 			for (int i = 0; i < 10; i++)

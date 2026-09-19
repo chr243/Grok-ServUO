@@ -216,11 +216,15 @@ namespace Server.Mobiles
 
         protected override void PackUniqueLoot()
         {
-            PackItem(new EmberSash());
-
             int essence = Utility.RandomMinMax(0, 2);
             if (essence > 0)
                 PackItem(new EmberCore(essence));
+
+            PackExtraRandomDudeGear(
+                typeof(EmberCirclet),
+                typeof(EmberBracers),
+                typeof(MagicalDudeHat),
+                typeof(DudeShield));
         }
 
         public override void Serialize(GenericWriter writer)

@@ -25,17 +25,25 @@ namespace Server.Custom.Dudes.Commands
                 return;
             }
 
+            from.Backpack.DropItem(CreateBag());
+            from.SendMessage("A Dude Gear Bag was placed in your backpack.");
+        }
+
+        /// <summary>
+        /// Builds a Hue 1161 "Dude Gear Bag" containing one of every DudeGear piece.
+        /// Contents remain LootType Regular (tradable).
+        /// </summary>
+        public static Bag CreateBag()
+        {
             Bag bag = new Bag();
             bag.Hue = 1161;
             bag.Name = "Dude Gear Bag";
 
             DropAllGear(bag);
-
-            from.Backpack.DropItem(bag);
-            from.SendMessage("A Dude Gear Bag was placed in your backpack.");
+            return bag;
         }
 
-        private static void DropAllGear(Container bag)
+        public static void DropAllGear(Container bag)
         {
             // Fire
             bag.DropItem(new EmberSash());

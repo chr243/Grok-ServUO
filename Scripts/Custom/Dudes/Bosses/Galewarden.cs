@@ -203,11 +203,15 @@ namespace Server.Mobiles
 
         protected override void PackUniqueLoot()
         {
-            PackItem(new GaleSash());
-
             int n = Utility.RandomMinMax(0, 2);
             if (n > 0)
                 PackItem(new GaleCore(n));
+
+            PackExtraRandomDudeGear(
+                typeof(GaleCirclet),
+                typeof(GaleBracers),
+                typeof(MagicalDudeHat),
+                typeof(DudeShield));
         }
 
         public override void Serialize(GenericWriter writer)

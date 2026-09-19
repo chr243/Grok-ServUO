@@ -181,11 +181,15 @@ namespace Server.Mobiles
 
         protected override void PackUniqueLoot()
         {
-            PackItem(new TideSash());
-
             int n = Utility.RandomMinMax(0, 2);
             if (n > 0)
                 PackItem(new TideCore(n));
+
+            PackExtraRandomDudeGear(
+                typeof(TideCirclet),
+                typeof(TideBracers),
+                typeof(MagicalDudeHat),
+                typeof(DudeShield));
         }
 
         public override void Serialize(GenericWriter writer)

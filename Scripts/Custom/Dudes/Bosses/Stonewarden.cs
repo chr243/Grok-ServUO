@@ -202,11 +202,15 @@ namespace Server.Mobiles
 
         protected override void PackUniqueLoot()
         {
-            PackItem(new StoneSash());
-
             int n = Utility.RandomMinMax(0, 2);
             if (n > 0)
                 PackItem(new StoneCore(n));
+
+            PackExtraRandomDudeGear(
+                typeof(StoneCirclet),
+                typeof(StoneBracers),
+                typeof(MagicalDudeHat),
+                typeof(DudeShield));
         }
 
         public override void Serialize(GenericWriter writer)
