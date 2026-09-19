@@ -30,6 +30,7 @@ namespace Server.Items
             Magery = (double)Utility.RandomMinMax(RollMin, RollMax);
             EvalInt = (double)Utility.RandomMinMax(RollMin, RollMax);
             Meditation = (double)Utility.RandomMinMax(RollMin, RollMax);
+            Movable = true;
         }
 
         public MagicalDudeHat(Serial serial)
@@ -99,6 +100,7 @@ namespace Server.Items
             Layer = Layer.Helm;
             SlotCost = 1;
             // Do not set RequiredType — keep universal.
+            Movable = true;
         }
     }
 }

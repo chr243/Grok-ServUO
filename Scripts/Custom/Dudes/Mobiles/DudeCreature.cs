@@ -461,7 +461,7 @@ namespace Server.Mobiles
 
         /// <summary>
         /// Equip matching type sash on InnerTorso if none already (server AddItem; bypasses wild CanAcceptGear).
-        /// Blessed / immovable while on the Dude so it is not stripped by accident.
+        /// Blessed optional; Movable so the owner can lift it into the backpack.
         /// </summary>
         public void EnsureTypeSash(DudeDefinition def)
         {
@@ -478,7 +478,7 @@ namespace Server.Mobiles
                 return;
 
             sash.LootType = LootType.Blessed;
-            sash.Movable = false;
+            sash.Movable = true;
             AddItem(sash);
         }
 

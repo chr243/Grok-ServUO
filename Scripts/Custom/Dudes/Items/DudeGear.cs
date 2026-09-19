@@ -33,6 +33,7 @@ namespace Server.Items
         {
             Weight = 1.0;
             m_SlotCost = 1;
+            Movable = true;
         }
 
         public DudeGear(Serial serial)
@@ -278,6 +279,8 @@ namespace Server.Items
                 m_GearEXP = 0;
             if (m_GearLevel >= 10)
                 m_GearEXP = 0;
+
+            Movable = true;
         }
     }
 
@@ -294,6 +297,7 @@ namespace Server.Items
             AbilityId = "blast";
             SlotCost = 1;
             RequiredType = DudeType.Fire;
+            Movable = true;
         }
 
         public EmberSash(Serial serial)
@@ -318,6 +322,7 @@ namespace Server.Items
             if (string.IsNullOrEmpty(AbilityId))
                 AbilityId = "blast";
             RequiredType = DudeType.Fire;
+            Movable = true;
         }
     }
 }

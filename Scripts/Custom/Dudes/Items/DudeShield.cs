@@ -25,6 +25,7 @@ namespace Server.Items
             // RequiredType unset → HasRequiredType stays false (universal).
 
             Parrying = (double)Utility.RandomMinMax(RollMin, RollMax);
+            Movable = true;
         }
 
         public DudeShield(Serial serial)
@@ -73,6 +74,7 @@ namespace Server.Items
             Layer = Layer.TwoHanded;
             SlotCost = 1;
             // Do not set RequiredType — keep universal.
+            Movable = true;
         }
     }
 }

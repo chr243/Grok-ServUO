@@ -22,6 +22,7 @@ namespace Server.Items
             AbilityId = "ring_of_fire";
             SlotCost = 1;
             RequiredType = DudeType.Fire;
+            Movable = true;
         }
 
         public EmberCirclet(Serial serial)
@@ -47,6 +48,7 @@ namespace Server.Items
             if (string.IsNullOrEmpty(AbilityId))
                 AbilityId = "ring_of_fire";
             RequiredType = DudeType.Fire;
+            Movable = true;
         }
     }
 
@@ -62,6 +64,7 @@ namespace Server.Items
             AbilityId = "burn";
             SlotCost = 1;
             RequiredType = DudeType.Fire;
+            Movable = true;
         }
 
         public EmberBracers(Serial serial)
@@ -86,6 +89,7 @@ namespace Server.Items
             if (string.IsNullOrEmpty(AbilityId))
                 AbilityId = "burn";
             RequiredType = DudeType.Fire;
+            Movable = true;
         }
     }
 
@@ -105,6 +109,7 @@ namespace Server.Items
             AbilityId = "tide_mend";
             SlotCost = 1;
             RequiredType = DudeType.Water;
+            Movable = true;
         }
 
         public TideSash(Serial serial)
@@ -129,6 +134,7 @@ namespace Server.Items
             if (string.IsNullOrEmpty(AbilityId))
                 AbilityId = "tide_mend";
             RequiredType = DudeType.Water;
+            Movable = true;
         }
     }
 
@@ -144,6 +150,7 @@ namespace Server.Items
             AbilityId = "tide_chorus";
             SlotCost = 1;
             RequiredType = DudeType.Water;
+            Movable = true;
         }
 
         public TideCirclet(Serial serial)
@@ -169,6 +176,7 @@ namespace Server.Items
             if (string.IsNullOrEmpty(AbilityId))
                 AbilityId = "tide_chorus";
             RequiredType = DudeType.Water;
+            Movable = true;
         }
     }
 
@@ -184,6 +192,7 @@ namespace Server.Items
             AbilityId = "spring";
             SlotCost = 1;
             RequiredType = DudeType.Water;
+            Movable = true;
         }
 
         public TideBracers(Serial serial)
@@ -208,6 +217,7 @@ namespace Server.Items
             if (string.IsNullOrEmpty(AbilityId))
                 AbilityId = "spring";
             RequiredType = DudeType.Water;
+            Movable = true;
         }
     }
 
@@ -227,6 +237,7 @@ namespace Server.Items
             AbilityId = "fault_strike";
             SlotCost = 1;
             RequiredType = DudeType.Earth;
+            Movable = true;
         }
 
         public StoneSash(Serial serial)
@@ -251,6 +262,7 @@ namespace Server.Items
             if (string.IsNullOrEmpty(AbilityId))
                 AbilityId = "fault_strike";
             RequiredType = DudeType.Earth;
+            Movable = true;
         }
     }
 
@@ -266,6 +278,7 @@ namespace Server.Items
             AbilityId = "aftershock";
             SlotCost = 1;
             RequiredType = DudeType.Earth;
+            Movable = true;
         }
 
         public StoneCirclet(Serial serial)
@@ -291,6 +304,7 @@ namespace Server.Items
             if (string.IsNullOrEmpty(AbilityId))
                 AbilityId = "aftershock";
             RequiredType = DudeType.Earth;
+            Movable = true;
         }
     }
 
@@ -306,6 +320,7 @@ namespace Server.Items
             AbilityId = "faultline";
             SlotCost = 1;
             RequiredType = DudeType.Earth;
+            Movable = true;
         }
 
         public StoneBracers(Serial serial)
@@ -330,6 +345,7 @@ namespace Server.Items
             if (string.IsNullOrEmpty(AbilityId))
                 AbilityId = "faultline";
             RequiredType = DudeType.Earth;
+            Movable = true;
         }
     }
 
@@ -349,6 +365,7 @@ namespace Server.Items
             AbilityId = "tailwind_self";
             SlotCost = 1;
             RequiredType = DudeType.Air;
+            Movable = true;
         }
 
         public GaleSash(Serial serial)
@@ -373,6 +390,7 @@ namespace Server.Items
             if (string.IsNullOrEmpty(AbilityId))
                 AbilityId = "tailwind_self";
             RequiredType = DudeType.Air;
+            Movable = true;
         }
     }
 
@@ -388,6 +406,7 @@ namespace Server.Items
             AbilityId = "tailwind";
             SlotCost = 1;
             RequiredType = DudeType.Air;
+            Movable = true;
         }
 
         public GaleCirclet(Serial serial)
@@ -413,6 +432,7 @@ namespace Server.Items
             if (string.IsNullOrEmpty(AbilityId))
                 AbilityId = "tailwind";
             RequiredType = DudeType.Air;
+            Movable = true;
         }
     }
 
@@ -428,6 +448,7 @@ namespace Server.Items
             AbilityId = "slipstream";
             SlotCost = 1;
             RequiredType = DudeType.Air;
+            Movable = true;
         }
 
         public GaleBracers(Serial serial)
@@ -452,6 +473,7 @@ namespace Server.Items
             if (string.IsNullOrEmpty(AbilityId))
                 AbilityId = "slipstream";
             RequiredType = DudeType.Air;
+            Movable = true;
         }
     }
 
