@@ -564,9 +564,9 @@ namespace Server.Items
         {
             private readonly DudeBall m_Ball;
 
-            // Stock cliloc 3006121 = "Look At" (closest readable label; this fork has no custom-text CME).
+            // No exact Trainer's Manual cliloc or custom-text CME exists in this fork; use the requested stock fallback.
             public LookCloserEntry(DudeBall ball)
-                : base(6121, 2)
+                : base(1044014, 2)
             {
                 m_Ball = ball;
             }
