@@ -43,6 +43,10 @@ namespace Server.Custom.Dudes
             // Linked players: award EXP to their linked ball (no DudeCreature out).
             for (int i = 0; i < masters.Count; i++)
                 DudeLinkSystem.TryAwardLinkedKill(masters[i], victim);
+
+            // Daily Training progress (after EXP award).
+            for (int i = 0; i < masters.Count; i++)
+                DudeDailySystem.OnKill(masters[i], victim);
         }
 
         /// <summary>

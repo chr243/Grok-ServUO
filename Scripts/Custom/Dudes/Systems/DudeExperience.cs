@@ -228,6 +228,24 @@ namespace Server.Custom.Dudes
             if (owner != null)
                 owner.SendMessage(0x59, "{0} gained {1} EXP.", data.DisplayName, amount);
 
+            // Daily Training: count EXP while live Dude OR owner is in the assigned region.
+            if (owner != null)
+            {
+                Point3D expLoc;
+                Map expMap;
+                if (live != null && !live.Deleted && live.Map != null && live.Map != Map.Internal)
+                {
+                    expLoc = live.Location;
+                    expMap = live.Map;
+                }
+                else
+                {
+                    expLoc = owner.Location;
+                    expMap = owner.Map;
+                }
+                DudeDailySystem.OnExp(owner, amount, expLoc, expMap);
+            }
+
             int maxLevel = GetMaxLevel(data);
             int safety = 0;
             while (data.CurrentEXP >= data.EXPToNext && data.EXPToNext > 0 && data.Level < maxLevel && safety < 50)
