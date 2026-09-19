@@ -245,7 +245,13 @@ namespace Server.Custom.Dudes
                 data.CurrentEXP = data.EXPToNext;
 
             if (!linkedQuiet)
+            {
                 ball.InvalidateProperties();
+
+                // Refresh summoned Dude mouseover Level/EXP bar after EXP changes.
+                if (live != null && !live.Deleted)
+                    live.InvalidateProperties();
+            }
 
             // Only rewrite live creature stats/skills/speeds on a real level-up (not every XP tick).
             if (live != null && !live.Deleted && data.Level != oldLevel)

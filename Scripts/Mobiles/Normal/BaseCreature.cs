@@ -5809,23 +5809,27 @@ namespace Server.Mobiles
                 }
             }
 
-            if (Summoned && !IsAnimatedDead && !IsNecroFamiliar && !(this is Clone))
+            // DudeCreature uses its own Level/EXP tooltip; skip classic tame/summoned/bonded tags.
+            if (!(this is DudeCreature))
             {
-                list.Add(1049646); // (summoned)
-            }
-            else if (Controlled && Commandable)
-            {
-                if (this is BaseHire)
+                if (Summoned && !IsAnimatedDead && !IsNecroFamiliar && !(this is Clone))
                 {
-                    list.Add(1062030); // (hired)
+                    list.Add(1049646); // (summoned)
                 }
-                else if (IsBonded) //Intentional difference (showing ONLY bonded when bonded instead of bonded & tame)
+                else if (Controlled && Commandable)
                 {
-                    list.Add(1049608); // (bonded)
-                }
-                else
-                {
-                    list.Add(502006); // (tame)
+                    if (this is BaseHire)
+                    {
+                        list.Add(1062030); // (hired)
+                    }
+                    else if (IsBonded) //Intentional difference (showing ONLY bonded when bonded instead of bonded & tame)
+                    {
+                        list.Add(1049608); // (bonded)
+                    }
+                    else
+                    {
+                        list.Add(502006); // (tame)
+                    }
                 }
             }
 
@@ -5840,7 +5844,8 @@ namespace Server.Mobiles
 
         public override void OnSingleClick(Mobile from)
         {
-            if (Controlled && Commandable)
+            // DudeCreature: no (tame)/(summoned)/(bonded) overhead label.
+            if (Controlled && Commandable && !(this is DudeCreature))
             {
                 int number;
 

@@ -172,6 +172,39 @@ namespace Server.Mobiles
             get { return false; }
         }
 
+        public override void GetProperties(ObjectPropertyList list)
+        {
+            base.GetProperties(list);
+
+            DudeData data = null;
+            if (m_BoundBall != null && !m_BoundBall.Deleted && m_BoundBall.StoredDude != null)
+                data = m_BoundBall.StoredDude;
+
+            int level = data != null ? data.Level : m_DudeLevel;
+            if (level < 1)
+                level = 1;
+
+            list.Add("Level {0}", level);
+
+            // Wild / no owner data: Level only (hide EXP bar).
+            bool showExp = data != null && m_BoundBall != null && !m_BoundBall.Deleted && !m_IsWild && Controlled;
+            if (!showExp)
+                return;
+
+            int cur = data.CurrentEXP;
+            int need = data.EXPToNext < 1 ? 1 : data.EXPToNext;
+            int pct = cur * 100 / need;
+            if (pct < 0)
+                pct = 0;
+            if (pct > 100)
+                pct = 100;
+
+            int width = 10;
+            int filled = pct * width / 100;
+            string bar = "[" + new string('#', filled) + new string('.', width - filled) + "]";
+            list.Add("EXP {0} {1}%", bar, pct);
+        }
+
         /// <summary>True while recall/despawn FX plays — no aggro, not a guard candidate.</summary>
         public bool IsDespawning
         {
