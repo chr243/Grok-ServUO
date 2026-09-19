@@ -820,11 +820,6 @@ namespace Server.Mobiles
         {
             base.OnThink();
 
-            // Keep summoned run speed at ForceActiveSpeed / DudeForceSpeed — do not let
-            // AI / wound logic leave CurrentSpeed slower than the forced value.
-            if (!m_IsWild)
-                CurrentSpeed = ForceActiveSpeed > 0.0 ? ForceActiveSpeed : DudeForceSpeed;
-
             if (m_IsWild || Deleted || Map == null || Map == Map.Internal || m_Fainting)
                 return;
 
