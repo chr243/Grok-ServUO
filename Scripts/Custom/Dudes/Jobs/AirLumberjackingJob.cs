@@ -48,19 +48,9 @@ namespace Server.Custom.Dudes.Jobs
         protected override Item CreateGatheredItem(DudeData data, Map map, Point3D loc, Mobile harvester)
         {
             double skill = DudeJobHarvest.GetEffectiveSkill(data);
-            HarvestDefinition def = GetHarvestDefinition();
-
-            if (map != null && map != Map.Internal && harvester != null)
-            {
-                Item harvested = DudeJobHarvest.HarvestAt(def, map, loc, harvester, skill, DudeJobConfig.DefaultGatherRewardAmount);
-                if (harvested != null)
-                    return harvested;
-            }
-
-            Item item = DudeJobHarvest.CreateFromVeins(def, skill, DudeJobConfig.DefaultGatherRewardAmount);
-            if (item != null)
-                return item;
-            return new Log(DudeJobConfig.DefaultGatherRewardAmount);
+            // Job-only wood table (UOR). Still walks to a tree tile via TryFindDestination;
+            // do not consume the player lumber harvest bank.
+            return DudeJobHarvest.CreateLumberHaul(skill, DudeJobConfig.DefaultGatherRewardAmount);
         }
 
         public override bool CountsTowardStorage(Item item)

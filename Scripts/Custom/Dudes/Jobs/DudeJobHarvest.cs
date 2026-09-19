@@ -169,6 +169,75 @@ namespace Server.Custom.Dudes.Jobs
             return CreateFromVein(def, null, skill, amount);
         }
 
+        /// <summary>
+        /// Job-station lumber table (UOR-safe). Does not depend on Core.ML player lumber veins.
+        /// </summary>
+        public static Item CreateLumberHaul(double skill, int amount)
+        {
+            if (amount < 1)
+                amount = 1;
+
+            Type type = typeof(Log);
+
+            if (skill < 50.0)
+            {
+                type = typeof(Log);
+            }
+            else if (skill < 70.0)
+            {
+                // 70% Log, 30% OakLog
+                type = Utility.RandomDouble() < 0.70 ? typeof(Log) : typeof(OakLog);
+            }
+            else if (skill < 85.0)
+            {
+                // 50% Log, 30% Oak, 20% Ash
+                double roll = Utility.RandomDouble();
+                if (roll < 0.50)
+                    type = typeof(Log);
+                else if (roll < 0.80)
+                    type = typeof(OakLog);
+                else
+                    type = typeof(AshLog);
+            }
+            else if (skill < 100.0)
+            {
+                // 35% Log, 30% Oak, 20% Ash, 15% Yew
+                double roll = Utility.RandomDouble();
+                if (roll < 0.35)
+                    type = typeof(Log);
+                else if (roll < 0.65)
+                    type = typeof(OakLog);
+                else if (roll < 0.85)
+                    type = typeof(AshLog);
+                else
+                    type = typeof(YewLog);
+            }
+            else
+            {
+                // 25% Log, 25% Oak, 20% Ash, 15% Yew, 8% Heartwood, 5% Bloodwood, 2% Frostwood
+                double roll = Utility.RandomDouble();
+                if (roll < 0.25)
+                    type = typeof(Log);
+                else if (roll < 0.50)
+                    type = typeof(OakLog);
+                else if (roll < 0.70)
+                    type = typeof(AshLog);
+                else if (roll < 0.85)
+                    type = typeof(YewLog);
+                else if (roll < 0.93)
+                    type = typeof(HeartwoodLog);
+                else if (roll < 0.98)
+                    type = typeof(BloodwoodLog);
+                else
+                    type = typeof(FrostwoodLog);
+            }
+
+            Item item = Construct(type, amount);
+            if (item != null)
+                return item;
+            return new Log(amount);
+        }
+
         public static Item CreateFishingHaul(double skill, int amount)
         {
             if (amount < 1)
