@@ -333,7 +333,7 @@ namespace Server.Custom.Dudes
         public override void Execute(DudeCreature dude, Mobile target)
         {
             DudeAbilityConfig.EnsureLoaded();
-            int damage = DudeExperience.GetBlastDamage(dude.DudeLevel);
+            int damage = DudeAbility.ApplyEffect(DudeExperience.GetBlastDamage(dude.DudeLevel));
             dude.PublicOverheadMessage(MessageType.Regular, 0x22, false, "*Fire Blast*");
             AOS.Damage(target, dude, damage, 0, 100, 0, 0, 0);
             Effects.SendMovingEffect(dude, target, 0x36BD, 7, 0, false, false, 0, 0);
@@ -343,7 +343,7 @@ namespace Server.Custom.Dudes
         public override void ExecuteLinked(Mobile caster, DudeData data, DudeBall ball, Mobile target)
         {
             DudeAbilityConfig.EnsureLoaded();
-            int damage = DudeExperience.GetBlastDamage(data != null ? data.Level : 1);
+            int damage = DudeAbility.ApplyEffect(DudeExperience.GetBlastDamage(data != null ? data.Level : 1));
             caster.PublicOverheadMessage(MessageType.Regular, 0x22, false, "*Fire Blast*");
             AOS.Damage(target, caster, damage, 0, 100, 0, 0, 0);
             Effects.SendMovingEffect(caster, target, 0x36BD, 7, 0, false, false, 0, 0);
@@ -374,7 +374,7 @@ namespace Server.Custom.Dudes
         public override void Execute(DudeCreature dude, Mobile target)
         {
             DudeAbilityConfig.EnsureLoaded();
-            int heal = DudeExperience.GetBlastDamage(dude.DudeLevel);
+            int heal = DudeAbility.ApplyEffect(DudeExperience.GetBlastDamage(dude.DudeLevel));
             dude.PublicOverheadMessage(MessageType.Regular, 0x3B2, false, "*Tide Mend*");
             dude.Hits = Math.Min(dude.HitsMax, dude.Hits + heal);
             DudeAbilityVfx.PlayWaterHeal(dude);
@@ -394,7 +394,7 @@ namespace Server.Custom.Dudes
         public override void ExecuteLinked(Mobile caster, DudeData data, DudeBall ball, Mobile target)
         {
             DudeAbilityConfig.EnsureLoaded();
-            int heal = DudeExperience.GetBlastDamage(data != null ? data.Level : 1);
+            int heal = DudeAbility.ApplyEffect(DudeExperience.GetBlastDamage(data != null ? data.Level : 1));
             caster.PublicOverheadMessage(MessageType.Regular, 0x3B2, false, "*Tide Mend*");
             caster.Hits = Math.Min(caster.HitsMax, caster.Hits + heal);
             DudeAbilityVfx.PlayWaterHeal(caster);
@@ -426,7 +426,7 @@ namespace Server.Custom.Dudes
             DudeAbilityTune tune = DudeAbilityConfig.Get("fault_strike");
             double stun = tune != null && tune.StunSeconds > 0.0 ? tune.StunSeconds : 1.0;
 
-            int damage = DudeExperience.GetBlastDamage(dude.DudeLevel);
+            int damage = DudeAbility.ApplyEffect(DudeExperience.GetBlastDamage(dude.DudeLevel));
             dude.PublicOverheadMessage(MessageType.Regular, 0x3F, false, "*Fault Strike*");
             AOS.Damage(target, dude, damage, 100, 0, 0, 0, 0);
             DudeAbilityVfx.PlayEarthHit(target);
@@ -451,7 +451,7 @@ namespace Server.Custom.Dudes
             DudeAbilityTune tune = DudeAbilityConfig.Get("fault_strike");
             double stun = tune != null && tune.StunSeconds > 0.0 ? tune.StunSeconds : 1.0;
 
-            int damage = DudeExperience.GetBlastDamage(data != null ? data.Level : 1);
+            int damage = DudeAbility.ApplyEffect(DudeExperience.GetBlastDamage(data != null ? data.Level : 1));
             caster.PublicOverheadMessage(MessageType.Regular, 0x3F, false, "*Fault Strike*");
             AOS.Damage(target, caster, damage, 100, 0, 0, 0, 0);
             DudeAbilityVfx.PlayEarthHit(target);
@@ -484,7 +484,7 @@ namespace Server.Custom.Dudes
             DudeAbilityConfig.EnsureLoaded();
             DudeAbilityTune tune = DudeAbilityConfig.Get("tailwind_self");
             double duration = tune != null && tune.DurationSeconds > 0.0 ? tune.DurationSeconds : 5.0;
-            double speed = tune != null && tune.SpeedFactor > 0.0 ? tune.SpeedFactor : 0.5;
+            double speed = DudeAbility.ApplyEffectSpeed(tune != null && tune.SpeedFactor > 0.0 ? tune.SpeedFactor : 0.5);
 
             dude.PublicOverheadMessage(MessageType.Regular, 0x47E, false, "*Tailwind*");
             DudeAbilityVfx.ApplyTailwindSpeed(dude, TimeSpan.FromSeconds(duration), speed);
@@ -541,7 +541,7 @@ namespace Server.Custom.Dudes
             DudeAbilityConfig.EnsureLoaded();
             DudeAbilityTune tune = DudeAbilityConfig.Get("ring_of_fire");
             double vs = tune != null && tune.DamageVsBlast > 0.0 ? tune.DamageVsBlast : 0.5;
-            int damage = Math.Max(1, (int)(DudeExperience.GetBlastDamage(dude.DudeLevel) * vs));
+            int damage = DudeAbility.ApplyEffect(Math.Max(1, (int)(DudeExperience.GetBlastDamage(dude.DudeLevel) * vs)));
             dude.PublicOverheadMessage(MessageType.Regular, 0x22, false, "*Ring of Fire*");
             dude.PlaySound(0x208);
 
@@ -581,7 +581,7 @@ namespace Server.Custom.Dudes
             DudeAbilityConfig.EnsureLoaded();
             DudeAbilityTune tune = DudeAbilityConfig.Get("ring_of_fire");
             double vs = tune != null && tune.DamageVsBlast > 0.0 ? tune.DamageVsBlast : 0.5;
-            int damage = Math.Max(1, (int)(DudeExperience.GetBlastDamage(data != null ? data.Level : 1) * vs));
+            int damage = DudeAbility.ApplyEffect(Math.Max(1, (int)(DudeExperience.GetBlastDamage(data != null ? data.Level : 1) * vs)));
             caster.PublicOverheadMessage(MessageType.Regular, 0x22, false, "*Ring of Fire*");
             caster.PlaySound(0x208);
 
@@ -715,6 +715,7 @@ namespace Server.Custom.Dudes
                 int heal = Math.Min(pctHeal, blastHeal);
                 if (heal < 1)
                     heal = 1;
+                heal = DudeAbility.ApplyEffect(heal);
 
                 ally.Hits = Math.Min(ally.HitsMax, ally.Hits + heal);
                 DudeAbilityVfx.PlayWaterHeal(ally);
@@ -749,6 +750,7 @@ namespace Server.Custom.Dudes
             int selfHeal = Math.Min(selfPct, blastHeal);
             if (selfHeal < 1)
                 selfHeal = 1;
+            selfHeal = DudeAbility.ApplyEffect(selfHeal);
             caster.Hits = Math.Min(caster.HitsMax, caster.Hits + selfHeal);
             DudeAbilityVfx.PlayWaterHeal(caster);
 
@@ -762,6 +764,7 @@ namespace Server.Custom.Dudes
                 int heal = Math.Min(pctHeal, blastHeal);
                 if (heal < 1)
                     heal = 1;
+                heal = DudeAbility.ApplyEffect(heal);
 
                 ally.Hits = Math.Min(ally.HitsMax, ally.Hits + heal);
                 DudeAbilityVfx.PlayWaterHeal(ally);
@@ -797,7 +800,7 @@ namespace Server.Custom.Dudes
             double stun = tune != null && tune.StunSeconds > 0.0 ? tune.StunSeconds : 1.0;
             int radius = tune != null && tune.Radius > 0 ? tune.Radius : 3;
 
-            int damage = Math.Max(1, (int)(DudeExperience.GetBlastDamage(dude.DudeLevel) * vs));
+            int damage = DudeAbility.ApplyEffect(Math.Max(1, (int)(DudeExperience.GetBlastDamage(dude.DudeLevel) * vs)));
             dude.PublicOverheadMessage(MessageType.Regular, 0x3F, false, "*Aftershock*");
             dude.PlaySound(0x1F3);
 
@@ -845,7 +848,7 @@ namespace Server.Custom.Dudes
             double stun = tune != null && tune.StunSeconds > 0.0 ? tune.StunSeconds : 1.0;
             int radius = tune != null && tune.Radius > 0 ? tune.Radius : 3;
 
-            int damage = Math.Max(1, (int)(DudeExperience.GetBlastDamage(data != null ? data.Level : 1) * vs));
+            int damage = DudeAbility.ApplyEffect(Math.Max(1, (int)(DudeExperience.GetBlastDamage(data != null ? data.Level : 1) * vs)));
             caster.PublicOverheadMessage(MessageType.Regular, 0x3F, false, "*Aftershock*");
             caster.PlaySound(0x1F3);
 
@@ -918,7 +921,7 @@ namespace Server.Custom.Dudes
             DudeAbilityConfig.EnsureLoaded();
             DudeAbilityTune tune = DudeAbilityConfig.Get("tailwind");
             double duration = tune != null && tune.DurationSeconds > 0.0 ? tune.DurationSeconds : 5.0;
-            double speed = tune != null && tune.SpeedFactor > 0.0 ? tune.SpeedFactor : 0.5;
+            double speed = DudeAbility.ApplyEffectSpeed(tune != null && tune.SpeedFactor > 0.0 ? tune.SpeedFactor : 0.5);
 
             for (int i = 0; i < allies.Count; i++)
                 DudeAbilityVfx.ApplyTailwindSpeed(allies[i], TimeSpan.FromSeconds(duration), speed);
@@ -945,7 +948,7 @@ namespace Server.Custom.Dudes
             DudeAbilityConfig.EnsureLoaded();
             DudeAbilityTune tune = DudeAbilityConfig.Get("tailwind");
             double duration = tune != null && tune.DurationSeconds > 0.0 ? tune.DurationSeconds : 5.0;
-            double speed = tune != null && tune.SpeedFactor > 0.0 ? tune.SpeedFactor : 0.5;
+            double speed = DudeAbility.ApplyEffectSpeed(tune != null && tune.SpeedFactor > 0.0 ? tune.SpeedFactor : 0.5);
 
             DudeAbilityVfx.ApplyTailwindSpeedPlayer(caster, TimeSpan.FromSeconds(duration));
 

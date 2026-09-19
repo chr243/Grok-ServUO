@@ -10,6 +10,32 @@ namespace Server.Custom.Dudes
     /// </summary>
     public abstract class DudeAbility
     {
+        /// <summary>
+        /// Threaded by TryUseAbility / passives from the casting DudeGear piece.
+        /// Execute reads this; always reset to 1.0 after Execute.
+        /// </summary>
+        public static double CurrentEffectMultiplier = 1.0;
+
+        /// <summary>Scale damage/heal by CurrentEffectMultiplier (level 0 → 0).</summary>
+        public static int ApplyEffect(int value)
+        {
+            int scaled = (int)Math.Round(value * CurrentEffectMultiplier);
+            if (scaled < 0)
+                scaled = 0;
+            return scaled;
+        }
+
+        /// <summary>Scale a speed factor toward 1.0 (no boost) by CurrentEffectMultiplier.</summary>
+        public static double ApplyEffectSpeed(double speedFactor)
+        {
+            double m = CurrentEffectMultiplier;
+            if (m < 0.0)
+                m = 0.0;
+            if (m > 1.0)
+                m = 1.0;
+            return 1.0 + (speedFactor - 1.0) * m;
+        }
+
         private readonly string m_Id;
         private readonly string m_Name;
         private readonly TimeSpan m_Cooldown;

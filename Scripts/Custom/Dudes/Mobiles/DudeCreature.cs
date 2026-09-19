@@ -29,6 +29,7 @@ namespace Server.Mobiles
         private DateTime m_NextBurnPulse;
         private DateTime m_NextSpringPulse;
         private DateTime m_NextFaultlinePulse;
+        private List<DudeGear> m_EquippedGear;
         private List<string> m_EquippedAbilityIds;
 
         /// <summary>
@@ -64,6 +65,7 @@ namespace Server.Mobiles
             m_NextAbilityTime = DateTime.UtcNow;
             m_EvolutionStage = 1;
             m_NextAbilityById = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+            m_EquippedGear = new List<DudeGear>();
             m_EquippedAbilityIds = new List<string>();
 
             DudeDefinition def = DudeRegistry.Get(definitionId);
@@ -819,6 +821,11 @@ namespace Server.Mobiles
 
         public void RebuildGearCache()
         {
+            if (m_EquippedGear == null)
+                m_EquippedGear = new List<DudeGear>();
+            else
+                m_EquippedGear.Clear();
+
             if (m_EquippedAbilityIds == null)
                 m_EquippedAbilityIds = new List<string>();
             else
@@ -829,12 +836,30 @@ namespace Server.Mobiles
                 DudeGear gear = Items[i] as DudeGear;
                 if (gear == null || gear.Deleted)
                     continue;
-                if (string.IsNullOrEmpty(gear.AbilityId))
-                    continue;
-                m_EquippedAbilityIds.Add(gear.AbilityId);
+                m_EquippedGear.Add(gear);
+                if (!string.IsNullOrEmpty(gear.AbilityId))
+                    m_EquippedAbilityIds.Add(gear.AbilityId);
             }
 
             ApplyUniversalGearEffects();
+        }
+
+        /// <summary>Find equipped gear granting the given ability id (first match).</summary>
+        public DudeGear FindEquippedGearByAbility(string abilityId)
+        {
+            if (string.IsNullOrEmpty(abilityId))
+                return null;
+            if (m_EquippedGear == null)
+                RebuildGearCache();
+            for (int i = 0; i < m_EquippedGear.Count; i++)
+            {
+                DudeGear gear = m_EquippedGear[i];
+                if (gear == null || gear.Deleted)
+                    continue;
+                if (string.Equals(gear.AbilityId, abilityId, StringComparison.OrdinalIgnoreCase))
+                    return gear;
+            }
+            return null;
         }
 
         /// <summary>
@@ -850,12 +875,23 @@ namespace Server.Mobiles
             MagicalDudeHat hat = FindItemOnLayer(Layer.Helm) as MagicalDudeHat;
             if (hat != null && !hat.Deleted)
             {
-                DudeCombatSkills.SetGearCopySkill(this, SkillName.Magery, Math.Min(hat.Magery, cap), cap);
-                DudeCombatSkills.SetGearCopySkill(this, SkillName.EvalInt, Math.Min(hat.EvalInt, cap), cap);
-                DudeCombatSkills.SetGearCopySkill(this, SkillName.Meditation, Math.Min(hat.Meditation, cap), cap);
-                // AI setter updates CurrentAI and calls ChangeAIType.
-                if (AI != AIType.AI_Mage)
-                    AI = AIType.AI_Mage;
+                double mult = hat.GetEffectMultiplier();
+                double magery = Math.Min(hat.Magery * mult, cap);
+                double eval = Math.Min(hat.EvalInt * mult, cap);
+                double med = Math.Min(hat.Meditation * mult, cap);
+                DudeCombatSkills.SetGearCopySkill(this, SkillName.Magery, magery, cap);
+                DudeCombatSkills.SetGearCopySkill(this, SkillName.EvalInt, eval, cap);
+                DudeCombatSkills.SetGearCopySkill(this, SkillName.Meditation, med, cap);
+                // Level 0 hat → 0 magic skills → stay melee AI.
+                if (magery > 0.0 || eval > 0.0 || med > 0.0)
+                {
+                    if (AI != AIType.AI_Mage)
+                        AI = AIType.AI_Mage;
+                }
+                else if (AI != AIType.AI_Melee)
+                {
+                    AI = AIType.AI_Melee;
+                }
             }
             else
             {
@@ -868,7 +904,10 @@ namespace Server.Mobiles
 
             DudeShield shield = FindItemOnLayer(Layer.TwoHanded) as DudeShield;
             if (shield != null && !shield.Deleted)
-                DudeCombatSkills.SetGearCopySkill(this, SkillName.Parry, Math.Min(shield.Parrying, cap), cap);
+            {
+                double parry = Math.Min(shield.Parrying * shield.GetEffectMultiplier(), cap);
+                DudeCombatSkills.SetGearCopySkill(this, SkillName.Parry, parry, cap);
+            }
             else
                 DudeCombatSkills.SetGearCopySkill(this, SkillName.Parry, 0.0, cap);
         }
@@ -950,9 +989,16 @@ namespace Server.Mobiles
         /// <summary>Combat abilities from equipped DudeGear cache.</summary>
         private List<string> GetUnlockedAbilityIds()
         {
-            if (m_EquippedAbilityIds == null)
+            if (m_EquippedGear == null || m_EquippedAbilityIds == null)
                 RebuildGearCache();
             return m_EquippedAbilityIds;
+        }
+
+        private List<DudeGear> GetEquippedGear()
+        {
+            if (m_EquippedGear == null)
+                RebuildGearCache();
+            return m_EquippedGear;
         }
 
         public static bool IsPassiveAbilityId(string id)
@@ -993,8 +1039,9 @@ namespace Server.Mobiles
 
         private void TryUseAbility()
         {
-            // Abilities come from equipped DudeGear cache.
-            if (GetUnlockedAbilityIds().Count == 0)
+            // Abilities come from equipped DudeGear cache (with per-piece effect multiplier).
+            List<DudeGear> gears = GetEquippedGear();
+            if (gears.Count == 0)
                 return;
 
             if (m_Fainting || Frozen)
@@ -1010,12 +1057,17 @@ namespace Server.Mobiles
             if (m_NextAbilityById == null)
                 m_NextAbilityById = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
 
-            bool slipstream = HasUnlockedAbility("slipstream");
+            DudeGear slipGear = FindEquippedGearByAbility("slipstream");
+            bool slipstream = slipGear != null;
+            double slipMult = slipGear != null ? slipGear.GetEffectMultiplier() : 1.0;
 
-            List<string> ids = GetUnlockedAbilityIds();
-            for (int i = 0; i < ids.Count; i++)
+            for (int i = 0; i < gears.Count; i++)
             {
-                DudeAbility ability = DudeAbilityRegistry.Get(ids[i]);
+                DudeGear gear = gears[i];
+                if (gear == null || gear.Deleted || string.IsNullOrEmpty(gear.AbilityId))
+                    continue;
+
+                DudeAbility ability = DudeAbilityRegistry.Get(gear.AbilityId);
                 if (ability == null)
                     continue;
 
@@ -1048,7 +1100,16 @@ namespace Server.Mobiles
                 if (ability.ManaCost > 0)
                     Mana -= ability.ManaCost;
 
-                ability.Execute(this, target);
+                double prev = DudeAbility.CurrentEffectMultiplier;
+                DudeAbility.CurrentEffectMultiplier = gear.GetEffectMultiplier();
+                try
+                {
+                    ability.Execute(this, target);
+                }
+                finally
+                {
+                    DudeAbility.CurrentEffectMultiplier = prev;
+                }
 
                 TimeSpan cd = ability.Cooldown;
                 if (slipstream)
@@ -1056,6 +1117,7 @@ namespace Server.Mobiles
                     DudeAbilityConfig.EnsureLoaded();
                     DudeAbilityTune slip = DudeAbilityConfig.Get("slipstream");
                     double reduce = slip != null && slip.ReduceSeconds > 0.0 ? slip.ReduceSeconds : 2.0;
+                    reduce *= slipMult;
                     double floor = slip != null && slip.FloorSeconds > 0.0 ? slip.FloorSeconds : 7.0;
                     cd = TimeSpan.FromSeconds(Math.Max(floor, cd.TotalSeconds - reduce));
                 }
@@ -1110,7 +1172,11 @@ namespace Server.Mobiles
             if (candidates.Count == 0)
                 return;
 
-            int damage = Math.Max(1, (int)(DudeExperience.GetBlastDamage(m_DudeLevel) * vs));
+            DudeGear burnGear = FindEquippedGearByAbility("burn");
+            double prevBurn = DudeAbility.CurrentEffectMultiplier;
+            DudeAbility.CurrentEffectMultiplier = burnGear != null ? burnGear.GetEffectMultiplier() : 1.0;
+            int damage = DudeAbility.ApplyEffect(Math.Max(1, (int)(DudeExperience.GetBlastDamage(m_DudeLevel) * vs)));
+            DudeAbility.CurrentEffectMultiplier = prevBurn;
             bool anyHit = false;
 
             for (int i = 0; i < candidates.Count; i++)
@@ -1147,12 +1213,17 @@ namespace Server.Mobiles
 
             m_NextSpringPulse = now + TimeSpan.FromSeconds(tick);
 
+            DudeGear springGear = FindEquippedGearByAbility("spring");
+            double prevSpring = DudeAbility.CurrentEffectMultiplier;
+            DudeAbility.CurrentEffectMultiplier = springGear != null ? springGear.GetEffectMultiplier() : 1.0;
+
             int blast = DudeExperience.GetBlastDamage(m_DudeLevel);
             int selfHeal = Math.Max(1, (int)(blast * 0.15));
             int pctHeal = Math.Max(1, (int)(HitsMax * healFrac));
             int heal = Math.Min(selfHeal, pctHeal);
             if (heal < 1)
                 heal = 1;
+            heal = DudeAbility.ApplyEffect(heal);
 
             Hits = Math.Min(HitsMax, Hits + heal);
             DudeAbilityVfx.PlayWaterHeal(this);
@@ -1160,12 +1231,18 @@ namespace Server.Mobiles
             // Heal owned DudeCreatures within range 2 via master's followers (no hostile scan).
             Mobile master = ControlMaster;
             if (master == null || master.Deleted)
+            {
+                DudeAbility.CurrentEffectMultiplier = prevSpring;
                 return;
+            }
 
             PlayerMobile pm = master as PlayerMobile;
             List<Mobile> followers = pm != null ? pm.AllFollowers : null;
             if (followers == null)
+            {
+                DudeAbility.CurrentEffectMultiplier = prevSpring;
                 return;
+            }
 
             for (int i = 0; i < followers.Count; i++)
             {
@@ -1179,9 +1256,12 @@ namespace Server.Mobiles
 
                 int allyPct = Math.Max(1, (int)(ally.HitsMax * healFrac));
                 int allyHeal = Math.Min(Math.Max(1, (int)(blast * 0.15)), allyPct);
+                allyHeal = DudeAbility.ApplyEffect(allyHeal);
                 ally.Hits = Math.Min(ally.HitsMax, ally.Hits + allyHeal);
                 DudeAbilityVfx.PlayWaterHeal(ally);
             }
+
+            DudeAbility.CurrentEffectMultiplier = prevSpring;
         }
 
         private void TryFaultlinePassive(bool inCombat)
@@ -1224,7 +1304,11 @@ namespace Server.Mobiles
                 return;
 
             Mobile target = valid[Utility.Random(valid.Count)];
-            int damage = Math.Max(1, (int)(DudeExperience.GetBlastDamage(m_DudeLevel) * vs));
+            DudeGear faultGear = FindEquippedGearByAbility("faultline");
+            double prevFault = DudeAbility.CurrentEffectMultiplier;
+            DudeAbility.CurrentEffectMultiplier = faultGear != null ? faultGear.GetEffectMultiplier() : 1.0;
+            int damage = DudeAbility.ApplyEffect(Math.Max(1, (int)(DudeExperience.GetBlastDamage(m_DudeLevel) * vs)));
+            DudeAbility.CurrentEffectMultiplier = prevFault;
 
             PublicOverheadMessage(MessageType.Regular, 0x3F, false, "*Faultline*");
             AOS.Damage(target, this, damage, 100, 0, 0, 0, 0);
@@ -1413,6 +1497,8 @@ namespace Server.Mobiles
 
             ApplyDudeSpeeds();
 
+            if (m_EquippedGear == null)
+                m_EquippedGear = new List<DudeGear>();
             if (m_EquippedAbilityIds == null)
                 m_EquippedAbilityIds = new List<string>();
             RebuildGearCache();

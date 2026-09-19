@@ -18,6 +18,8 @@ namespace Server.Items
         private int m_SlotCost = 1;
         private DudeType m_RequiredType;
         private bool m_HasRequiredType;
+        private int m_GearLevel;
+        private int m_GearEXP;
 
         [Constructable]
         public DudeGear()
@@ -72,6 +74,106 @@ namespace Server.Items
             }
         }
 
+        [CommandProperty(AccessLevel.GameMaster)]
+        public int GearLevel
+        {
+            get
+            {
+                int lv = m_GearLevel;
+                if (lv < 0)
+                    lv = 0;
+                if (lv > 10)
+                    lv = 10;
+                return lv;
+            }
+            set
+            {
+                int lv = value;
+                if (lv < 0)
+                    lv = 0;
+                if (lv > 10)
+                    lv = 10;
+                m_GearLevel = lv;
+                if (m_GearLevel >= 10)
+                    m_GearEXP = 0;
+                InvalidateProperties();
+            }
+        }
+
+        [CommandProperty(AccessLevel.GameMaster)]
+        public int GearEXP
+        {
+            get { return m_GearEXP < 0 ? 0 : m_GearEXP; }
+            set
+            {
+                m_GearEXP = value < 0 ? 0 : value;
+                InvalidateProperties();
+            }
+        }
+
+        /// <summary>EXP required to go from <paramref name="level"/> to level+1.</summary>
+        public static int GetExpToNext(int level)
+        {
+            if (level < 0)
+                level = 0;
+            if (level >= 10)
+                return 0;
+            return 1000 * (level + 1); // 1000, 2000, … 10000
+        }
+
+        /// <summary>Effect strength: level 0 = 0%, level 10 = 100%.</summary>
+        public double GetEffectMultiplier()
+        {
+            int lv = GearLevel;
+            if (lv < 0)
+                lv = 0;
+            if (lv > 10)
+                lv = 10;
+            return lv / 10.0;
+        }
+
+        /// <summary>Award gear EXP from the same kill amount the Dude received (full, not split).</summary>
+        public void AwardGearExp(int amount)
+        {
+            if (amount < 1 || GearLevel >= 10)
+                return;
+
+            int oldLevel = GearLevel;
+            m_GearEXP += amount;
+
+            while (GearLevel < 10 && m_GearEXP >= GetExpToNext(GearLevel))
+            {
+                m_GearEXP -= GetExpToNext(GearLevel);
+                m_GearLevel++;
+                InvalidateProperties();
+            }
+
+            if (GearLevel >= 10)
+                m_GearEXP = 0;
+
+            if (GearLevel > oldLevel)
+            {
+                Mobile wearer = Parent as Mobile;
+                DudeCreature dude = wearer as DudeCreature;
+                Mobile master = dude != null ? dude.ControlMaster : null;
+                if (master != null && !master.Deleted)
+                {
+                    string n = Name;
+                    if (string.IsNullOrEmpty(n))
+                        n = GetType().Name;
+                    master.SendMessage(0x44, "{0} reached gear level {1}.", n, GearLevel);
+                }
+
+                // Re-apply hat/shield skills etc. after level-up.
+                if (dude != null && !dude.Deleted)
+                    dude.RebuildGearCache();
+            }
+            else
+            {
+                InvalidateProperties();
+            }
+        }
+
         public override bool CanEquip(Mobile from)
         {
             DudeCreature dude = from as DudeCreature;
@@ -112,6 +214,14 @@ namespace Server.Items
                     list.Add("Ability: {0}", m_AbilityId);
             }
 
+            int lv = GearLevel;
+            list.Add("Level {0} / 10", lv);
+            if (lv < 10)
+                list.Add("EXP {0} / {1}", GearEXP, GetExpToNext(lv));
+            else
+                list.Add("MAX");
+            list.Add("Effect {0}%", lv * 10);
+
             int cost = SlotCost;
             if (cost != 1)
                 list.Add("Slot cost: {0}", cost);
@@ -120,13 +230,16 @@ namespace Server.Items
         public override void Serialize(GenericWriter writer)
         {
             base.Serialize(writer);
-            writer.Write((int)1); // version
+            writer.Write((int)2); // version
 
             writer.Write(m_AbilityId);
             writer.Write(m_SlotCost);
             writer.Write(m_HasRequiredType);
             if (m_HasRequiredType)
                 writer.Write((int)m_RequiredType);
+
+            writer.Write(m_GearLevel);
+            writer.Write(m_GearEXP);
         }
 
         public override void Deserialize(GenericReader reader)
@@ -145,6 +258,26 @@ namespace Server.Items
                 if (m_HasRequiredType)
                     m_RequiredType = (DudeType)reader.ReadInt();
             }
+
+            if (version >= 2)
+            {
+                m_GearLevel = reader.ReadInt();
+                m_GearEXP = reader.ReadInt();
+            }
+            else
+            {
+                m_GearLevel = 0;
+                m_GearEXP = 0;
+            }
+
+            if (m_GearLevel < 0)
+                m_GearLevel = 0;
+            if (m_GearLevel > 10)
+                m_GearLevel = 10;
+            if (m_GearEXP < 0)
+                m_GearEXP = 0;
+            if (m_GearLevel >= 10)
+                m_GearEXP = 0;
         }
     }
 

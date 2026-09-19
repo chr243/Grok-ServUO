@@ -140,7 +140,7 @@ namespace Server.Items
                 string gearName = view.EquippedGearNames[i];
                 if (string.IsNullOrEmpty(gearName))
                     gearName = "Dude gear";
-                AddHtml(370, ry, 320, 18, string.Format("<BASEFONT COLOR=#66FF66>{0}</BASEFONT>", Truncate(gearName, 36)), false, false);
+                AddHtml(370, ry, 320, 18, string.Format("<BASEFONT COLOR=#66FF66>{0}</BASEFONT>", Truncate(gearName, 42)), false, false);
                 ry += 20;
             }
 
@@ -173,6 +173,17 @@ namespace Server.Items
                     "<BASEFONT COLOR=#99CCFF>Shield Parrying: {0:0.0}</BASEFONT>",
                     view.SkillParry), false, false);
                 ry += 20;
+            }
+
+            if (!string.IsNullOrEmpty(view.AbilityDescription))
+            {
+                ry += 6;
+                AddHtml(370, ry, 320, 18, "<BASEFONT COLOR=#FFFFFF>Abilities</BASEFONT>", false, false);
+                ry += 20;
+                int remain = 470 - ry;
+                if (remain < 40)
+                    remain = 40;
+                AddHtml(370, ry, 320, remain, string.Format("<BASEFONT COLOR=#CCCCCC>{0}</BASEFONT>", view.AbilityDescription), false, true);
             }
 
             AddButton(24, 478, 4011, 4013, 3, GumpButtonType.Reply, 0);
@@ -528,6 +539,10 @@ namespace Server.Items
                 return;
 
             List<string> names = new List<string>();
+            StringBuilder abilityNames = new StringBuilder();
+            StringBuilder abilityDescs = new StringBuilder();
+            int dudeLevel = view.Level > 0 ? view.Level : 1;
+
             for (int i = 0; i < dude.Items.Count; i++)
             {
                 DudeGear gear = dude.Items[i] as DudeGear;
@@ -536,12 +551,38 @@ namespace Server.Items
                 string n = gear.Name;
                 if (string.IsNullOrEmpty(n))
                     n = gear.GetType().Name;
-                names.Add(n);
+                int lv = gear.GearLevel;
+                int pct = lv * 10;
+                // e.g. "Ember Sash  Lv 3  30%"
+                names.Add(string.Format("{0}  Lv {1}  {2}%", n, lv, pct));
+
+                if (string.IsNullOrEmpty(gear.AbilityId))
+                    continue;
+
+                DudeAbility ability = DudeAbilityRegistry.Get(gear.AbilityId);
+                string aName = ability != null ? ability.Name : gear.AbilityId;
+                if (abilityNames.Length > 0)
+                    abilityNames.Append("<BR>");
+                abilityNames.Append(aName);
+
+                string desc = GetAbilityDescription(gear.AbilityId, dudeLevel, view.HitsMax, gear.GetEffectMultiplier());
+                if (!string.IsNullOrEmpty(desc))
+                {
+                    if (abilityDescs.Length > 0)
+                        abilityDescs.Append("<BR><BR>");
+                    abilityDescs.AppendFormat("<B>{0}</B>: {1}", aName, desc);
+                }
             }
 
             view.EquippedGearNames = names;
             view.HasMagicalHat = dude.FindItemOnLayer(Layer.Helm) is MagicalDudeHat;
             view.HasDudeShield = dude.FindItemOnLayer(Layer.TwoHanded) is DudeShield;
+
+            if (abilityNames.Length > 0)
+            {
+                view.AbilityName = abilityNames.ToString();
+                view.AbilityDescription = abilityDescs.Length > 0 ? abilityDescs.ToString() : null;
+            }
         }
 
         private static void FillAbilityTexts(DudeInfoView view, DudeData data, string fallbackAbilityId)
@@ -815,13 +856,22 @@ namespace Server.Items
 
         public static string GetAbilityDescription(string abilityId, int level, int hitsMax)
         {
+            return GetAbilityDescription(abilityId, level, hitsMax, 1.0);
+        }
+
+        public static string GetAbilityDescription(string abilityId, int level, int hitsMax, double effectMultiplier)
+        {
             if (string.IsNullOrEmpty(abilityId))
                 return null;
 
             if (level < 1)
                 level = 1;
+            if (effectMultiplier < 0.0)
+                effectMultiplier = 0.0;
+            if (effectMultiplier > 1.0)
+                effectMultiplier = 1.0;
 
-            int blast = DudeExperience.GetBlastDamage(level);
+            int blast = ScaleByEffect(DudeExperience.GetBlastDamage(level), effectMultiplier);
             DudeAbilityTune tune = DudeAbilityConfig.Get(abilityId);
 
             switch (abilityId.ToLowerInvariant())
@@ -832,14 +882,14 @@ namespace Server.Items
                 case "ring_of_fire":
                 {
                     double vs = tune != null && tune.DamageVsBlast > 0.0 ? tune.DamageVsBlast : 0.5;
-                    int damage = Math.Max(1, (int)(blast * vs));
+                    int damage = ScaleByEffect(Math.Max(1, (int)(DudeExperience.GetBlastDamage(level) * vs)), effectMultiplier);
                     return string.Format("Deals {0} fire damage in an expanding ring.", damage);
                 }
 
                 case "burn":
                 {
                     double vs = tune != null && tune.DamageVsBlast > 0.0 ? tune.DamageVsBlast : 0.3;
-                    int dmg = Math.Max(1, (int)(blast * vs));
+                    int dmg = ScaleByEffect(Math.Max(1, (int)(DudeExperience.GetBlastDamage(level) * vs)), effectMultiplier);
                     double chance = tune != null && tune.HitChance > 0.0 ? tune.HitChance : 0.5;
                     double tick = tune != null && tune.TickSeconds > 0.0 ? tune.TickSeconds : 1.0;
                     return string.Format(
@@ -853,7 +903,7 @@ namespace Server.Items
                 case "tide_chorus":
                 {
                     double frac = tune != null && tune.HealHitsFraction > 0.0 ? tune.HealHitsFraction : 0.20;
-                    int heal = Math.Min(blast, Math.Max(1, (int)(hitsMax * frac)));
+                    int heal = ScaleByEffect(Math.Min(DudeExperience.GetBlastDamage(level), Math.Max(1, (int)(hitsMax * frac))), effectMultiplier);
                     return string.Format("Heals nearby allied Dudes for {0} hit points.", heal);
                 }
 
@@ -862,11 +912,10 @@ namespace Server.Items
                     // Same formula as DudeCreature.TrySpringPassive / DudeLinkSystem.TrySpringPassive.
                     double tick = tune != null && tune.TickSeconds > 0.0 ? tune.TickSeconds : 2.0;
                     double healFrac = tune != null && tune.HealHitsFraction > 0.0 ? tune.HealHitsFraction : 0.05;
-                    int selfHeal = Math.Max(1, (int)(blast * 0.15));
+                    int rawBlast = DudeExperience.GetBlastDamage(level);
+                    int selfHeal = Math.Max(1, (int)(rawBlast * 0.15));
                     int pctHeal = Math.Max(1, (int)(hitsMax * healFrac));
-                    int heal = Math.Min(selfHeal, pctHeal);
-                    if (heal < 1)
-                        heal = 1;
+                    int heal = ScaleByEffect(Math.Min(selfHeal, pctHeal), effectMultiplier);
                     return string.Format("Passive. Every {0:0.#}s, heals itself and nearby allied Dudes for {1}.", tick, heal);
                 }
 
@@ -881,7 +930,7 @@ namespace Server.Items
                 case "aftershock":
                 {
                     double vs = tune != null && tune.DamageVsBlast > 0.0 ? tune.DamageVsBlast : 0.5;
-                    int dmg = Math.Max(1, (int)(blast * vs));
+                    int dmg = ScaleByEffect(Math.Max(1, (int)(DudeExperience.GetBlastDamage(level) * vs)), effectMultiplier);
                     // Stun comes from StunSeconds (Execute); StunMin/StunMax used by faultline passive.
                     return string.Format(
                         "Deals {0} damage to nearby foes and may stun them briefly. Does not stun players or Dudes.",
@@ -893,7 +942,7 @@ namespace Server.Items
                     // Same as DudeCreature.TryFaultlinePassive: GapSeconds + DamageVsBlast fraction.
                     double gap = tune != null && tune.GapSeconds > 0.0 ? tune.GapSeconds : 10.0;
                     double vs = tune != null && tune.DamageVsBlast > 0.0 ? tune.DamageVsBlast : 0.33;
-                    int dmg = Math.Max(1, (int)(blast * vs));
+                    int dmg = ScaleByEffect(Math.Max(1, (int)(DudeExperience.GetBlastDamage(level) * vs)), effectMultiplier);
                     return string.Format(
                         "Passive. Every {0:0.#}s, deals {1} damage to a nearby foe and may paralyze them.",
                         gap, dmg);
@@ -903,26 +952,33 @@ namespace Server.Items
                 {
                     // Execute defaults: SpeedFactor 0.5 (ActiveSpeed multiplier), DurationSeconds 5.
                     double speed = tune != null && tune.SpeedFactor > 0.0 ? tune.SpeedFactor : 0.5;
+                    speed = 1.0 + (speed - 1.0) * effectMultiplier;
                     double dur = tune != null && tune.DurationSeconds > 0.0 ? tune.DurationSeconds : 5.0;
                     int pct = speed > 0.0 && speed < 1.0
                         ? (int)Math.Round((1.0 / speed - 1.0) * 100.0)
                         : (int)Math.Round((speed - 1.0) * 100.0);
+                    if (pct < 0)
+                        pct = 0;
                     return string.Format("Attack speed +{0}% for {1:0.#}s on itself.", pct, dur);
                 }
 
                 case "tailwind":
                 {
                     double speed = tune != null && tune.SpeedFactor > 0.0 ? tune.SpeedFactor : 0.5;
+                    speed = 1.0 + (speed - 1.0) * effectMultiplier;
                     double dur = tune != null && tune.DurationSeconds > 0.0 ? tune.DurationSeconds : 5.0;
                     int pct = speed > 0.0 && speed < 1.0
                         ? (int)Math.Round((1.0 / speed - 1.0) * 100.0)
                         : (int)Math.Round((speed - 1.0) * 100.0);
+                    if (pct < 0)
+                        pct = 0;
                     return string.Format("Attack speed +{0}% for {1:0.#}s on nearby allied Dudes.", pct, dur);
                 }
 
                 case "slipstream":
                 {
                     double reduce = tune != null && tune.ReduceSeconds > 0.0 ? tune.ReduceSeconds : 2.0;
+                    reduce *= effectMultiplier;
                     double floor = tune != null && tune.FloorSeconds > 0.0 ? tune.FloorSeconds : 7.0;
                     return string.Format(
                         "Passive. Ability cooldowns are {0:0.#}s faster (minimum {1:0.#}s).",
@@ -932,6 +988,14 @@ namespace Server.Items
                 default:
                     return "A special Dude technique.";
             }
+        }
+
+        private static int ScaleByEffect(int value, double effectMultiplier)
+        {
+            int scaled = (int)Math.Round(value * effectMultiplier);
+            if (scaled < 0)
+                scaled = 0;
+            return scaled;
         }
     }
 }

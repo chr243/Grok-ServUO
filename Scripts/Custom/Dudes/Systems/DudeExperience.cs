@@ -228,6 +228,19 @@ namespace Server.Custom.Dudes
             // Only rewrite live creature stats/skills/speeds on a real level-up (not every XP tick).
             if (live != null && !live.Deleted && data.Level != oldLevel)
                 live.ApplyData(data, false);
+
+            // Gear EXP: same kill amount to every equipped DudeGear on the live Dude (full, not split).
+            // Linked path with no live dude: skip gear EXP for now.
+            if (live != null && !live.Deleted && live.Map != null && live.Map != Map.Internal)
+            {
+                for (int i = 0; i < live.Items.Count; i++)
+                {
+                    DudeGear gear = live.Items[i] as DudeGear;
+                    if (gear == null || gear.Deleted)
+                        continue;
+                    gear.AwardGearExp(amount);
+                }
+            }
         }
 
         /// <summary>
