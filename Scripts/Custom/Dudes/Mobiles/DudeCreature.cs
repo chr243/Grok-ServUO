@@ -882,7 +882,7 @@ namespace Server.Mobiles
                 DudeCombatSkills.SetGearCopySkill(this, SkillName.Magery, magery, cap);
                 DudeCombatSkills.SetGearCopySkill(this, SkillName.EvalInt, eval, cap);
                 DudeCombatSkills.SetGearCopySkill(this, SkillName.Meditation, med, cap);
-                // Level 0 hat → 0 magic skills → stay melee AI.
+                // Level 0 = full stored skills (x1.0); higher levels scale up then stage-cap.
                 if (magery > 0.0 || eval > 0.0 || med > 0.0)
                 {
                     if (AI != AIType.AI_Mage)

@@ -556,8 +556,8 @@ namespace Server.Items
                     n = gear.GetType().Name;
                 int lv = gear.GearLevel;
                 int pct = lv * 10;
-                // e.g. "Ember Sash  Lv 3  30%"
-                names.Add(string.Format("{0}  Lv {1}  {2}%", n, lv, pct));
+                // e.g. "Stone Sash  Lv 3  +30%"
+                names.Add(string.Format("{0}  Lv {1}  +{2}%", n, lv, pct));
 
                 // Hat/shield: name + skill lines only (no fake ability id).
                 if (string.IsNullOrEmpty(gear.AbilityId))
@@ -895,8 +895,6 @@ namespace Server.Items
                 level = 1;
             if (effectMultiplier < 0.0)
                 effectMultiplier = 0.0;
-            if (effectMultiplier > 1.0)
-                effectMultiplier = 1.0;
 
             int blast = ScaleByEffect(DudeExperience.GetBlastDamage(level), effectMultiplier);
             DudeAbilityTune tune = DudeAbilityConfig.Get(abilityId);

@@ -122,7 +122,7 @@ namespace Server.Items
             return 1000 * (level + 1); // 1000, 2000, … 10000
         }
 
-        /// <summary>Effect strength: level 0 = 0%, level 10 = 100%.</summary>
+        /// <summary>Effect strength: level 0 = x1.0, each level +10%, level 10 = x2.0.</summary>
         public double GetEffectMultiplier()
         {
             int lv = GearLevel;
@@ -130,7 +130,7 @@ namespace Server.Items
                 lv = 0;
             if (lv > 10)
                 lv = 10;
-            return lv / 10.0;
+            return 1.0 + (lv * 0.10);
         }
 
         /// <summary>Award gear EXP from the same kill amount the Dude received (full, not split).</summary>
@@ -221,7 +221,7 @@ namespace Server.Items
                 list.Add("EXP {0} / {1}", GearEXP, GetExpToNext(lv));
             else
                 list.Add("MAX");
-            list.Add("Effect {0}%", lv * 10);
+            list.Add("Effect +{0}%", lv * 10);
 
             int cost = SlotCost;
             if (cost != 1)

@@ -16,7 +16,7 @@ namespace Server.Custom.Dudes
         /// </summary>
         public static double CurrentEffectMultiplier = 1.0;
 
-        /// <summary>Scale damage/heal by CurrentEffectMultiplier (level 0 → 0).</summary>
+        /// <summary>Scale damage/heal by CurrentEffectMultiplier (level 0 → x1.0, level 10 → x2.0).</summary>
         public static int ApplyEffect(int value)
         {
             int scaled = (int)Math.Round(value * CurrentEffectMultiplier);
@@ -25,14 +25,12 @@ namespace Server.Custom.Dudes
             return scaled;
         }
 
-        /// <summary>Scale a speed factor toward 1.0 (no boost) by CurrentEffectMultiplier.</summary>
+        /// <summary>Scale a speed-factor boost by CurrentEffectMultiplier (no clamp to 1.0).</summary>
         public static double ApplyEffectSpeed(double speedFactor)
         {
             double m = CurrentEffectMultiplier;
             if (m < 0.0)
                 m = 0.0;
-            if (m > 1.0)
-                m = 1.0;
             return 1.0 + (speedFactor - 1.0) * m;
         }
 
