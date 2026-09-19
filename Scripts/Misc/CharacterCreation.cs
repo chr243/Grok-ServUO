@@ -61,21 +61,25 @@ namespace Server.Misc
 				m.AddItem(pack);
 			}
 
-			PackItem(new RedBook("a book", m.Name, 20, true));
-			PackItem(new Gold(1000)); // Starting gold can be customized here
+			PackItem(new Gold(1000));
 			PackItem(new Candle());
-			PackItem(new BeginnersBall()); // first Dude picker for new characters
-			PackItem(new SevenSkillBall());
-			PackItem(new TrainersManual());
-			PackItem(new DudeCraftingKit());
-			PackItem(new MysteryJuice());
+
+			NewbieBag bag = new NewbieBag();
+			bag.DropItem(new TrainersDiaryPart1());
+			bag.DropItem(new BeginnersBall());
+			bag.DropItem(new SevenSkillBall());
+			bag.DropItem(new TrainersManual());
+			bag.DropItem(new DudeCraftingKit());
+			bag.DropItem(new MysteryJuice());
 			for (int i = 0; i < 10; i++)
-				PackItem(new DudeHealingPotion());
+				bag.DropItem(new DudeHealingPotion());
 
 			if (m.Race != Race.Gargoyle)
 				PackItem(new Dagger());
 			else
 				PackItem(new GargishDagger());
+
+			PackItem(bag);
 		}
 
 		private static void AddShirt(Mobile m, int shirtHue)
