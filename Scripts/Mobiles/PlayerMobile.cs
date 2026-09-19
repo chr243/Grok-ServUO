@@ -619,6 +619,20 @@ namespace Server.Mobiles
         public int RewardStableSlots { get; set; }
         #endregion
 
+        #region Dude Link
+        private Server.Custom.Dudes.DudeLinkState m_DudeLinkState;
+
+        public Server.Custom.Dudes.DudeLinkState DudeLinkState
+        {
+            get
+            {
+                if (m_DudeLinkState == null)
+                    m_DudeLinkState = new Server.Custom.Dudes.DudeLinkState();
+                return m_DudeLinkState;
+            }
+        }
+        #endregion
+
         private DateTime m_AnkhNextUse;
 
 		[CommandProperty(AccessLevel.GameMaster)]
@@ -4509,6 +4523,16 @@ namespace Server.Mobiles
 
 			switch (version)
 			{
+                case 41: // Dude link state (backup / linked ball serial)
+                    {
+                        bool hasDudeLink = reader.ReadBool();
+                        if (hasDudeLink)
+                        {
+                            m_DudeLinkState = new Server.Custom.Dudes.DudeLinkState();
+                            m_DudeLinkState.Deserialize(reader);
+                        }
+                        goto case 40;
+                    }
                 case 40: // Version 40, moved gauntlet points, virtua artys and TOT turn ins to PointsSystem
                 case 39: // Version 39, removed ML quest save/load
                 case 38:
@@ -4975,7 +4999,18 @@ namespace Server.Mobiles
 
 			base.Serialize(writer);
 
-			writer.Write(40); // version
+			writer.Write(41); // version
+
+            // Version 41 — Dude link state
+            if (m_DudeLinkState != null && m_DudeLinkState.IsLinked)
+            {
+                writer.Write(true);
+                m_DudeLinkState.Serialize(writer);
+            }
+            else
+            {
+                writer.Write(false);
+            }
 
             writer.Write((DateTime)NextGemOfSalvationUse);
 

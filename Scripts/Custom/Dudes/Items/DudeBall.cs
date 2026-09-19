@@ -236,8 +236,19 @@ namespace Server.Items
         {
             base.GetContextMenuEntries(from, list);
 
-            if (HasDude && StoredDude != null && from != null && from.Alive)
-                list.Add(new LookCloserEntry(this));
+            if (from == null || !from.Alive || !HasDude || StoredDude == null)
+                return;
+
+            list.Add(new LookCloserEntry(this));
+
+            bool inPack = IsChildOf(from.Backpack) || RootParent == from;
+            if (!inPack)
+                return;
+
+            if (!DudeLinkSystem.IsLinked(from))
+                list.Add(new LinkEntry(this));
+            else if (DudeLinkSystem.GetLinkedBall(from) == this)
+                list.Add(new UnlinkEntry(this));
         }
 
         public override void OnDoubleClick(Mobile from)
@@ -584,6 +595,80 @@ namespace Server.Items
 
                 from.CloseGump(typeof(DudeInfoGump));
                 from.SendGump(new DudeInfoGump(DudeInfoView.FromDudeBall(m_Ball)));
+            }
+        }
+
+        private class LinkEntry : ContextMenuEntry
+        {
+            private readonly DudeBall m_Ball;
+
+            // Cliloc 1115891 = "Link"
+            public LinkEntry(DudeBall ball)
+                : base(1115891, 2)
+            {
+                m_Ball = ball;
+            }
+
+            public override void OnClick()
+            {
+                if (Owner == null || Owner.From == null)
+                    return;
+
+                Mobile from = Owner.From;
+
+                if (m_Ball == null || m_Ball.Deleted || !m_Ball.HasDude)
+                    return;
+
+                if (!from.Alive)
+                    return;
+
+                if (!m_Ball.IsChildOf(from.Backpack) && m_Ball.RootParent != from)
+                {
+                    from.SendMessage("That Dude Ball must be in your backpack.");
+                    return;
+                }
+
+                DudeLinkSystem.TryLink(from, m_Ball);
+            }
+        }
+
+        private class UnlinkEntry : ContextMenuEntry
+        {
+            private readonly DudeBall m_Ball;
+
+            // Cliloc 1115930 = "Unlink"
+            public UnlinkEntry(DudeBall ball)
+                : base(1115930, 2)
+            {
+                m_Ball = ball;
+            }
+
+            public override void OnClick()
+            {
+                if (Owner == null || Owner.From == null)
+                    return;
+
+                Mobile from = Owner.From;
+
+                if (m_Ball == null || m_Ball.Deleted)
+                    return;
+
+                if (!from.Alive)
+                    return;
+
+                if (!m_Ball.IsChildOf(from.Backpack) && m_Ball.RootParent != from)
+                {
+                    from.SendMessage("That Dude Ball must be in your backpack.");
+                    return;
+                }
+
+                if (!DudeLinkSystem.IsLinked(from) || DudeLinkSystem.GetLinkedBall(from) != m_Ball)
+                {
+                    from.SendMessage("You are not linked to this Dude.");
+                    return;
+                }
+
+                DudeLinkSystem.TryUnlink(from);
             }
         }
 

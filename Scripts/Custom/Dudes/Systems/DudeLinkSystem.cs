@@ -8,8 +8,7 @@ using Server.Network;
 namespace Server.Custom.Dudes
 {
     /// <summary>
-    /// Runtime link state for players using a LinkingDevice.
-    /// Persistent serial/backup live on the LinkingDevice item.
+    /// Runtime link state for players. Persistent backup lives on DudeLinkState (PlayerMobile).
     /// </summary>
     public static class DudeLinkSystem
     {
@@ -22,7 +21,6 @@ namespace Server.Custom.Dudes
 
         private class LinkRuntime
         {
-            public LinkingDevice Device;
             public DudeBall Ball;
             public Dictionary<string, DateTime> NextAbilityById;
             public DateTime NextBurnPulse;
@@ -35,6 +33,7 @@ namespace Server.Custom.Dudes
         {
             EventSink.Login += OnLogin;
             EventSink.Logout += OnLogout;
+            EventSink.Disconnected += OnDisconnected;
             EventSink.PlayerDeath += OnPlayerDeath;
             EventSink.SkillGain += OnSkillGain;
 
@@ -52,11 +51,8 @@ namespace Server.Custom.Dudes
             if (m == null)
                 return false;
 
-            LinkRuntime rt;
-            if (!m_ByPlayer.TryGetValue(m, out rt) || rt == null)
-                return false;
-
-            return rt.Device != null && !rt.Device.Deleted && rt.Device.IsLinked;
+            DudeLinkState state = DudeLinkState.Get(m);
+            return state != null && state.IsLinked;
         }
 
         /// <summary>
@@ -78,40 +74,31 @@ namespace Server.Custom.Dudes
             return true;
         }
 
-
-        public static LinkingDevice GetDevice(Mobile m)
-        {
-            LinkRuntime rt;
-            if (m == null || !m_ByPlayer.TryGetValue(m, out rt) || rt == null)
-                return null;
-            return rt.Device;
-        }
-
         public static DudeBall GetLinkedBall(Mobile m)
         {
-            LinkRuntime rt;
-            if (m == null || !m_ByPlayer.TryGetValue(m, out rt) || rt == null)
+            if (m == null)
                 return null;
 
-            if (rt.Ball != null && !rt.Ball.Deleted)
+            LinkRuntime rt;
+            if (m_ByPlayer.TryGetValue(m, out rt) && rt != null && rt.Ball != null && !rt.Ball.Deleted)
                 return rt.Ball;
 
-            if (rt.Device != null)
-                return rt.Device.ResolveLinkedBall();
+            DudeLinkState state = DudeLinkState.Get(m);
+            if (state != null)
+                return state.ResolveLinkedBall();
 
             return null;
         }
 
-        public static bool TryRegister(Mobile player, LinkingDevice device, DudeBall ball)
+        public static bool TryRegister(Mobile player, DudeBall ball)
         {
-            if (player == null || device == null || ball == null)
+            if (player == null || ball == null)
                 return false;
 
-            if (IsLinked(player))
+            if (m_ByPlayer.ContainsKey(player))
                 return false;
 
             LinkRuntime rt = new LinkRuntime();
-            rt.Device = device;
             rt.Ball = ball;
             rt.NextAbilityById = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
             rt.FollowersApplied = true;
@@ -128,6 +115,146 @@ namespace Server.Custom.Dudes
         }
 
         /// <summary>
+        /// Link to an owned filled DudeBall (body formerly on LinkingDevice.TryLink).
+        /// </summary>
+        public static void TryLink(Mobile from, DudeBall ball)
+        {
+            if (from == null || ball == null)
+                return;
+
+            DudeLinkState state = DudeLinkState.Get(from);
+            if (state == null)
+            {
+                from.SendMessage("Only players can link with a Dude.");
+                return;
+            }
+
+            if (state.IsLinked || IsLinked(from))
+            {
+                from.SendMessage("You are already linked.");
+                return;
+            }
+
+            if (!from.Alive)
+            {
+                from.SendMessage("You must be alive to link.");
+                return;
+            }
+
+            if (!ball.IsChildOf(from.Backpack) && ball.RootParent != from)
+            {
+                from.SendMessage("That Dude Ball must be in your backpack.");
+                return;
+            }
+
+            if (!ball.HasDude || ball.StoredDude == null)
+            {
+                from.SendMessage("That Dude Ball is empty.");
+                return;
+            }
+
+            DudeData data = ball.StoredDude;
+
+            if (data.IsFainted)
+            {
+                from.SendMessage("{0} is fainted and cannot be linked.", data.DisplayName);
+                return;
+            }
+
+            if (ball.IsAssignedToJob)
+            {
+                from.SendMessage("{0} is on a job and cannot be linked.", data.DisplayName);
+                return;
+            }
+
+            if (from.Followers > 2)
+            {
+                from.SendMessage("Other followers already use more than 2 slots.");
+                return;
+            }
+
+            if (from.Followers + LinkFollowerSlots > from.FollowersMax)
+            {
+                from.SendMessage("You do not have enough free follower slots to link (need {0}).", LinkFollowerSlots);
+                return;
+            }
+
+            // Recall summoned Dude first
+            if (ball.IsSummoned)
+                ball.Recall(from);
+
+            // Dismount
+            IMount mount = from.Mount;
+            if (mount != null)
+                mount.Rider = null;
+
+            state.SnapshotBackup(from);
+
+            DudeDefinition def = DudeRegistry.Get(data.DefinitionId);
+            if (def == null)
+            {
+                from.SendMessage("That Dude species is unknown.");
+                state.ClearBackup();
+                return;
+            }
+
+            DudeCombatSkills.EnsureRolled(data);
+            DudeExperience.EnsureEvolutionAbilities(data);
+
+            // Apply Dude form
+            from.BodyMod = def.Body;
+            from.HueMod = def.Hue;
+
+            from.RawStr = Math.Max(1, data.Str);
+            from.RawDex = Math.Max(1, data.Dex);
+            from.RawInt = Math.Max(1, data.Int);
+
+            int hits = data.Hits;
+            if (hits < 1)
+                hits = 1;
+            int dudeMax = data.HitsMax;
+            if (dudeMax < 1)
+                dudeMax = 1;
+            if (hits > dudeMax)
+                hits = dudeMax;
+            from.Hits = hits;
+
+            DudeCombatSkills.ApplyToMobile(from, data);
+
+            from.Followers += LinkFollowerSlots;
+            state.SetLinked(ball, true);
+
+            if (!TryRegister(from, ball))
+            {
+                // Roll back if register failed
+                state.RestoreBackup(from, false);
+                state.ClearLinkFlags();
+                from.SendMessage("Link failed.");
+                return;
+            }
+
+            DudeSummonEffects.Play(data.Type, from.Location, from.Map, data.DefinitionId);
+            from.SendMessage(0x59, "You link with {0}!", data.DisplayName);
+        }
+
+        /// <summary>Voluntary unlink — same as former device Revert(from, false, false).</summary>
+        public static void TryUnlink(Mobile from)
+        {
+            if (from == null)
+                return;
+
+            DudeLinkState state = DudeLinkState.Get(from);
+            if (state == null || !state.IsLinked)
+            {
+                from.SendMessage("You are not linked.");
+                return;
+            }
+
+            state.Revert(from, false, false);
+            from.SendMessage(0x59, "You unlink from your Dude.");
+        }
+
+        /// <summary>
         /// Called from PlayerMobile.OnBeforeDeath — revert human form before corpse.
         /// </summary>
         public static void HandleBeforeDeath(Mobile m)
@@ -135,9 +262,19 @@ namespace Server.Custom.Dudes
             if (m == null || !IsLinked(m))
                 return;
 
-            LinkingDevice device = GetDevice(m);
-            if (device != null)
-                device.Revert(m, true, true);
+            DudeLinkState state = DudeLinkState.Get(m);
+            if (state != null)
+                state.Revert(m, true, true);
+        }
+
+        private static void RevertIfLinked(Mobile m, bool fromDeath, bool faintBall)
+        {
+            if (m == null)
+                return;
+
+            DudeLinkState state = DudeLinkState.Get(m);
+            if (state != null && state.IsLinked)
+                state.Revert(m, fromDeath, faintBall);
         }
 
         private static void OnLogin(LoginEventArgs e)
@@ -146,10 +283,8 @@ namespace Server.Custom.Dudes
                 return;
 
             Mobile m = e.Mobile;
-            // Safest: any mid-link flag on a device in pack → revert to human.
-            LinkingDevice device = FindLinkedDeviceInPack(m);
-            if (device != null && device.IsLinked)
-                device.Revert(m, false, false);
+            // Mid-link on login (e.g. crash): revert to human — same as disconnect behavior.
+            RevertIfLinked(m, false, false);
         }
 
         private static void OnLogout(LogoutEventArgs e)
@@ -157,18 +292,15 @@ namespace Server.Custom.Dudes
             if (e == null || e.Mobile == null)
                 return;
 
-            Mobile m = e.Mobile;
-            if (!IsLinked(m))
-            {
-                LinkingDevice device = FindLinkedDeviceInPack(m);
-                if (device != null && device.IsLinked)
-                    device.Revert(m, false, false);
-                return;
-            }
+            RevertIfLinked(e.Mobile, false, false);
+        }
 
-            LinkingDevice linked = GetDevice(m);
-            if (linked != null)
-                linked.Revert(m, false, false);
+        private static void OnDisconnected(DisconnectedEventArgs e)
+        {
+            if (e == null || e.Mobile == null)
+                return;
+
+            RevertIfLinked(e.Mobile, false, false);
         }
 
         private static void OnPlayerDeath(PlayerDeathEventArgs e)
@@ -177,12 +309,7 @@ namespace Server.Custom.Dudes
             if (e == null || e.Mobile == null)
                 return;
 
-            if (IsLinked(e.Mobile))
-            {
-                LinkingDevice device = GetDevice(e.Mobile);
-                if (device != null)
-                    device.Revert(e.Mobile, true, true);
-            }
+            RevertIfLinked(e.Mobile, true, true);
         }
 
         private static void OnSkillGain(SkillGainEventArgs e)
@@ -201,25 +328,6 @@ namespace Server.Custom.Dudes
                 return;
 
             DudeCombatSkills.SyncGainToBall(e.From, e.Skill, ball.StoredDude, ball);
-        }
-
-        private static LinkingDevice FindLinkedDeviceInPack(Mobile m)
-        {
-            if (m == null || m.Backpack == null)
-                return null;
-
-            List<LinkingDevice> list = m.Backpack.FindItemsByType<LinkingDevice>(true);
-            if (list == null)
-                return null;
-
-            for (int i = 0; i < list.Count; i++)
-            {
-                LinkingDevice d = list[i];
-                if (d != null && !d.Deleted && d.IsLinked)
-                    return d;
-            }
-
-            return null;
         }
 
         private static void OnAbi1(CommandEventArgs e)
@@ -421,7 +529,10 @@ namespace Server.Custom.Dudes
 
                 DudeBall ball = rt.Ball;
                 if (ball == null || ball.Deleted)
-                    ball = rt.Device != null ? rt.Device.ResolveLinkedBall() : null;
+                {
+                    DudeLinkState state = DudeLinkState.Get(m);
+                    ball = state != null ? state.ResolveLinkedBall() : null;
+                }
 
                 if (ball == null || ball.StoredDude == null)
                     continue;
