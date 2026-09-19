@@ -122,7 +122,34 @@ namespace Server.Items
 
     public class SevenSkillBallGump : Gump
     {
+        private static readonly SkillName[] UorSkills = new SkillName[]
+        {
+            SkillName.Alchemy, SkillName.Anatomy, SkillName.AnimalLore, SkillName.AnimalTaming,
+            SkillName.Archery, SkillName.ArmsLore, SkillName.Begging, SkillName.Blacksmith,
+            SkillName.Camping, SkillName.Carpentry, SkillName.Cartography, SkillName.Cooking,
+            SkillName.DetectHidden, SkillName.Discordance, SkillName.EvalInt,
+            SkillName.Fencing, SkillName.Fishing, SkillName.Forensics, SkillName.Healing,
+            SkillName.Herding, SkillName.Hiding, SkillName.Inscribe, SkillName.ItemID,
+            SkillName.Lockpicking, SkillName.Lumberjacking, SkillName.Macing, SkillName.Magery,
+            SkillName.MagicResist, SkillName.Meditation, SkillName.Mining, SkillName.Musicianship,
+            SkillName.Parry, SkillName.Peacemaking, SkillName.Poisoning, SkillName.Provocation,
+            SkillName.RemoveTrap, SkillName.Snooping, SkillName.SpiritSpeak, SkillName.Stealing,
+            SkillName.Stealth, SkillName.Swords, SkillName.Tactics, SkillName.Tailoring,
+            SkillName.TasteID, SkillName.Tinkering, SkillName.Tracking, SkillName.Veterinary,
+            SkillName.Wrestling
+        };
+
         private readonly SevenSkillBall m_Ball;
+
+        private static bool IsUorSkill(SkillName sn)
+        {
+            for (int i = 0; i < UorSkills.Length; i++)
+            {
+                if (UorSkills[i] == sn)
+                    return true;
+            }
+            return false;
+        }
 
         public SevenSkillBallGump(SevenSkillBall ball)
             : base(50, 50)
@@ -134,7 +161,7 @@ namespace Server.Items
             Dragable = true;
             Resizable = false;
 
-            SkillName[] skills = (SkillName[])Enum.GetValues(typeof(SkillName));
+            SkillName[] skills = UorSkills;
             int count = skills.Length;
             int rows = (count + 2) / 3;
             int height = 50 + (rows * 25) + 50;
@@ -192,10 +219,14 @@ namespace Server.Items
                 {
                     int id = switches[i] - 100;
 
-                    if (id < 0 || id > (int)SkillName.Throwing)
+                    if (id < 0)
                         continue;
 
-                    selected.Add((SkillName)id);
+                    SkillName sn = (SkillName)id;
+                    if (!IsUorSkill(sn))
+                        continue;
+
+                    selected.Add(sn);
                 }
             }
 
