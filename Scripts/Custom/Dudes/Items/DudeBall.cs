@@ -241,14 +241,7 @@ namespace Server.Items
 
             list.Add(new LookCloserEntry(this));
 
-            bool inPack = IsChildOf(from.Backpack) || RootParent == from;
-            if (!inPack)
-                return;
-
-            if (!DudeLinkSystem.IsLinked(from))
-                list.Add(new LinkEntry(this));
-            else if (DudeLinkSystem.GetLinkedBall(from) == this)
-                list.Add(new UnlinkEntry(this));
+            // Link/Unlink context entries parked — DudeLinkSystem + LinkingDevice stubs retained.
         }
 
         public override void OnDoubleClick(Mobile from)
