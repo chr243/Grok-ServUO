@@ -19,6 +19,9 @@ namespace Server.Misc
 
         public static IPAddress Address => Config.Get("Server.Address", IPAddress.Loopback);
 
+		/// <summary>Hardcoded last-resort public IPv4 for remote clients (Contabo).</summary>
+		private static readonly IPAddress FallbackPublicAddress = IPAddress.Parse("161.97.74.234");
+
         public static void Initialize()
         {
 			EventSink.ServerList += EventSink_ServerList;
@@ -37,16 +40,20 @@ namespace Server.Misc
 				IPAddress advertise;
 				if (IPAddress.IsLoopback(remoteEp.Address))
 				{
-					// local testing
+					// local testing — loopback remotes may still get 127.0.0.1
 					advertise = IPAddress.Loopback;
 				}
 				else
 				{
 					advertise = ResolvePublicAdvertiseAddress(localEp.Address);
-					if (advertise == null || IPAddress.IsLoopback(advertise) || advertise.Equals(IPAddress.Any))
+
+					// Never advertise loopback / Any / 0.0.0.0 to remote clients
+					if (advertise == null
+						|| IPAddress.IsLoopback(advertise)
+						|| advertise.Equals(IPAddress.Any)
+						|| advertise.Equals(IPAddress.IPv6Any))
 					{
-						e.Rejected = true;
-						return;
+						advertise = FallbackPublicAddress;
 					}
 				}
 
@@ -60,32 +67,28 @@ namespace Server.Misc
 
 		private static IPAddress ResolvePublicAdvertiseAddress(IPAddress localAddress)
 		{
-			// a) LocalEndPoint if public IPv4 (not loopback, not Any, not private)
-			if (localAddress != null && localAddress.AddressFamily == AddressFamily.InterNetwork
-				&& !IPAddress.IsLoopback(localAddress) && !localAddress.Equals(IPAddress.Any)
-				&& !IsPrivateNetwork(localAddress))
+			// a) Prefer LocalEndPoint if public IPv4
+			if (IsPublicIPv4(localAddress))
 				return localAddress;
 
 			// b) Config Server.Address if public IPv4
 			IPAddress cfg = Address;
-			if (cfg != null && cfg.AddressFamily == AddressFamily.InterNetwork
-				&& !IPAddress.IsLoopback(cfg) && !cfg.Equals(IPAddress.Any)
-				&& !IsPrivateNetwork(cfg))
+			if (IsPublicIPv4(cfg))
 				return cfg;
 
-			// c) First non-loopback non-private IPv4 on machine
-			foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
-			{
-				if (ni.OperationalStatus != OperationalStatus.Up) continue;
-				foreach (UnicastIPAddressInformation uni in ni.GetIPProperties().UnicastAddresses)
-				{
-					IPAddress ip = uni.Address;
-					if (ip.AddressFamily != AddressFamily.InterNetwork) continue;
-					if (IPAddress.IsLoopback(ip) || IsPrivateNetwork(ip)) continue;
-					return ip;
-				}
-			}
-			return null;
+			// c) Hardcoded public IP as last resort (never Rejected solely for missing public IP)
+			return FallbackPublicAddress;
+		}
+
+		private static bool IsPublicIPv4(IPAddress ip)
+		{
+			if (ip == null || ip.AddressFamily != AddressFamily.InterNetwork)
+				return false;
+			if (IPAddress.IsLoopback(ip) || ip.Equals(IPAddress.Any))
+				return false;
+			if (IsPrivateNetwork(ip))
+				return false;
+			return true;
 		}
 
 		private static bool IsPrivateNetwork(IPAddress ip)
