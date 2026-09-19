@@ -25,15 +25,16 @@ namespace Server.Items
             Resizable = false;
 
             AddPage(0);
-            AddBackground(0, 0, 360, 520, 9270);
-            AddAlphaRegion(10, 10, 340, 500);
+            AddBackground(0, 0, 720, 520, 9270);
+            AddAlphaRegion(10, 10, 700, 500);
 
-            AddHtml(20, 18, 320, 22, "<CENTER><BASEFONT COLOR=#FFFFFF>Trainer's Manual</BASEFONT></CENTER>", false, false);
+            AddHtml(20, 18, 680, 22, "<CENTER><BASEFONT COLOR=#FFFFFF>Trainer's Manual</BASEFONT></CENTER>", false, false);
 
             int y = 48;
             int labelHue = 0x480;
             int valueHue = 0x34;
 
+            // LEFT column
             AddLabel(24, y, labelHue, "Name:");
             AddLabel(110, y, valueHue, Truncate(view.Name, 28));
             y += 22;
@@ -65,7 +66,7 @@ namespace Server.Items
             AddLabel(110, y, valueHue, view.JobSkillText);
             y += 26;
 
-            AddHtml(24, y, 312, 18, "<BASEFONT COLOR=#FFFFFF>Stats</BASEFONT>", false, false);
+            AddHtml(24, y, 330, 18, "<BASEFONT COLOR=#FFFFFF>Stats</BASEFONT>", false, false);
             y += 20;
 
             AddLabel(24, y, labelHue, string.Format("Str: {0}", view.Str));
@@ -82,20 +83,69 @@ namespace Server.Items
             AddLabel(24, y, labelHue, string.Format("Armor: {0}", view.VirtualArmor));
             y += 26;
 
-            AddHtml(24, y, 312, 18, "<BASEFONT COLOR=#FFFFFF>Abilities</BASEFONT>", false, false);
+            AddHtml(24, y, 330, 18, "<BASEFONT COLOR=#FFFFFF>Skills</BASEFONT>", false, false);
             y += 20;
 
-            AddHtml(24, y, 312, 40, string.Format("<BASEFONT COLOR=#66FF66>{0}</BASEFONT>",
-                string.IsNullOrEmpty(view.AbilityName) ? "None" : view.AbilityName), false, false);
-            y += 44;
+            AddLabel(24, y, labelHue, string.Format("Wrestling: {0:0.0} / {1:0.0}", view.SkillWrestling, DudeCombatSkills.Cap));
+            y += 18;
+            AddLabel(24, y, labelHue, string.Format("Tactics: {0:0.0} / {1:0.0}", view.SkillTactics, DudeCombatSkills.Cap));
+            y += 18;
+            AddLabel(24, y, labelHue, string.Format("Anatomy: {0:0.0} / {1:0.0}", view.SkillAnatomy, DudeCombatSkills.Cap));
+            y += 18;
+            AddLabel(24, y, labelHue, string.Format("Magic Resist: {0:0.0} / {1:0.0}", view.SkillMagicResist, DudeCombatSkills.Cap));
 
-            if (!string.IsNullOrEmpty(view.AbilityDescription))
+            // RIGHT column — kit abilities by stage
+            int ry = 48;
+            AddHtml(370, ry, 320, 18, "<BASEFONT COLOR=#FFFFFF>Abilities</BASEFONT>", false, false);
+            ry += 22;
+
+            DudeType kit = view.KitType;
+            bool any = false;
+
+            for (int stage = 1; stage <= 3; stage++)
             {
-                AddHtml(24, y, 312, 90, string.Format("<BASEFONT COLOR=#C0C0C0>{0}</BASEFONT>", view.AbilityDescription), false, true);
-                y += 96;
+                DudeAbility ability = DudeAbilityRegistry.GetByKitStage(kit, stage);
+                if (ability == null)
+                    continue;
+
+                any = true;
+
+                bool unlocked = view.EvolutionStage >= ability.Stage;
+                if (!unlocked && view.UnlockedAbilityIds != null)
+                {
+                    for (int i = 0; i < view.UnlockedAbilityIds.Count; i++)
+                    {
+                        if (string.Equals(view.UnlockedAbilityIds[i], ability.Id, StringComparison.OrdinalIgnoreCase))
+                        {
+                            unlocked = true;
+                            break;
+                        }
+                    }
+                }
+
+                string nameColor = unlocked ? "#66FF66" : "#808080";
+                string descColor = unlocked ? "#C0C0C0" : "#808080";
+
+                AddHtml(370, ry, 320, 18, string.Format("<BASEFONT COLOR={0}>{1} — unlocks at stage {2}</BASEFONT>",
+                    nameColor, ability.Name, ability.Stage), false, false);
+                ry += 18;
+
+                string desc = DudeInfoView.GetAbilityDescription(ability.Id);
+                if (!string.IsNullOrEmpty(desc))
+                {
+                    AddHtml(370, ry, 320, 40, string.Format("<BASEFONT COLOR={0}>{1}</BASEFONT>", descColor, desc), false, false);
+                    ry += 44;
+                }
+                else
+                {
+                    ry += 8;
+                }
             }
 
-            AddButton(300, 480, 4017, 4019, 0, GumpButtonType.Reply, 0);
+            if (!any)
+                AddHtml(370, ry, 320, 18, "<BASEFONT COLOR=#808080>None</BASEFONT>", false, false);
+
+            AddButton(680, 480, 4017, 4019, 0, GumpButtonType.Reply, 0);
         }
 
         public override void OnResponse(NetState sender, RelayInfo info)
@@ -130,7 +180,14 @@ namespace Server.Items
             JobSkillText = "N/A",
             EvolutionText = null,
             AbilityName = "None",
-            AbilityDescription = null
+            AbilityDescription = null,
+            SkillWrestling = 0.0,
+            SkillTactics = 0.0,
+            SkillAnatomy = 0.0,
+            SkillMagicResist = 0.0,
+            EvolutionStage = 0,
+            KitType = DudeType.Fire,
+            UnlockedAbilityIds = null
         };
 
         public string Name { get; set; }
@@ -151,9 +208,63 @@ namespace Server.Items
         public string AbilityName { get; set; }
         public string AbilityDescription { get; set; }
 
+        public double SkillWrestling { get; set; }
+        public double SkillTactics { get; set; }
+        public double SkillAnatomy { get; set; }
+        public double SkillMagicResist { get; set; }
+        public int EvolutionStage { get; set; }
+        public DudeType KitType { get; set; }
+        public List<string> UnlockedAbilityIds { get; set; }
+
         private static void FillSkillTexts(DudeInfoView view, DudeData data)
         {
             view.JobSkillText = Server.Custom.Dudes.Jobs.DudeJobHarvest.FormatSkillLabel(data);
+        }
+
+        private static void FillCombatSkillsFromData(DudeInfoView view, DudeData data)
+        {
+            if (data == null)
+            {
+                view.SkillWrestling = 0.0;
+                view.SkillTactics = 0.0;
+                view.SkillAnatomy = 0.0;
+                view.SkillMagicResist = 0.0;
+                view.EvolutionStage = 0;
+                view.KitType = DudeType.Fire;
+                view.UnlockedAbilityIds = null;
+                return;
+            }
+
+            DudeCombatSkills.EnsureRolled(data);
+            view.SkillWrestling = data.Wrestling;
+            view.SkillTactics = data.Tactics;
+            view.SkillAnatomy = data.Anatomy;
+            view.SkillMagicResist = data.MagicResist;
+            view.EvolutionStage = data.EvolutionStage;
+            view.KitType = data.Type;
+            view.UnlockedAbilityIds = data.GetUnlockedAbilityIds();
+        }
+
+        private static void TryOverlayLiveCombatSkills(DudeInfoView view, Mobile m)
+        {
+            if (view == null || m == null || m.Skills == null)
+                return;
+
+            Skill wrestling = m.Skills[SkillName.Wrestling];
+            if (wrestling != null)
+                view.SkillWrestling = wrestling.Base;
+
+            Skill tactics = m.Skills[SkillName.Tactics];
+            if (tactics != null)
+                view.SkillTactics = tactics.Base;
+
+            Skill anatomy = m.Skills[SkillName.Anatomy];
+            if (anatomy != null)
+                view.SkillAnatomy = anatomy.Base;
+
+            Skill magicResist = m.Skills[SkillName.MagicResist];
+            if (magicResist != null)
+                view.SkillMagicResist = magicResist.Base;
         }
 
         private static void FillAbilityTexts(DudeInfoView view, DudeData data, string fallbackAbilityId)
@@ -264,7 +375,7 @@ namespace Server.Items
             view.MinDamage = data.MinDamage;
             view.MaxDamage = data.MaxDamage;
             view.VirtualArmor = data.VirtualArmor;
-            FillAbilityTexts(view, data, data.AbilityId);
+            FillCombatSkillsFromData(view, data);
             return view;
         }
 
@@ -287,6 +398,8 @@ namespace Server.Items
                 fromBall.VirtualArmor = dude.VirtualArmor;
                 fromBall.Name = dude.Name;
                 fromBall.LevelText = string.Format("{0} / {1}", dude.DudeLevel, DudeExperience.GetMaxLevel(dude.BoundBall.StoredDude));
+                // Keep KitType / EvolutionStage from data; refresh skill values from live mobile when present.
+                TryOverlayLiveCombatSkills(fromBall, dude);
                 return fromBall;
             }
 
@@ -314,11 +427,28 @@ namespace Server.Items
             view.MaxDamage = dude.DamageMax;
             view.VirtualArmor = dude.VirtualArmor;
 
-            string abilityId = !string.IsNullOrEmpty(dude.AbilityId)
-                ? dude.AbilityId
-                : (def != null ? def.AbilityId : null);
+            view.KitType = def != null ? def.Type : DudeType.Fire;
+            view.EvolutionStage = dude.EvolutionStage;
 
-            FillAbilityTexts(view, null, abilityId, dude.DefinitionId, dude.EvolutionStage);
+            if (dude.BoundBall != null && dude.BoundBall.StoredDude != null)
+            {
+                DudeData ballData = dude.BoundBall.StoredDude;
+                DudeCombatSkills.EnsureRolled(ballData);
+                view.SkillWrestling = ballData.Wrestling;
+                view.SkillTactics = ballData.Tactics;
+                view.SkillAnatomy = ballData.Anatomy;
+                view.SkillMagicResist = ballData.MagicResist;
+                view.UnlockedAbilityIds = ballData.GetUnlockedAbilityIds();
+            }
+            else
+            {
+                view.SkillWrestling = 0.0;
+                view.SkillTactics = 0.0;
+                view.SkillAnatomy = 0.0;
+                view.SkillMagicResist = 0.0;
+                view.UnlockedAbilityIds = null;
+            }
+
             return view;
         }
 
@@ -342,8 +472,13 @@ namespace Server.Items
             view.MinDamage = boss.DamageMin;
             view.MaxDamage = boss.DamageMax;
             view.VirtualArmor = boss.VirtualArmor;
-            view.AbilityName = boss.AbilityDisplayName;
-            view.AbilityDescription = boss.AbilityDescription;
+            view.SkillWrestling = 0.0;
+            view.SkillTactics = 0.0;
+            view.SkillAnatomy = 0.0;
+            view.SkillMagicResist = 0.0;
+            view.KitType = boss.DudeAffinity;
+            view.EvolutionStage = 3; // show kit unlocked
+            view.UnlockedAbilityIds = null;
             return view;
         }
 
@@ -372,7 +507,7 @@ namespace Server.Items
             return "Captured";
         }
 
-        private static string GetAbilityDescription(string abilityId)
+        public static string GetAbilityDescription(string abilityId)
         {
             if (string.IsNullOrEmpty(abilityId))
                 return null;
