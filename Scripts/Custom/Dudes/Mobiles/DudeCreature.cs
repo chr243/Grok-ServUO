@@ -29,6 +29,16 @@ namespace Server.Mobiles
         private DateTime m_NextBurnPulse;
         private DateTime m_NextSpringPulse;
         private DateTime m_NextFaultlinePulse;
+        private List<string> m_EquippedAbilityIds;
+
+        /// <summary>Fixed paperdoll layers for DudeGear (Pants reserved for type shorts).</summary>
+        public static readonly Layer[] GearLayerOrder = new Layer[]
+        {
+            Layer.Helm,
+            Layer.InnerTorso,
+            Layer.Bracelet,
+            Layer.Talisman
+        };
 
         private const double DudeForceSpeed = 0.1;
 
@@ -49,6 +59,7 @@ namespace Server.Mobiles
             m_NextAbilityTime = DateTime.UtcNow;
             m_EvolutionStage = 1;
             m_NextAbilityById = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+            m_EquippedAbilityIds = new List<string>();
 
             DudeDefinition def = DudeRegistry.Get(definitionId);
             if (def == null)
@@ -343,6 +354,7 @@ namespace Server.Mobiles
 
             ApplyCombatSkills(data);
             ApplyDudeSpeeds();
+            RebuildGearCache();
         }
 
 
@@ -609,15 +621,223 @@ namespace Server.Mobiles
             TryStage3Passives();
         }
 
-        private List<string> GetUnlockedAbilityIds()
+        private bool IsOwnerOrStaff(Mobile m)
+        {
+            if (m == null || m.Deleted)
+                return false;
+            if (m.AccessLevel >= AccessLevel.GameMaster)
+                return true;
+            return ControlMaster == m;
+        }
+
+        /// <summary>Gear slots unlocked by evolution stage (via ball data when present).</summary>
+        public int GetGearSlotCount()
         {
             if (m_BoundBall != null && !m_BoundBall.Deleted && m_BoundBall.StoredDude != null)
-                return m_BoundBall.StoredDude.GetUnlockedAbilityIds();
+                return m_BoundBall.StoredDude.GetGearSlots();
+            return DudeExperience.GetGearSlots(EvolutionStage);
+        }
 
-            List<string> list = new List<string>();
-            if (!string.IsNullOrEmpty(m_AbilityId))
-                list.Add(m_AbilityId);
-            return list;
+        /// <summary>First GetGearSlots layers in GearLayerOrder are allowed.</summary>
+        public bool IsGearLayerAllowed(Layer layer)
+        {
+            int allowed = GetGearSlotCount();
+            if (allowed < 0)
+                allowed = 0;
+            if (allowed > GearLayerOrder.Length)
+                allowed = GearLayerOrder.Length;
+
+            for (int i = 0; i < allowed; i++)
+            {
+                if (GearLayerOrder[i] == layer)
+                    return true;
+            }
+            return false;
+        }
+
+        private static int StageNeededForLayerIndex(int index)
+        {
+            // Slots 1–2 → stage 1; slot 3 → stage 2; slot 4 → stage 3
+            if (index <= 1)
+                return 1;
+            if (index == 2)
+                return 2;
+            return 3;
+        }
+
+        private int GetEquippedGearSlotCost(DudeGear exclude)
+        {
+            int used = 0;
+            for (int i = 0; i < Items.Count; i++)
+            {
+                DudeGear gear = Items[i] as DudeGear;
+                if (gear == null || gear == exclude || gear.Deleted)
+                    continue;
+                used += gear.SlotCost;
+            }
+            return used;
+        }
+
+        /// <summary>
+        /// Validates DudeGear for this Dude. On failure sets reason
+        /// (e.g. "Needs stage X for another slot.").
+        /// </summary>
+        public bool CanAcceptGear(DudeGear gear, out string reason)
+        {
+            reason = null;
+            if (gear == null || gear.Deleted)
+            {
+                reason = "That gear is invalid.";
+                return false;
+            }
+
+            if (m_IsWild)
+            {
+                reason = "Wild Dudes cannot wear gear.";
+                return false;
+            }
+
+            Layer layer = gear.Layer;
+            int layerIndex = -1;
+            for (int i = 0; i < GearLayerOrder.Length; i++)
+            {
+                if (GearLayerOrder[i] == layer)
+                {
+                    layerIndex = i;
+                    break;
+                }
+            }
+
+            if (layerIndex < 0)
+            {
+                reason = "That gear uses an invalid slot.";
+                return false;
+            }
+
+            int allowed = GetGearSlotCount();
+            if (allowed < 0)
+                allowed = 0;
+            if (allowed > GearLayerOrder.Length)
+                allowed = GearLayerOrder.Length;
+
+            if (layerIndex >= allowed)
+            {
+                int stageNeeded = StageNeededForLayerIndex(layerIndex);
+                reason = string.Format("Needs stage {0} for another slot.", stageNeeded);
+                return false;
+            }
+
+            int used = GetEquippedGearSlotCost(gear);
+            int cost = gear.SlotCost;
+            if (used + cost > allowed)
+            {
+                // Next slot beyond current capacity
+                int stageNeeded = StageNeededForLayerIndex(Math.Min(used + cost - 1, GearLayerOrder.Length - 1));
+                reason = string.Format("Needs stage {0} for another slot.", stageNeeded);
+                return false;
+            }
+
+            return true;
+        }
+
+        public void RebuildGearCache()
+        {
+            if (m_EquippedAbilityIds == null)
+                m_EquippedAbilityIds = new List<string>();
+            else
+                m_EquippedAbilityIds.Clear();
+
+            for (int i = 0; i < Items.Count; i++)
+            {
+                DudeGear gear = Items[i] as DudeGear;
+                if (gear == null || gear.Deleted)
+                    continue;
+                if (string.IsNullOrEmpty(gear.AbilityId))
+                    continue;
+                m_EquippedAbilityIds.Add(gear.AbilityId);
+            }
+        }
+
+        /// <summary>Rebuild equipped-ability cache (call after load / summon / gump refresh).</summary>
+        public void Refresh()
+        {
+            RebuildGearCache();
+        }
+
+        public override void OnItemAdded(Item item)
+        {
+            base.OnItemAdded(item);
+            if (item is DudeGear)
+                RebuildGearCache();
+        }
+
+        public override void OnItemRemoved(Item item)
+        {
+            base.OnItemRemoved(item);
+            if (item is DudeGear)
+                RebuildGearCache();
+        }
+
+        public override bool AllowEquipFrom(Mobile from)
+        {
+            if (IsOwnerOrStaff(from))
+                return true;
+            return base.AllowEquipFrom(from);
+        }
+
+        public override bool CheckNonlocalLift(Mobile from, Item item)
+        {
+            if (item is DudeTypeShorts)
+                return false;
+
+            if (IsOwnerOrStaff(from) && item is DudeGear)
+                return true;
+
+            return base.CheckNonlocalLift(from, item);
+        }
+
+        public override bool OnEquip(Item item)
+        {
+            if (item is DudeTypeShorts)
+                return base.OnEquip(item);
+
+            DudeGear gear = item as DudeGear;
+            if (gear == null)
+                return false;
+
+            string reason;
+            if (!CanAcceptGear(gear, out reason))
+            {
+                Mobile notify = ControlMaster;
+                if (notify != null && !notify.Deleted && !string.IsNullOrEmpty(reason))
+                    notify.SendMessage(reason);
+                return false;
+            }
+
+            return base.OnEquip(item);
+        }
+
+        public override void OnDoubleClick(Mobile from)
+        {
+            if (from == null || from.Deleted)
+                return;
+
+            // Owner / staff: open paperdoll (do not fight).
+            if (IsOwnerOrStaff(from))
+            {
+                DisplayPaperdollTo(from);
+                return;
+            }
+
+            base.OnDoubleClick(from);
+        }
+
+        /// <summary>Combat abilities from equipped DudeGear cache.</summary>
+        private List<string> GetUnlockedAbilityIds()
+        {
+            if (m_EquippedAbilityIds == null)
+                RebuildGearCache();
+            return m_EquippedAbilityIds;
         }
 
         public static bool IsPassiveAbilityId(string id)
@@ -658,7 +878,7 @@ namespace Server.Mobiles
 
         private void TryUseAbility()
         {
-            // Temporary: no gear ability cache yet — GetUnlockedAbilityIds is empty until gear grants abilities.
+            // Abilities come from equipped DudeGear cache.
             if (GetUnlockedAbilityIds().Count == 0)
                 return;
 
@@ -1077,6 +1297,10 @@ namespace Server.Mobiles
                 Name = loaded.Name + " Dude";
 
             ApplyDudeSpeeds();
+
+            if (m_EquippedAbilityIds == null)
+                m_EquippedAbilityIds = new List<string>();
+            RebuildGearCache();
         }
     }
 }
