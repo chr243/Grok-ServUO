@@ -216,6 +216,8 @@ namespace Server.Mobiles
 
         protected override void PackUniqueLoot()
         {
+            PackItem(new EmberSash());
+
             int essence = Utility.RandomMinMax(0, 2);
             if (essence > 0)
                 PackItem(new EmberCore(essence));

@@ -737,6 +737,22 @@ namespace Server.Mobiles
                 return false;
             }
 
+            if (gear.HasRequiredType)
+            {
+                DudeType dudeType = DudeType.Fire;
+                DudeDefinition def = DudeRegistry.Get(m_DefinitionId);
+                if (def != null)
+                    dudeType = def.Type;
+                else if (m_BoundBall != null && m_BoundBall.StoredDude != null)
+                    dudeType = m_BoundBall.StoredDude.Type;
+
+                if (dudeType != gear.RequiredType)
+                {
+                    reason = string.Format("Only a {0} Dude can wear that.", gear.RequiredType);
+                    return false;
+                }
+            }
+
             return true;
         }
 

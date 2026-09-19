@@ -1,4 +1,5 @@
 using System;
+using Server.Custom.Dudes;
 using Server.Mobiles;
 
 namespace Server.Items
@@ -6,11 +7,14 @@ namespace Server.Items
     /// <summary>
     /// Wearable gear for DudeCreature paperdoll slots. Grants AbilityId while equipped.
     /// Layers: Helm, InnerTorso, Bracelet, Talisman (Pants reserved for type shorts).
+    /// Optional RequiredType locks gear to Fire/Water/Earth/Air Dudes.
     /// </summary>
     public class DudeGear : Item
     {
         private string m_AbilityId;
         private int m_SlotCost = 1;
+        private DudeType m_RequiredType;
+        private bool m_HasRequiredType;
 
         [Constructable]
         public DudeGear()
@@ -45,6 +49,26 @@ namespace Server.Items
             set { m_SlotCost = value < 1 ? 1 : value; InvalidateProperties(); }
         }
 
+        /// <summary>When true, only Dudes whose type matches RequiredType may equip this.</summary>
+        [CommandProperty(AccessLevel.GameMaster)]
+        public bool HasRequiredType
+        {
+            get { return m_HasRequiredType; }
+            set { m_HasRequiredType = value; InvalidateProperties(); }
+        }
+
+        [CommandProperty(AccessLevel.GameMaster)]
+        public DudeType RequiredType
+        {
+            get { return m_RequiredType; }
+            set
+            {
+                m_RequiredType = value;
+                m_HasRequiredType = true;
+                InvalidateProperties();
+            }
+        }
+
         public override bool CanEquip(Mobile from)
         {
             DudeCreature dude = from as DudeCreature;
@@ -73,8 +97,17 @@ namespace Server.Items
         {
             base.GetProperties(list);
 
+            if (m_HasRequiredType)
+                list.Add("{0} Dude gear", m_RequiredType);
+
             if (!string.IsNullOrEmpty(m_AbilityId))
-                list.Add("Ability: {0}", m_AbilityId);
+            {
+                DudeAbility ability = DudeAbilityRegistry.Get(m_AbilityId);
+                if (ability != null && !string.IsNullOrEmpty(ability.Name))
+                    list.Add("Ability: {0}", ability.Name);
+                else
+                    list.Add("Ability: {0}", m_AbilityId);
+            }
 
             int cost = SlotCost;
             if (cost != 1)
@@ -84,10 +117,13 @@ namespace Server.Items
         public override void Serialize(GenericWriter writer)
         {
             base.Serialize(writer);
-            writer.Write((int)0); // version
+            writer.Write((int)1); // version
 
             writer.Write(m_AbilityId);
             writer.Write(m_SlotCost);
+            writer.Write(m_HasRequiredType);
+            if (m_HasRequiredType)
+                writer.Write((int)m_RequiredType);
         }
 
         public override void Deserialize(GenericReader reader)
@@ -99,10 +135,17 @@ namespace Server.Items
             m_SlotCost = reader.ReadInt();
             if (m_SlotCost < 1)
                 m_SlotCost = 1;
+
+            if (version >= 1)
+            {
+                m_HasRequiredType = reader.ReadBool();
+                if (m_HasRequiredType)
+                    m_RequiredType = (DudeType)reader.ReadInt();
+            }
         }
     }
 
-    /// <summary>Starter test gear: InnerTorso sash granting blast.</summary>
+    /// <summary>Fire sash: InnerTorso granting blast.</summary>
     public class EmberSash : DudeGear
     {
         [Constructable]
@@ -110,10 +153,11 @@ namespace Server.Items
             : base(0x1541)
         {
             Name = "Ember Sash";
-            Hue = 0x21; // FireHue
+            Hue = 1161;
             Layer = Layer.InnerTorso;
             AbilityId = "blast";
             SlotCost = 1;
+            RequiredType = DudeType.Fire;
         }
 
         public EmberSash(Serial serial)
@@ -133,9 +177,11 @@ namespace Server.Items
             reader.ReadInt();
 
             Name = "Ember Sash";
+            Hue = 1161;
             Layer = Layer.InnerTorso;
             if (string.IsNullOrEmpty(AbilityId))
                 AbilityId = "blast";
+            RequiredType = DudeType.Fire;
         }
     }
 }
