@@ -25,4 +25,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\Ultima\Ultima.csproj" />
 	</ItemGroup>
+	<ItemGroup>
+		<Compile Include="..\Scripts\Misc\ConnectionLog.cs" Link="ConnectionLog.cs" />
+	</ItemGroup>
 </Project>

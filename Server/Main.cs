@@ -430,19 +430,9 @@ namespace Server
 
 			try
 			{
-				if (Service)
-				{
-					if (!Directory.Exists("Logs"))
-					{
-						Directory.CreateDirectory("Logs");
-					}
-
-					Console.SetOut(MultiConsoleOut = new MultiTextWriter(new FileLogger("Logs/Console.log")));
-				}
-				else
-				{
-					Console.SetOut(MultiConsoleOut = new MultiTextWriter(Console.Out));
-				}
+				if (!Directory.Exists("Logs"))
+					Directory.CreateDirectory("Logs");
+				Console.SetOut(MultiConsoleOut = new MultiTextWriter(Console.Out, new FileLogger("Logs/Console.log", true)));
 			}
 			catch
 			{ }

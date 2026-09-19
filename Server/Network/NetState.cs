@@ -16,6 +16,7 @@ using Server.Gumps;
 using Server.HuePickers;
 using Server.Items;
 using Server.Menus;
+using Server.Misc;
 #endregion
 
 namespace Server.Network
@@ -1241,6 +1242,8 @@ namespace Server.Network
                 {
                     ns.WriteConsole("Disconnected. [{0} Online]", m_Instances.Count);
                 }
+
+                ConnectionLog.Write("Disconnected {0}", ns);
 
                 Utility.PopColor();
             }

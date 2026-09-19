@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 
 using Server.Diagnostics;
+using Server.Misc;
 #endregion
 
 namespace Server.Network
@@ -77,6 +78,7 @@ namespace Server.Network
 						Utility.PushColor(ConsoleColor.Green);
 						Console.WriteLine("Client: {0}: Connected. [{1} Online]", ns, NetState.Instances.Count);
 						Utility.PopColor();
+						ConnectionLog.Write("Connected {0} online={1}", ns, NetState.Instances.Count);
 					}
 				}
 			}
@@ -159,6 +161,7 @@ namespace Server.Network
 					Utility.PushColor(ConsoleColor.Red);
 					Console.WriteLine("Login: {0}: Invalid Client", ns);
 					Utility.PopColor();
+					ConnectionLog.Write("Invalid Client {0}", ns);
 
 					ns.Dispose();
 
@@ -184,6 +187,7 @@ namespace Server.Network
             Utility.PushColor(ConsoleColor.Red);
             Console.WriteLine("Client: {0}: Encrypted Client Unsupported", ns);
             Utility.PopColor();
+            ConnectionLog.Write("Encrypted Client Unsupported {0} firstPacket=0x{1:X2}", ns, packetID);
 
             ns.Dispose();
 

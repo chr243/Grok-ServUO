@@ -23,6 +23,7 @@ namespace Server
                     Utility.PushColor(ConsoleColor.Red);
                     Console.WriteLine("Client: {0}: Firewall blocked connection attempt.", ip);
                     Utility.PopColor();
+                    ConnectionLog.Write("Rejected {0} reason=firewall", ip);
                     e.AllowConnection = false;
                     return;
                 }
@@ -31,6 +32,7 @@ namespace Server
                     Utility.PushColor(ConsoleColor.Red);
                     Console.WriteLine("Client: {0}: Past IP limit threshold", ip);
                     Utility.PopColor();
+                    ConnectionLog.Write("Rejected {0} reason=limiter", ip);
 
                     using (StreamWriter op = new StreamWriter("ipLimits.log", true))
                         op.WriteLine("{0}\tPast IP limit threshold\t{1}", ip, DateTime.UtcNow);
