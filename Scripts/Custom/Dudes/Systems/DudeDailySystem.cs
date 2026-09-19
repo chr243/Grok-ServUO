@@ -118,7 +118,7 @@ namespace Server.Custom.Dudes
     /// </summary>
     public static class DudeDailySystem
     {
-        private static readonly string FilePath = Path.Combine("Saves", "DudeDailies.bin");
+        private static readonly string FilePath = Path.Combine(Core.BaseDirectory, "Saves", "DudeDailies.bin");
 
         private static readonly Dictionary<Serial, DudeDailyRecord> Records =
             new Dictionary<Serial, DudeDailyRecord>();
@@ -149,6 +149,7 @@ namespace Server.Custom.Dudes
         {
             EventSink.WorldSave += OnWorldSave;
             EventSink.WorldLoad += OnWorldLoad;
+            LoadRecords(); // WorldLoad may have already fired
         }
 
         public static string TodayUtc()
@@ -462,7 +463,16 @@ namespace Server.Custom.Dudes
 
         private static void OnWorldLoad()
         {
+            LoadRecords();
+        }
+
+        private static void LoadRecords()
+        {
             Records.Clear();
+
+            if (!File.Exists(FilePath))
+                return; // first boot: leave empty, do not RollFresh
+
             Persistence.Deserialize(FilePath, reader =>
             {
                 int version = reader.ReadInt();
