@@ -66,7 +66,6 @@ namespace Server.Misc
 
 			NewbieBag bag = new NewbieBag();
 			bag.DropItem(new TrainersDiaryPart1());
-			bag.DropItem(new BeginnersBall());
 			bag.DropItem(new SevenSkillBall());
 			bag.DropItem(new TrainersManual());
 			bag.DropItem(new DudeCraftingKit());
