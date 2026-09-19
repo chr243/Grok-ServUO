@@ -169,22 +169,6 @@ namespace Server.Items
                 ry += 20;
             }
 
-            if (view.HasMagicalHat)
-            {
-                AddHtml(370, ry, 320, 18, string.Format(
-                    "<BASEFONT COLOR=#99CCFF>Hat skills: Mag {0:0.0} / Eval {1:0.0} / Med {2:0.0}</BASEFONT>",
-                    view.SkillMagery, view.SkillEvalInt, view.SkillMeditation), false, false);
-                ry += 20;
-            }
-
-            if (view.HasDudeShield)
-            {
-                AddHtml(370, ry, 320, 18, string.Format(
-                    "<BASEFONT COLOR=#99CCFF>Shield Parrying: {0:0.0}</BASEFONT>",
-                    view.SkillParry), false, false);
-                ry += 20;
-            }
-
             AddButton(24, 478, 4011, 4013, 3, GumpButtonType.Reply, 0);
             AddLabel(59, 480, 0x480, "Refresh");
 
