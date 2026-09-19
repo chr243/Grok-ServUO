@@ -29,6 +29,7 @@ namespace Server.Mobiles
         private DateTime m_NextBurnPulse;
         private DateTime m_NextSpringPulse;
         private DateTime m_NextFaultlinePulse;
+        private DateTime m_NextFollowSpread;
         private List<DudeGear> m_EquippedGear;
         private List<string> m_EquippedAbilityIds;
 
@@ -680,8 +681,135 @@ namespace Server.Mobiles
                 ControlTarget = ControlMaster;
             }
 
+            TrySpreadFollowOffset();
             TryUseAbility();
             TryStage3Passives();
+        }
+
+        private static readonly int[] FollowRingDX = { 1, 1, 0, -1, -1, -1, 0, 1 };
+        private static readonly int[] FollowRingDY = { 0, 1, 1, 1, 0, -1, -1, -1 };
+
+        /// <summary>
+        /// Spread summoned followers onto ring tiles around the master so they do not stack.
+        /// Only while Follow/Guard and follow speed is active — never overrides Attack/combat.
+        /// </summary>
+        private void TrySpreadFollowOffset()
+        {
+            if (ControlOrder != OrderType.Follow && ControlOrder != OrderType.Guard)
+                return;
+
+            // Follow pace only (do not override Attack / stay / stop).
+            if (CurrentSpeed != ActiveSpeed)
+                return;
+
+            // Leave Guard combat alone — attack path unchanged.
+            Mobile combatant = Combatant as Mobile;
+            if (combatant != null && !combatant.Deleted && combatant.Alive)
+                return;
+
+            DateTime now = DateTime.UtcNow;
+            if (now < m_NextFollowSpread)
+                return;
+            m_NextFollowSpread = now + TimeSpan.FromSeconds(1.0);
+
+            Mobile master = ControlMaster;
+            if (master == null || master.Deleted || Map == null || Map != master.Map)
+                return;
+
+            List<DudeCreature> pack = CollectPackDudes(master);
+            if (pack.Count == 0)
+                return;
+
+            pack.Sort(delegate(DudeCreature a, DudeCreature b)
+            {
+                return a.Serial.CompareTo(b.Serial);
+            });
+
+            int index = -1;
+            for (int i = 0; i < pack.Count; i++)
+            {
+                if (pack[i] == this)
+                {
+                    index = i;
+                    break;
+                }
+            }
+            if (index < 0)
+                return;
+
+            Point3D dest;
+            if (!TryResolveFollowOffset(master, index, pack.Count, out dest))
+                return;
+
+            // Already on a valid offset tile — do not shuffle every tick.
+            if (X == dest.X && Y == dest.Y)
+                return;
+
+            if (AIObject != null)
+                AIObject.WalkMobileRange(dest, 1, false, 0, 0);
+        }
+
+        private static List<DudeCreature> CollectPackDudes(Mobile master)
+        {
+            List<DudeCreature> pack = new List<DudeCreature>();
+            PlayerMobile pm = master as PlayerMobile;
+            List<Mobile> followers = pm != null ? pm.AllFollowers : null;
+            if (followers == null)
+                return pack;
+
+            for (int i = 0; i < followers.Count; i++)
+            {
+                DudeCreature dude = followers[i] as DudeCreature;
+                if (dude == null || dude.Deleted || dude.IsWild)
+                    continue;
+                if (!dude.Controlled || dude.ControlMaster != master)
+                    continue;
+                if (dude.Map != master.Map || !dude.InRange(master, 18))
+                    continue;
+                pack.Add(dude);
+            }
+            return pack;
+        }
+
+        private static bool TryResolveFollowOffset(Mobile master, int index, int packCount, out Point3D dest)
+        {
+            dest = Point3D.Zero;
+            Map map = master.Map;
+            if (map == null || map == Map.Internal)
+                return false;
+
+            int rings = Math.Max(1, (packCount + 7) / 8);
+            int slotCount = rings * 8;
+
+            for (int attempt = 0; attempt < slotCount; attempt++)
+            {
+                int slot = (index + attempt) % slotCount;
+                int ring = (slot / 8) + 1;
+                int dir = slot % 8;
+                int x = master.X + FollowRingDX[dir] * ring;
+                int y = master.Y + FollowRingDY[dir] * ring;
+                int z = master.Z;
+
+                Point3D p = new Point3D(x, y, z);
+                if (map.CanFit(p, 16, false, false))
+                {
+                    dest = p;
+                    return true;
+                }
+
+                int avgZ = map.GetAverageZ(x, y);
+                if (avgZ != z)
+                {
+                    p = new Point3D(x, y, avgZ);
+                    if (map.CanFit(p, 16, false, false))
+                    {
+                        dest = p;
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         private bool IsOwnerOrStaff(Mobile m)
