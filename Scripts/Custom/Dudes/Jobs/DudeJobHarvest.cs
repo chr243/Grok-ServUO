@@ -82,7 +82,7 @@ namespace Server.Custom.Dudes.Jobs
                 return false;
 
             HarvestBank bank = def.GetBank(map, x, y);
-            return bank != null && bank.Current >= def.ConsumedPerHarvest;
+            return bank != null && bank.Current >= 1;
         }
 
         /// <summary>
@@ -95,25 +95,20 @@ namespace Server.Custom.Dudes.Jobs
                 return null;
 
             HarvestBank bank = def.GetBank(map, loc.X, loc.Y);
-            if (bank == null || bank.Current < def.ConsumedPerHarvest)
+            if (bank == null || bank.Current < 1)
                 return null;
 
-            int give = def.ConsumedPerHarvest;
-            if (map.Rules == MapRules.FeluccaRules)
-                give = def.ConsumedPerFeluccaHarvest;
-            if (minGiveAmount > give)
-                give = minGiveAmount;
-
-            if (give > bank.Current)
-                give = bank.Current;
+            // Job stations pay a fixed small stack — never player lumberjack 10/20 per swing.
+            int give = minGiveAmount > 0 ? minGiveAmount : 3;
             if (give < 1)
-                return null;
+                give = 1;
 
             Item item = CreateFromVein(def, bank.Vein, skill, give);
             if (item == null)
                 return null;
 
-            int consume = def.ConsumedPerHarvest;
+            // Deplete one unit per successful cycle (not ConsumedPerHarvest).
+            int consume = 1;
             if (consume > bank.Current)
                 consume = bank.Current;
 
