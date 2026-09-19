@@ -384,6 +384,7 @@ namespace Server.Mobiles
 
             ApplyCombatSkills(data);
             ApplyDudeSpeeds();
+            CleanupDuplicateTypeSashes();
             RebuildGearCache();
         }
 
@@ -484,18 +485,49 @@ namespace Server.Mobiles
 
         /// <summary>
         /// Equip matching type sash on InnerTorso if none already (server AddItem; bypasses wild CanAcceptGear).
-        /// Blessed optional; Movable so the owner can lift it into the backpack.
+        /// Never AddItem a second sash; never drop a new sash into the backpack.
+        /// Blessed; Movable so the owner can lift it into the backpack.
         /// </summary>
         public void EnsureTypeSash(DudeDefinition def)
         {
+            DudeType type = def != null ? def.Type : DudeType.Fire;
+
             Item existing = FindItemOnLayer(Layer.InnerTorso);
+
+            // Already wearing any DudeGear (includes matching type sash) — do nothing.
             if (existing is DudeGear)
                 return;
 
-            if (existing != null)
-                existing.Delete();
+            // Matching type sash already on the layer — do nothing.
+            if (IsMatchingTypeSash(existing, type))
+                return;
 
-            DudeType type = def != null ? def.Type : DudeType.Fire;
+            // Clear non-gear / wrong item on InnerTorso only (never a second sash).
+            if (existing != null)
+            {
+                existing.Delete();
+                existing = FindItemOnLayer(Layer.InnerTorso);
+                if (existing is DudeGear || IsMatchingTypeSash(existing, type))
+                    return;
+            }
+
+            // Re-use an owned matching sash (orphan on Items or in backpack) instead of spawning another.
+            DudeGear owned = FindOwnedMatchingTypeSash(type);
+            if (owned != null)
+            {
+                owned.LootType = LootType.Blessed;
+                owned.Movable = true;
+
+                // Already the worn layer item — done.
+                if (FindItemOnLayer(Layer.InnerTorso) == owned)
+                    return;
+
+                // Move from backpack (or re-assert on mobile) onto InnerTorso. Never create a second.
+                if (owned.Parent != this)
+                    AddItem(owned);
+                return;
+            }
+
             DudeGear sash = CreateTypeSash(type);
             if (sash == null)
                 return;
@@ -503,6 +535,123 @@ namespace Server.Mobiles
             sash.LootType = LootType.Blessed;
             sash.Movable = true;
             AddItem(sash);
+        }
+
+        /// <summary>
+        /// Leave non-worn DudeGear for the player (Manual ignores them via FillEquippedGear).
+        /// Blessed starter type-sash duplicates of the worn sash are deleted.
+        /// </summary>
+        public void CleanupDuplicateTypeSashes()
+        {
+            Item worn = FindItemOnLayer(Layer.InnerTorso);
+            if (!IsTypeSash(worn))
+                worn = null;
+
+            List<Item> toDelete = null;
+
+            for (int i = 0; i < Items.Count; i++)
+            {
+                DudeGear gear = Items[i] as DudeGear;
+                if (gear == null || gear.Deleted)
+                    continue;
+                if (FindItemOnLayer(gear.Layer) == gear)
+                    continue;
+
+                // Loose / layer-orphan on the mobile: keep unless blessed starter sash dupe of worn.
+                if (worn != null && IsBlessedStarterTypeSashDuplicate(gear, worn))
+                {
+                    if (toDelete == null)
+                        toDelete = new List<Item>();
+                    toDelete.Add(gear);
+                }
+            }
+
+            Container pack = Backpack;
+            if (pack != null && worn != null)
+            {
+                for (int i = 0; i < pack.Items.Count; i++)
+                {
+                    Item item = pack.Items[i];
+                    if (item == null || item.Deleted)
+                        continue;
+                    if (!IsBlessedStarterTypeSashDuplicate(item, worn))
+                        continue;
+                    if (toDelete == null)
+                        toDelete = new List<Item>();
+                    toDelete.Add(item);
+                }
+            }
+
+            if (toDelete == null)
+                return;
+
+            for (int i = 0; i < toDelete.Count; i++)
+            {
+                Item item = toDelete[i];
+                if (item != null && !item.Deleted)
+                    item.Delete();
+            }
+        }
+
+        private DudeGear FindOwnedMatchingTypeSash(DudeType type)
+        {
+            for (int i = 0; i < Items.Count; i++)
+            {
+                Item item = Items[i];
+                if (item == null || item.Deleted)
+                    continue;
+                if (IsMatchingTypeSash(item, type))
+                    return (DudeGear)item;
+            }
+
+            Container pack = Backpack;
+            if (pack != null)
+            {
+                for (int i = 0; i < pack.Items.Count; i++)
+                {
+                    Item item = pack.Items[i];
+                    if (item == null || item.Deleted)
+                        continue;
+                    if (IsMatchingTypeSash(item, type))
+                        return (DudeGear)item;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsTypeSash(Item item)
+        {
+            return item is EmberSash || item is TideSash || item is StoneSash || item is GaleSash;
+        }
+
+        private static bool IsMatchingTypeSash(Item item, DudeType type)
+        {
+            if (item == null || item.Deleted)
+                return false;
+
+            switch (type)
+            {
+                case DudeType.Water:
+                    return item is TideSash;
+                case DudeType.Earth:
+                    return item is StoneSash;
+                case DudeType.Air:
+                    return item is GaleSash;
+                default:
+                    return item is EmberSash;
+            }
+        }
+
+        private static bool IsBlessedStarterTypeSashDuplicate(Item candidate, Item worn)
+        {
+            if (candidate == null || worn == null || candidate == worn || candidate.Deleted)
+                return false;
+            if (candidate.LootType != LootType.Blessed)
+                return false;
+            if (!IsTypeSash(candidate) || !IsTypeSash(worn))
+                return false;
+            return candidate.GetType() == worn.GetType();
         }
 
         private static DudeGear CreateTypeSash(DudeType type)
@@ -1139,9 +1288,10 @@ namespace Server.Mobiles
                 DudeCombatSkills.SetGearCopySkill(this, SkillName.Parry, 0.0, cap);
         }
 
-        /// <summary>Rebuild equipped-ability cache (call after load / summon / gump refresh).</summary>
+        /// <summary>Cleanup sash dupes + rebuild equipped-ability cache (load / summon / gump refresh).</summary>
         public void Refresh()
         {
+            CleanupDuplicateTypeSashes();
             RebuildGearCache();
         }
 

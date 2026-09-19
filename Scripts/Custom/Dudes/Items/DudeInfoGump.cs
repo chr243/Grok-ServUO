@@ -526,8 +526,9 @@ namespace Server.Items
         }
 
         /// <summary>
-        /// Read equipped DudeGear once from the live Dude only (prefer live mobile over BoundBall copies).
-        /// One row per unique Serial: name then that item's desc.
+        /// Read worn DudeGear only from the live Dude (prefer live mobile over BoundBall copies).
+        /// Worn = Parent == dude and FindItemOnLayer(Layer) == gear. Dedupe by Serial.
+        /// Backpack / bank / loose Items are skipped (not shown as equipped).
         /// </summary>
         private static void FillEquippedGear(DudeInfoView view, DudeCreature dude)
         {
@@ -542,11 +543,15 @@ namespace Server.Items
             int dudeLevel = view.Level > 0 ? view.Level : 1;
             double stageCap = DudeCombatSkills.GetCap(view.EvolutionStage);
 
-            // Iterate Items once; skip non-gear / deleted / already-listed Serial.
+            // Iterate Items once; only truly worn DudeGear (layer winner), unique Serial.
             for (int i = 0; i < dude.Items.Count; i++)
             {
                 DudeGear gear = dude.Items[i] as DudeGear;
                 if (gear == null || gear.Deleted)
+                    continue;
+                if (gear.Parent != dude)
+                    continue;
+                if (dude.FindItemOnLayer(gear.Layer) != gear)
                     continue;
                 if (!seen.Add(gear.Serial))
                     continue;
