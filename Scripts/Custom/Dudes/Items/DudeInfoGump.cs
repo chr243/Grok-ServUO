@@ -134,8 +134,9 @@ namespace Server.Items
             if (unlockedSlots > 4)
                 unlockedSlots = 4;
 
-            int equippedCount = view.EquippedGearNames != null ? view.EquippedGearNames.Count : 0;
-            for (int i = 0; i < equippedCount; i++)
+            // One row per unique worn DudeGear (names/descs already de-duped by FillEquippedGear).
+            int uniqueCount = view.EquippedGearNames != null ? view.EquippedGearNames.Count : 0;
+            for (int i = 0; i < uniqueCount; i++)
             {
                 string gearName = view.EquippedGearNames[i];
                 if (string.IsNullOrEmpty(gearName))
@@ -143,6 +144,7 @@ namespace Server.Items
                 AddHtml(370, ry, 320, 18, string.Format("<BASEFONT COLOR=#66FF66>{0}</BASEFONT>", Truncate(gearName, 42)), false, false);
                 ry += 18;
 
+                // That item's desc only — not a second copy of the whole gear list.
                 string abilityLine = null;
                 if (view.EquippedGearAbilityLines != null && i < view.EquippedGearAbilityLines.Count)
                     abilityLine = view.EquippedGearAbilityLines[i];
@@ -154,18 +156,23 @@ namespace Server.Items
                 }
             }
 
-            for (int slot = equippedCount + 1; slot <= 4; slot++)
+            // Empty = unlocked slots minus unique worn gear (never use a doubled list count).
+            int emptySlots = unlockedSlots - uniqueCount;
+            if (emptySlots < 0)
+                emptySlots = 0;
+
+            for (int e = 0; e < emptySlots; e++)
             {
-                if (slot <= unlockedSlots)
-                {
-                    AddHtml(370, ry, 320, 18, string.Format("<BASEFONT COLOR=#66FF66>Slot {0}: Empty</BASEFONT>", slot), false, false);
-                }
-                else
-                {
-                    int unlockStage = slot <= 2 ? 1 : (slot == 3 ? 2 : 3);
-                    AddHtml(370, ry, 320, 18, string.Format("<BASEFONT COLOR=#808080>Slot {0} — unlocks at stage {1}</BASEFONT>",
-                        slot, unlockStage), false, false);
-                }
+                int slot = uniqueCount + e + 1;
+                AddHtml(370, ry, 320, 18, string.Format("<BASEFONT COLOR=#66FF66>Slot {0}: Empty</BASEFONT>", slot), false, false);
+                ry += 20;
+            }
+
+            for (int slot = uniqueCount + emptySlots + 1; slot <= 4; slot++)
+            {
+                int unlockStage = slot <= 2 ? 1 : (slot == 3 ? 2 : 3);
+                AddHtml(370, ry, 320, 18, string.Format("<BASEFONT COLOR=#808080>Slot {0} — unlocks at stage {1}</BASEFONT>",
+                    slot, unlockStage), false, false);
                 ry += 20;
             }
 
@@ -518,7 +525,10 @@ namespace Server.Items
                 view.SkillParry = parry.Base;
         }
 
-        /// <summary>Read equipped DudeGear names + scaled ability/skill lines + hat/shield flags from a live Dude.</summary>
+        /// <summary>
+        /// Read equipped DudeGear once from the live Dude only (prefer live mobile over BoundBall copies).
+        /// One row per unique Serial: name then that item's desc.
+        /// </summary>
         private static void FillEquippedGear(DudeInfoView view, DudeCreature dude)
         {
             if (view == null || dude == null || dude.Deleted)
@@ -526,15 +536,19 @@ namespace Server.Items
 
             List<string> names = new List<string>();
             List<string> abilityLines = new List<string>();
+            HashSet<Serial> seen = new HashSet<Serial>();
             StringBuilder abilityNames = new StringBuilder();
             StringBuilder abilityDescs = new StringBuilder();
             int dudeLevel = view.Level > 0 ? view.Level : 1;
             double stageCap = DudeCombatSkills.GetCap(view.EvolutionStage);
 
+            // Iterate Items once; skip non-gear / deleted / already-listed Serial.
             for (int i = 0; i < dude.Items.Count; i++)
             {
                 DudeGear gear = dude.Items[i] as DudeGear;
                 if (gear == null || gear.Deleted)
+                    continue;
+                if (!seen.Add(gear.Serial))
                     continue;
                 string n = gear.Name;
                 if (string.IsNullOrEmpty(n))
