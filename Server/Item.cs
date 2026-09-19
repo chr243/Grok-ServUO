@@ -1282,6 +1282,9 @@ namespace Server
         /// </summary>
         public virtual void AddResistanceProperties(ObjectPropertyList list)
         {
+            if (!Core.AOS)
+                return;
+
             int v = PhysicalResistance;
 
             if (v != 0)

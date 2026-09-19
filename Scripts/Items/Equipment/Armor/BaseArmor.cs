@@ -541,6 +541,9 @@ namespace Server.Items
         
         public override void AddResistanceProperties(ObjectPropertyList list)
         {
+            if (!Core.AOS)
+                return;
+
             if (PhysicalResistance != 0 || m_RefinedPhysical != 0)
             {
                 if (m_RefinedPhysical != 0)
