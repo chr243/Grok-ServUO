@@ -8,6 +8,7 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using Server.Misc;
 #endregion
 
 namespace Server.Network
@@ -509,16 +510,32 @@ namespace Server.Network
             {
                 Socket socket = accepted.Socket;
 
+                string remote = "?";
+                string local = "?";
+                try
+                {
+                    if (socket.RemoteEndPoint != null)
+                        remote = socket.RemoteEndPoint.ToString();
+                    if (socket.LocalEndPoint != null)
+                        local = socket.LocalEndPoint.ToString();
+                }
+                catch
+                { }
+
+                ConnectionLog.Write("ACCEPT {0} local={1}", remote, local);
+
                 SocketConnectEventArgs args = new SocketConnectEventArgs(socket);
 
                 EventSink.InvokeSocketConnect(args);
 
                 if (args.AllowConnection)
                 {
+                    ConnectionLog.Write("ALLOW {0}", remote);
                     yield return accepted;
                 }
                 else
                 {
+                    ConnectionLog.Write("DROP {0} AllowConnection=false", remote);
                     Release(true, ref socket);
                 }
             }
