@@ -10,7 +10,7 @@ namespace Server.Items
     public class MagicalDudeHat : DudeGear
     {
         private const double ItemCap = 120.0;
-        private const int RollMin = 40;
+        private const int RollMin = 50;
         private const int RollMax = 80;
 
         private double m_Magery;
@@ -94,6 +94,13 @@ namespace Server.Items
             m_Magery = ClampItem(reader.ReadDouble());
             m_EvalInt = ClampItem(reader.ReadDouble());
             m_Meditation = ClampItem(reader.ReadDouble());
+
+            if (m_Magery < 50.0)
+                m_Magery = 50.0;
+            if (m_EvalInt < 50.0)
+                m_EvalInt = 50.0;
+            if (m_Meditation < 50.0)
+                m_Meditation = 50.0;
 
             Name = "Magical Dude Hat";
             Hue = 0x482;

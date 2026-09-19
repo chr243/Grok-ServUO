@@ -10,7 +10,7 @@ namespace Server.Items
     public class DudeShield : DudeGear
     {
         private const double ItemCap = 120.0;
-        private const int RollMin = 40;
+        private const int RollMin = 50;
         private const int RollMax = 80;
 
         private double m_Parrying;
@@ -69,6 +69,9 @@ namespace Server.Items
             int version = reader.ReadInt();
 
             m_Parrying = ClampItem(reader.ReadDouble());
+
+            if (m_Parrying < 50.0)
+                m_Parrying = 50.0;
 
             Name = "Dude Shield";
             Layer = Layer.TwoHanded;
