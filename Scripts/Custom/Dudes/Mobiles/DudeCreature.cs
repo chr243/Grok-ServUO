@@ -31,7 +31,7 @@ namespace Server.Mobiles
         private DateTime m_NextFaultlinePulse;
         private List<string> m_EquippedAbilityIds;
 
-        /// <summary>Fixed paperdoll layers for DudeGear (Pants reserved for type shorts).</summary>
+        /// <summary>Fixed paperdoll layers for typed DudeGear (Pants reserved for type shorts). TwoHanded allowed separately for Dude Shield.</summary>
         public static readonly Layer[] GearLayerOrder = new Layer[]
         {
             Layer.Helm,
@@ -638,9 +638,15 @@ namespace Server.Mobiles
             return DudeExperience.GetGearSlots(EvolutionStage);
         }
 
-        /// <summary>First GetGearSlots layers in GearLayerOrder are allowed.</summary>
+        /// <summary>
+        /// First GetGearSlots layers in GearLayerOrder are allowed.
+        /// Layer.TwoHanded is also allowed (universal shield); SlotCost still applies.
+        /// </summary>
         public bool IsGearLayerAllowed(Layer layer)
         {
+            if (layer == Layer.TwoHanded)
+                return GetGearSlotCount() > 0;
+
             int allowed = GetGearSlotCount();
             if (allowed < 0)
                 allowed = 0;
@@ -698,6 +704,7 @@ namespace Server.Mobiles
             }
 
             Layer layer = gear.Layer;
+            bool isTwoHanded = (layer == Layer.TwoHanded);
             int layerIndex = -1;
             for (int i = 0; i < GearLayerOrder.Length; i++)
             {
@@ -708,7 +715,7 @@ namespace Server.Mobiles
                 }
             }
 
-            if (layerIndex < 0)
+            if (!isTwoHanded && layerIndex < 0)
             {
                 reason = "That gear uses an invalid slot.";
                 return false;
@@ -720,7 +727,9 @@ namespace Server.Mobiles
             if (allowed > GearLayerOrder.Length)
                 allowed = GearLayerOrder.Length;
 
-            if (layerIndex >= allowed)
+            // Helm / InnerTorso / Bracelet / Talisman unlock by stage index.
+            // TwoHanded is always a valid layer but still consumes SlotCost budget.
+            if (!isTwoHanded && layerIndex >= allowed)
             {
                 int stageNeeded = StageNeededForLayerIndex(layerIndex);
                 reason = string.Format("Needs stage {0} for another slot.", stageNeeded);
@@ -772,6 +781,44 @@ namespace Server.Mobiles
                     continue;
                 m_EquippedAbilityIds.Add(gear.AbilityId);
             }
+
+            ApplyUniversalGearEffects();
+        }
+
+        /// <summary>
+        /// Magical Dude Hat / Dude Shield: copy stored skills (Min stored, stage cap), switch AI.
+        /// Stored item values never change here — only effective Base / AI.
+        /// </summary>
+        private void ApplyUniversalGearEffects()
+        {
+            double cap = DudeCombatSkills.GetCap(EvolutionStage);
+            if (m_BoundBall != null && !m_BoundBall.Deleted && m_BoundBall.StoredDude != null)
+                cap = DudeCombatSkills.GetCap(m_BoundBall.StoredDude);
+
+            MagicalDudeHat hat = FindItemOnLayer(Layer.Helm) as MagicalDudeHat;
+            if (hat != null && !hat.Deleted)
+            {
+                DudeCombatSkills.SetGearCopySkill(this, SkillName.Magery, Math.Min(hat.Magery, cap), cap);
+                DudeCombatSkills.SetGearCopySkill(this, SkillName.EvalInt, Math.Min(hat.EvalInt, cap), cap);
+                DudeCombatSkills.SetGearCopySkill(this, SkillName.Meditation, Math.Min(hat.Meditation, cap), cap);
+                // AI setter updates CurrentAI and calls ChangeAIType.
+                if (AI != AIType.AI_Mage)
+                    AI = AIType.AI_Mage;
+            }
+            else
+            {
+                DudeCombatSkills.SetGearCopySkill(this, SkillName.Magery, 0.0, cap);
+                DudeCombatSkills.SetGearCopySkill(this, SkillName.EvalInt, 0.0, cap);
+                DudeCombatSkills.SetGearCopySkill(this, SkillName.Meditation, 0.0, cap);
+                if (AI != AIType.AI_Melee)
+                    AI = AIType.AI_Melee;
+            }
+
+            DudeShield shield = FindItemOnLayer(Layer.TwoHanded) as DudeShield;
+            if (shield != null && !shield.Deleted)
+                DudeCombatSkills.SetGearCopySkill(this, SkillName.Parry, Math.Min(shield.Parrying, cap), cap);
+            else
+                DudeCombatSkills.SetGearCopySkill(this, SkillName.Parry, 0.0, cap);
         }
 
         /// <summary>Rebuild equipped-ability cache (call after load / summon / gump refresh).</summary>

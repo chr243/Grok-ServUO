@@ -104,6 +104,24 @@ namespace Server.Items
             AddLabel(24, y, labelHue, string.Format("Anatomy: {0:0.0} / {1:0.0}", view.SkillAnatomy, DudeCombatSkills.GetCap(view.EvolutionStage)));
             y += 18;
             AddLabel(24, y, labelHue, string.Format("Magic Resist: {0:0.0} / {1:0.0}", view.SkillMagicResist, DudeCombatSkills.GetCap(view.EvolutionStage)));
+            y += 18;
+
+            double stageCap = DudeCombatSkills.GetCap(view.EvolutionStage);
+            if (view.HasMagicalHat || view.SkillMagery > 0.0 || view.SkillEvalInt > 0.0 || view.SkillMeditation > 0.0)
+            {
+                AddLabel(24, y, labelHue, string.Format("Magery: {0:0.0} / {1:0.0}", view.SkillMagery, stageCap));
+                y += 18;
+                AddLabel(24, y, labelHue, string.Format("Eval Int: {0:0.0} / {1:0.0}", view.SkillEvalInt, stageCap));
+                y += 18;
+                AddLabel(24, y, labelHue, string.Format("Meditation: {0:0.0} / {1:0.0}", view.SkillMeditation, stageCap));
+                y += 18;
+            }
+
+            if (view.HasDudeShield || view.SkillParry > 0.0)
+            {
+                AddLabel(24, y, labelHue, string.Format("Parrying: {0:0.0} / {1:0.0}", view.SkillParry, stageCap));
+                y += 18;
+            }
 
             // RIGHT column — gear slots by evolution stage
             int ry = 48;
@@ -116,7 +134,17 @@ namespace Server.Items
             if (unlockedSlots > 4)
                 unlockedSlots = 4;
 
-            for (int slot = 1; slot <= 4; slot++)
+            int equippedCount = view.EquippedGearNames != null ? view.EquippedGearNames.Count : 0;
+            for (int i = 0; i < equippedCount; i++)
+            {
+                string gearName = view.EquippedGearNames[i];
+                if (string.IsNullOrEmpty(gearName))
+                    gearName = "Dude gear";
+                AddHtml(370, ry, 320, 18, string.Format("<BASEFONT COLOR=#66FF66>{0}</BASEFONT>", Truncate(gearName, 36)), false, false);
+                ry += 20;
+            }
+
+            for (int slot = equippedCount + 1; slot <= 4; slot++)
             {
                 if (slot <= unlockedSlots)
                 {
@@ -128,6 +156,22 @@ namespace Server.Items
                     AddHtml(370, ry, 320, 18, string.Format("<BASEFONT COLOR=#808080>Slot {0} — unlocks at stage {1}</BASEFONT>",
                         slot, unlockStage), false, false);
                 }
+                ry += 20;
+            }
+
+            if (view.HasMagicalHat)
+            {
+                AddHtml(370, ry, 320, 18, string.Format(
+                    "<BASEFONT COLOR=#99CCFF>Hat skills: Mag {0:0.0} / Eval {1:0.0} / Med {2:0.0}</BASEFONT>",
+                    view.SkillMagery, view.SkillEvalInt, view.SkillMeditation), false, false);
+                ry += 20;
+            }
+
+            if (view.HasDudeShield)
+            {
+                AddHtml(370, ry, 320, 18, string.Format(
+                    "<BASEFONT COLOR=#99CCFF>Shield Parrying: {0:0.0}</BASEFONT>",
+                    view.SkillParry), false, false);
                 ry += 20;
             }
 
@@ -202,14 +246,20 @@ namespace Server.Items
             if (ball != null && !ball.Deleted && ball.HasDude && ball.StoredDude != null)
             {
                 if (ball.IsSummoned && ball.SummonedDude != null && !ball.SummonedDude.Deleted)
+                {
+                    ball.SummonedDude.Refresh();
                     return DudeInfoView.FromDudeCreature(ball.SummonedDude);
+                }
 
                 return DudeInfoView.FromDudeBall(ball);
             }
 
             DudeCreature dude = World.FindMobile(m_CreatureSerial) as DudeCreature;
             if (dude != null && !dude.Deleted)
+            {
+                dude.Refresh();
                 return DudeInfoView.FromDudeCreature(dude);
+            }
 
             DudeBoss boss = World.FindMobile(m_BossSerial) as DudeBoss;
             if (boss != null && !boss.Deleted)
@@ -314,6 +364,13 @@ namespace Server.Items
             SkillTactics = 0.0,
             SkillAnatomy = 0.0,
             SkillMagicResist = 0.0,
+            SkillMagery = 0.0,
+            SkillEvalInt = 0.0,
+            SkillMeditation = 0.0,
+            SkillParry = 0.0,
+            HasMagicalHat = false,
+            HasDudeShield = false,
+            EquippedGearNames = null,
             EvolutionStage = 0,
             KitType = DudeType.Fire,
             UnlockedAbilityIds = null,
@@ -348,6 +405,13 @@ namespace Server.Items
         public double SkillTactics { get; set; }
         public double SkillAnatomy { get; set; }
         public double SkillMagicResist { get; set; }
+        public double SkillMagery { get; set; }
+        public double SkillEvalInt { get; set; }
+        public double SkillMeditation { get; set; }
+        public double SkillParry { get; set; }
+        public bool HasMagicalHat { get; set; }
+        public bool HasDudeShield { get; set; }
+        public List<string> EquippedGearNames { get; set; }
         public int EvolutionStage { get; set; }
         public DudeType KitType { get; set; }
         public List<string> UnlockedAbilityIds { get; set; }
@@ -439,6 +503,45 @@ namespace Server.Items
             Skill magicResist = m.Skills[SkillName.MagicResist];
             if (magicResist != null)
                 view.SkillMagicResist = magicResist.Base;
+
+            Skill magery = m.Skills[SkillName.Magery];
+            if (magery != null)
+                view.SkillMagery = magery.Base;
+
+            Skill evalInt = m.Skills[SkillName.EvalInt];
+            if (evalInt != null)
+                view.SkillEvalInt = evalInt.Base;
+
+            Skill meditation = m.Skills[SkillName.Meditation];
+            if (meditation != null)
+                view.SkillMeditation = meditation.Base;
+
+            Skill parry = m.Skills[SkillName.Parry];
+            if (parry != null)
+                view.SkillParry = parry.Base;
+        }
+
+        /// <summary>Read equipped DudeGear names + hat/shield flags from a live Dude.</summary>
+        private static void FillEquippedGear(DudeInfoView view, DudeCreature dude)
+        {
+            if (view == null || dude == null || dude.Deleted)
+                return;
+
+            List<string> names = new List<string>();
+            for (int i = 0; i < dude.Items.Count; i++)
+            {
+                DudeGear gear = dude.Items[i] as DudeGear;
+                if (gear == null || gear.Deleted)
+                    continue;
+                string n = gear.Name;
+                if (string.IsNullOrEmpty(n))
+                    n = gear.GetType().Name;
+                names.Add(n);
+            }
+
+            view.EquippedGearNames = names;
+            view.HasMagicalHat = dude.FindItemOnLayer(Layer.Helm) is MagicalDudeHat;
+            view.HasDudeShield = dude.FindItemOnLayer(Layer.TwoHanded) is DudeShield;
         }
 
         private static void FillAbilityTexts(DudeInfoView view, DudeData data, string fallbackAbilityId)
@@ -582,6 +685,7 @@ namespace Server.Items
                 fromBall.Level = dude.DudeLevel > 0 ? dude.DudeLevel : 1;
                 // Keep KitType / EvolutionStage from data; refresh skill values from live mobile when present.
                 TryOverlayLiveCombatSkills(fromBall, dude);
+                FillEquippedGear(fromBall, dude);
                 fromBall.CreatureSerial = dude.Serial;
                 fromBall.BossSerial = Serial.MinusOne;
                 FillEvolve(fromBall, dude.BoundBall);
@@ -635,6 +739,8 @@ namespace Server.Items
                 view.UnlockedAbilityIds = null;
             }
 
+            TryOverlayLiveCombatSkills(view, dude);
+            FillEquippedGear(view, dude);
             view.CreatureSerial = dude.Serial;
             view.BossSerial = Serial.MinusOne;
             view.BallSerial = Serial.MinusOne;

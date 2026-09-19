@@ -74,6 +74,45 @@ namespace Server.Custom.Dudes
                 || skill == SkillName.MagicResist;
         }
 
+        /// <summary>
+        /// Magery / EvalInt / Meditation / Parry on Dudes come from hat/shield copy-in only.
+        /// Never raise Base via skill gain.
+        /// </summary>
+        public static bool IsGearCopyOnly(SkillName skill)
+        {
+            return skill == SkillName.Magery
+                || skill == SkillName.EvalInt
+                || skill == SkillName.Meditation
+                || skill == SkillName.Parry;
+        }
+
+        /// <summary>
+        /// Apply a gear-copied skill value and lock it against gains.
+        /// </summary>
+        public static void SetGearCopySkill(Mobile m, SkillName name, double value, double cap)
+        {
+            if (m == null || m.Skills == null)
+                return;
+
+            Skill skill = m.Skills[name];
+            if (skill == null)
+                return;
+
+            if (cap < 0.0)
+                cap = 0.0;
+            if (skill.Cap < cap)
+                skill.Cap = cap;
+
+            double v = value;
+            if (v < 0.0)
+                v = 0.0;
+            if (v > cap)
+                v = cap;
+
+            skill.Base = v;
+            skill.SetLockNoRelay(SkillLock.Locked);
+        }
+
         public static void EnsureRolled(DudeData data)
         {
             if (data == null)
@@ -263,6 +302,9 @@ namespace Server.Custom.Dudes
         public static void SyncGainToBall(Mobile from, Skill skill, DudeData data, DudeBall ball)
         {
             if (from == null || skill == null || data == null)
+                return;
+
+            if (IsGearCopyOnly(skill.SkillName))
                 return;
 
             if (!IsTracked(skill.SkillName))
