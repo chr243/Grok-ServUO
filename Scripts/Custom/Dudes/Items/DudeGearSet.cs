@@ -4,8 +4,9 @@ namespace Server.Items
 {
     // Type-locked DudeGear for all 12 kit abilities.
     // Hues match essences: Fire 1161, Water 1365, Earth 2413, Air 1153.
-    // Layer.Talisman left empty for slot 4 later.
-    // ItemIDs: sash 0x1541, circlet/floppy 0x1713 (Helm), bracers/bracelet 0x1086.
+    // Layers: Helm reserved for Magical Dude Hat; type earrings on Earrings;
+    // sash InnerTorso; bracers Bracelet. Slot budget is a count, not a layer ladder.
+    // ItemIDs: sash 0x1541, earrings 0x1087, bracers/bracelet 0x1086.
 
     #region Fire
 
@@ -13,11 +14,11 @@ namespace Server.Items
     {
         [Constructable]
         public EmberCirclet()
-            : base(0x1713)
+            : base(0x1087)
         {
-            Name = "Ember Circlet";
+            Name = "Ember Earrings";
             Hue = 1161;
-            Layer = Layer.Helm;
+            Layer = Layer.Earrings;
             AbilityId = "ring_of_fire";
             SlotCost = 1;
             RequiredType = DudeType.Fire;
@@ -39,9 +40,10 @@ namespace Server.Items
             base.Deserialize(reader);
             reader.ReadInt();
 
-            Name = "Ember Circlet";
+            Name = "Ember Earrings";
             Hue = 1161;
-            Layer = Layer.Helm;
+            ItemID = 0x1087;
+            Layer = Layer.Earrings;
             if (string.IsNullOrEmpty(AbilityId))
                 AbilityId = "ring_of_fire";
             RequiredType = DudeType.Fire;
@@ -134,11 +136,11 @@ namespace Server.Items
     {
         [Constructable]
         public TideCirclet()
-            : base(0x1713)
+            : base(0x1087)
         {
-            Name = "Tide Circlet";
+            Name = "Tide Earrings";
             Hue = 1365;
-            Layer = Layer.Helm;
+            Layer = Layer.Earrings;
             AbilityId = "tide_chorus";
             SlotCost = 1;
             RequiredType = DudeType.Water;
@@ -160,9 +162,10 @@ namespace Server.Items
             base.Deserialize(reader);
             reader.ReadInt();
 
-            Name = "Tide Circlet";
+            Name = "Tide Earrings";
             Hue = 1365;
-            Layer = Layer.Helm;
+            ItemID = 0x1087;
+            Layer = Layer.Earrings;
             if (string.IsNullOrEmpty(AbilityId))
                 AbilityId = "tide_chorus";
             RequiredType = DudeType.Water;
@@ -255,11 +258,11 @@ namespace Server.Items
     {
         [Constructable]
         public StoneCirclet()
-            : base(0x1713)
+            : base(0x1087)
         {
-            Name = "Stone Circlet";
+            Name = "Stone Earrings";
             Hue = 2413;
-            Layer = Layer.Helm;
+            Layer = Layer.Earrings;
             AbilityId = "aftershock";
             SlotCost = 1;
             RequiredType = DudeType.Earth;
@@ -281,9 +284,10 @@ namespace Server.Items
             base.Deserialize(reader);
             reader.ReadInt();
 
-            Name = "Stone Circlet";
+            Name = "Stone Earrings";
             Hue = 2413;
-            Layer = Layer.Helm;
+            ItemID = 0x1087;
+            Layer = Layer.Earrings;
             if (string.IsNullOrEmpty(AbilityId))
                 AbilityId = "aftershock";
             RequiredType = DudeType.Earth;
@@ -376,11 +380,11 @@ namespace Server.Items
     {
         [Constructable]
         public GaleCirclet()
-            : base(0x1713)
+            : base(0x1087)
         {
-            Name = "Gale Circlet";
+            Name = "Gale Earrings";
             Hue = 1153;
-            Layer = Layer.Helm;
+            Layer = Layer.Earrings;
             AbilityId = "tailwind";
             SlotCost = 1;
             RequiredType = DudeType.Air;
@@ -402,9 +406,10 @@ namespace Server.Items
             base.Deserialize(reader);
             reader.ReadInt();
 
-            Name = "Gale Circlet";
+            Name = "Gale Earrings";
             Hue = 1153;
-            Layer = Layer.Helm;
+            ItemID = 0x1087;
+            Layer = Layer.Earrings;
             if (string.IsNullOrEmpty(AbilityId))
                 AbilityId = "tailwind";
             RequiredType = DudeType.Air;

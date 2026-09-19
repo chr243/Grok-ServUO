@@ -31,13 +31,18 @@ namespace Server.Mobiles
         private DateTime m_NextFaultlinePulse;
         private List<string> m_EquippedAbilityIds;
 
-        /// <summary>Fixed paperdoll layers for typed DudeGear (Pants reserved for type shorts). TwoHanded allowed separately for Dude Shield.</summary>
+        /// <summary>
+        /// Allowed DudeGear paperdoll layers (order is documentation only — slot budget is a count).
+        /// Helm = Magical Dude Hat; InnerTorso = sash; Earrings = type earrings; Bracelet = bracers.
+        /// TwoHanded (Dude Shield) allowed separately via CanAcceptGear; still costs a slot.
+        /// Pants reserved for type shorts.
+        /// </summary>
         public static readonly Layer[] GearLayerOrder = new Layer[]
         {
-            Layer.Helm,
-            Layer.InnerTorso,
-            Layer.Bracelet,
-            Layer.Talisman
+            Layer.Helm,        // hat
+            Layer.InnerTorso,  // sash
+            Layer.Earrings,    // type earrings (was circlet)
+            Layer.Bracelet     // bracers
         };
 
         private const double DudeForceSpeed = 0.1;
@@ -639,21 +644,18 @@ namespace Server.Mobiles
         }
 
         /// <summary>
-        /// First GetGearSlots layers in GearLayerOrder are allowed.
-        /// Layer.TwoHanded is also allowed (universal shield); SlotCost still applies.
+        /// True if layer is one of the allowed DudeGear layers (or TwoHanded shield).
+        /// Does not check slot budget — use CanAcceptGear for that.
         /// </summary>
         public bool IsGearLayerAllowed(Layer layer)
         {
+            if (GetGearSlotCount() <= 0)
+                return false;
+
             if (layer == Layer.TwoHanded)
-                return GetGearSlotCount() > 0;
+                return true;
 
-            int allowed = GetGearSlotCount();
-            if (allowed < 0)
-                allowed = 0;
-            if (allowed > GearLayerOrder.Length)
-                allowed = GearLayerOrder.Length;
-
-            for (int i = 0; i < allowed; i++)
+            for (int i = 0; i < GearLayerOrder.Length; i++)
             {
                 if (GearLayerOrder[i] == layer)
                     return true;
@@ -661,12 +663,13 @@ namespace Server.Mobiles
             return false;
         }
 
-        private static int StageNeededForLayerIndex(int index)
+        /// <summary>Stage required to have at least <paramref name="slotsNeeded"/> gear slots.</summary>
+        private static int StageNeededForSlotCount(int slotsNeeded)
         {
-            // Slots 1–2 → stage 1; slot 3 → stage 2; slot 4 → stage 3
-            if (index <= 1)
+            // 1–2 slots → stage 1; 3 → stage 2; 4+ → stage 3
+            if (slotsNeeded <= 2)
                 return 1;
-            if (index == 2)
+            if (slotsNeeded == 3)
                 return 2;
             return 3;
         }
@@ -705,43 +708,36 @@ namespace Server.Mobiles
 
             Layer layer = gear.Layer;
             bool isTwoHanded = (layer == Layer.TwoHanded);
-            int layerIndex = -1;
-            for (int i = 0; i < GearLayerOrder.Length; i++)
+            bool layerOk = isTwoHanded;
+            if (!layerOk)
             {
-                if (GearLayerOrder[i] == layer)
+                for (int i = 0; i < GearLayerOrder.Length; i++)
                 {
-                    layerIndex = i;
-                    break;
+                    if (GearLayerOrder[i] == layer)
+                    {
+                        layerOk = true;
+                        break;
+                    }
                 }
             }
 
-            if (!isTwoHanded && layerIndex < 0)
+            if (!layerOk)
             {
                 reason = "That gear uses an invalid slot.";
                 return false;
             }
 
+            // Slot budget is a count of SlotCost, not a fixed layer ladder.
+            // Stage 1 may wear any two allowed layers (hat+sash, sash+earrings, hat+shield, etc.).
             int allowed = GetGearSlotCount();
             if (allowed < 0)
                 allowed = 0;
-            if (allowed > GearLayerOrder.Length)
-                allowed = GearLayerOrder.Length;
-
-            // Helm / InnerTorso / Bracelet / Talisman unlock by stage index.
-            // TwoHanded is always a valid layer but still consumes SlotCost budget.
-            if (!isTwoHanded && layerIndex >= allowed)
-            {
-                int stageNeeded = StageNeededForLayerIndex(layerIndex);
-                reason = string.Format("Needs stage {0} for another slot.", stageNeeded);
-                return false;
-            }
 
             int used = GetEquippedGearSlotCost(gear);
             int cost = gear.SlotCost;
             if (used + cost > allowed)
             {
-                // Next slot beyond current capacity
-                int stageNeeded = StageNeededForLayerIndex(Math.Min(used + cost - 1, GearLayerOrder.Length - 1));
+                int stageNeeded = StageNeededForSlotCount(used + cost);
                 reason = string.Format("Needs stage {0} for another slot.", stageNeeded);
                 return false;
             }

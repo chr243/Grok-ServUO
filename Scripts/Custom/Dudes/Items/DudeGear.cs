@@ -6,8 +6,9 @@ namespace Server.Items
 {
     /// <summary>
     /// Wearable gear for DudeCreature paperdoll slots. Grants AbilityId while equipped.
-    /// Layers: Helm, InnerTorso, Bracelet, Talisman (Pants reserved for type shorts);
-    /// Layer.TwoHanded also accepted for universal Dude Shield.
+    /// Allowed layers: Helm (hat), InnerTorso (sash), Earrings (type earrings), Bracelet (bracers);
+    /// Layer.TwoHanded also accepted for universal Dude Shield. Pants reserved for type shorts.
+    /// Slot budget is SlotCost sum vs GetGearSlotCount() — not a fixed layer unlock ladder.
     /// Optional RequiredType locks gear to Fire/Water/Earth/Air Dudes.
     /// Leave RequiredType unset so HasRequiredType stays false (universal gear).
     /// </summary>
