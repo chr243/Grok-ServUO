@@ -141,7 +141,17 @@ namespace Server.Items
                 if (string.IsNullOrEmpty(gearName))
                     gearName = "Dude gear";
                 AddHtml(370, ry, 320, 18, string.Format("<BASEFONT COLOR=#66FF66>{0}</BASEFONT>", Truncate(gearName, 42)), false, false);
-                ry += 20;
+                ry += 18;
+
+                string abilityLine = null;
+                if (view.EquippedGearAbilityLines != null && i < view.EquippedGearAbilityLines.Count)
+                    abilityLine = view.EquippedGearAbilityLines[i];
+                if (!string.IsNullOrEmpty(abilityLine))
+                {
+                    // Wrap so scaled damage/heal numbers are never truncated.
+                    AddHtml(370, ry, 320, 36, string.Format("<BASEFONT COLOR=#CCCCCC>{0}</BASEFONT>", abilityLine), false, false);
+                    ry += 36;
+                }
             }
 
             for (int slot = equippedCount + 1; slot <= 4; slot++)
@@ -173,17 +183,6 @@ namespace Server.Items
                     "<BASEFONT COLOR=#99CCFF>Shield Parrying: {0:0.0}</BASEFONT>",
                     view.SkillParry), false, false);
                 ry += 20;
-            }
-
-            if (!string.IsNullOrEmpty(view.AbilityDescription))
-            {
-                ry += 6;
-                AddHtml(370, ry, 320, 18, "<BASEFONT COLOR=#FFFFFF>Abilities</BASEFONT>", false, false);
-                ry += 20;
-                int remain = 470 - ry;
-                if (remain < 40)
-                    remain = 40;
-                AddHtml(370, ry, 320, remain, string.Format("<BASEFONT COLOR=#CCCCCC>{0}</BASEFONT>", view.AbilityDescription), false, true);
             }
 
             AddButton(24, 478, 4011, 4013, 3, GumpButtonType.Reply, 0);
@@ -382,6 +381,7 @@ namespace Server.Items
             HasMagicalHat = false,
             HasDudeShield = false,
             EquippedGearNames = null,
+            EquippedGearAbilityLines = null,
             EvolutionStage = 0,
             KitType = DudeType.Fire,
             UnlockedAbilityIds = null,
@@ -423,6 +423,8 @@ namespace Server.Items
         public bool HasMagicalHat { get; set; }
         public bool HasDudeShield { get; set; }
         public List<string> EquippedGearNames { get; set; }
+        /// <summary>Per-gear ability line (same index as EquippedGearNames); null/empty for hat/shield.</summary>
+        public List<string> EquippedGearAbilityLines { get; set; }
         public int EvolutionStage { get; set; }
         public DudeType KitType { get; set; }
         public List<string> UnlockedAbilityIds { get; set; }
@@ -532,13 +534,14 @@ namespace Server.Items
                 view.SkillParry = parry.Base;
         }
 
-        /// <summary>Read equipped DudeGear names + hat/shield flags from a live Dude.</summary>
+        /// <summary>Read equipped DudeGear names + scaled ability lines + hat/shield flags from a live Dude.</summary>
         private static void FillEquippedGear(DudeInfoView view, DudeCreature dude)
         {
             if (view == null || dude == null || dude.Deleted)
                 return;
 
             List<string> names = new List<string>();
+            List<string> abilityLines = new List<string>();
             StringBuilder abilityNames = new StringBuilder();
             StringBuilder abilityDescs = new StringBuilder();
             int dudeLevel = view.Level > 0 ? view.Level : 1;
@@ -556,25 +559,35 @@ namespace Server.Items
                 // e.g. "Ember Sash  Lv 3  30%"
                 names.Add(string.Format("{0}  Lv {1}  {2}%", n, lv, pct));
 
+                // Hat/shield: name + skill lines only (no fake ability id).
                 if (string.IsNullOrEmpty(gear.AbilityId))
+                {
+                    abilityLines.Add(null);
                     continue;
+                }
 
                 DudeAbility ability = DudeAbilityRegistry.Get(gear.AbilityId);
                 string aName = ability != null ? ability.Name : gear.AbilityId;
+                string desc = GetAbilityDescription(gear.AbilityId, dudeLevel, view.HitsMax, gear.GetEffectMultiplier());
+                string line = !string.IsNullOrEmpty(desc)
+                    ? string.Format("{0}: {1}", aName, desc)
+                    : aName;
+                abilityLines.Add(line);
+
                 if (abilityNames.Length > 0)
                     abilityNames.Append("<BR>");
                 abilityNames.Append(aName);
 
-                string desc = GetAbilityDescription(gear.AbilityId, dudeLevel, view.HitsMax, gear.GetEffectMultiplier());
                 if (!string.IsNullOrEmpty(desc))
                 {
                     if (abilityDescs.Length > 0)
                         abilityDescs.Append("<BR><BR>");
-                    abilityDescs.AppendFormat("<B>{0}</B>: {1}", aName, desc);
+                    abilityDescs.Append(line);
                 }
             }
 
             view.EquippedGearNames = names;
+            view.EquippedGearAbilityLines = abilityLines;
             view.HasMagicalHat = dude.FindItemOnLayer(Layer.Helm) is MagicalDudeHat;
             view.HasDudeShield = dude.FindItemOnLayer(Layer.TwoHanded) is DudeShield;
 
@@ -582,6 +595,11 @@ namespace Server.Items
             {
                 view.AbilityName = abilityNames.ToString();
                 view.AbilityDescription = abilityDescs.Length > 0 ? abilityDescs.ToString() : null;
+            }
+            else
+            {
+                view.AbilityName = "None";
+                view.AbilityDescription = null;
             }
         }
 
@@ -844,6 +862,15 @@ namespace Server.Items
             view.CreatureSerial = Serial.MinusOne;
             view.BossSerial = Serial.MinusOne;
             FillEvolve(view, ball);
+
+            // Live gear from summoned or parked/internalized Dude on the ball (not old kit list).
+            DudeCreature live = ball.SummonedDude;
+            if (live != null && !live.Deleted)
+            {
+                TryOverlayLiveCombatSkills(view, live);
+                FillEquippedGear(view, live);
+            }
+
             return view;
         }
 
