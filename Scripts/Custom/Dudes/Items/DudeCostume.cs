@@ -13,8 +13,6 @@ namespace Server.Items
     {
         private static readonly int[] FormBodies = new int[]
         {
-            400, // Human male
-            401, // Human female
             1,   // Ogre
             4,   // Gargoyle
             9,   // Daemon
@@ -39,8 +37,6 @@ namespace Server.Items
 
         private static readonly string[] FormNames = new string[]
         {
-            "Human male",
-            "Human female",
             "Ogre",
             "Gargoyle",
             "Daemon",
@@ -170,6 +166,14 @@ namespace Server.Items
             // Repair mislabeled Air elemental body from prior table (Air was 14).
             if (string.Equals(m_FormName, "Air elemental", StringComparison.OrdinalIgnoreCase) && m_FormBody == 14)
                 m_FormBody = 13;
+
+            // Human male/female removed from form table — reroll existing saves.
+            if (m_FormBody == 400 || m_FormBody == 401)
+            {
+                int index = Utility.Random(FormBodies.Length);
+                m_FormBody = FormBodies[index];
+                m_FormName = FormNames[index];
+            }
 
             // Appearance only: never keep gear XP / levels on costumes.
             GearLevel = 0;
