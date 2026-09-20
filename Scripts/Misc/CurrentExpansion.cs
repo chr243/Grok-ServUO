@@ -33,7 +33,7 @@ namespace Server
 			ObjectPropertyList.Enabled = Core.AOS || ForceTooltips;
 
 			Mobile.InsuranceEnabled = Core.AOS && !Siege.SiegeShard;
-			Mobile.VisibleDamageType = Core.AOS ? VisibleDamageType.Related : VisibleDamageType.None;
+			Mobile.VisibleDamageType = VisibleDamageType.Related;
 
 			if (ObjectPropertyList.Enabled)
 			{
