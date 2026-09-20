@@ -30,6 +30,8 @@ namespace Server.Mobiles
         private DateTime m_NextSpringPulse;
         private DateTime m_NextFaultlinePulse;
         private DateTime m_NextFollowSpread;
+        private DateTime m_NextShieldTaunt;
+        private DateTime m_NextTauntOverhead;
         private List<DudeGear> m_EquippedGear;
         private List<string> m_EquippedAbilityIds;
 
@@ -858,8 +860,133 @@ namespace Server.Mobiles
 
             TrySpreadFollowOffset();
             TrySpreadAttackOffset();
+            TryShieldTaunt();
             TryUseAbility();
             TryStage3Passives();
+        }
+
+
+        /// <summary>
+        /// Dude Shield taunt tank: pull mobs already fighting the master/pack onto this Dude.
+        /// Summoned only (OnThink early-out skips wild). 1s throttle. No pathing / InvalidateProperties.
+        /// </summary>
+        private void TryShieldTaunt()
+        {
+            if (!Alive || Deleted)
+                return;
+
+            DateTime now = DateTime.UtcNow;
+            if (now < m_NextShieldTaunt)
+                return;
+            m_NextShieldTaunt = now + TimeSpan.FromSeconds(1.0);
+
+            DudeShield shield = FindItemOnLayer(Layer.TwoHanded) as DudeShield;
+            if (shield == null || shield.Deleted)
+                return;
+
+            Mobile master = ControlMaster;
+            if (master == null || master.Deleted)
+                return;
+
+            if (Map == null || Map == Map.Internal)
+                return;
+
+            bool anyTaunt = false;
+            IPooledEnumerable eable = GetMobilesInRange(8);
+
+            foreach (Mobile m in eable)
+            {
+                if (m == null || m == this || m.Deleted || !m.Alive)
+                    continue;
+                if (m.Player || m.AccessLevel > AccessLevel.Player)
+                    continue;
+                if (m is BaseVendor || m is BaseGuard)
+                    continue;
+
+                DudeCreature ownedDude = m as DudeCreature;
+                if (ownedDude != null && ownedDude.ControlMaster == master)
+                    continue;
+
+                BaseCreature bc = m as BaseCreature;
+                if (bc == null)
+                    continue;
+
+                // Do not taunt mobs that are fighting some other player.
+                Mobile combatant = bc.Combatant as Mobile;
+                if (combatant != null && combatant.Player && combatant != master)
+                    continue;
+
+                if (!IsEngagedWithPack(bc, master))
+                    continue;
+
+                if (bc.Combatant != this)
+                {
+                    bc.Combatant = this;
+                    anyTaunt = true;
+                }
+
+                bc.Warmode = true;
+            }
+
+            eable.Free();
+
+            if (anyTaunt && now >= m_NextTauntOverhead)
+            {
+                m_NextTauntOverhead = now + TimeSpan.FromSeconds(10.0);
+                PublicOverheadMessage(MessageType.Regular, 0x3B2, false, "*taunts*");
+            }
+        }
+
+        private static bool IsPackAlly(Mobile m, Mobile master)
+        {
+            if (m == null || master == null || m.Deleted)
+                return false;
+            if (m == master)
+                return true;
+
+            DudeCreature dude = m as DudeCreature;
+            return dude != null && !dude.Deleted && dude.ControlMaster == master;
+        }
+
+        /// <summary>
+        /// True if the creature's Combatant is the master/pack Dude, or Aggressors/Aggressed
+        /// includes the master or pack Dudes.
+        /// </summary>
+        private static bool IsEngagedWithPack(BaseCreature bc, Mobile master)
+        {
+            if (bc == null || master == null)
+                return false;
+
+            if (IsPackAlly(bc.Combatant as Mobile, master))
+                return true;
+
+            List<AggressorInfo> aggressors = bc.Aggressors;
+            if (aggressors != null)
+            {
+                for (int i = 0; i < aggressors.Count; i++)
+                {
+                    AggressorInfo info = aggressors[i];
+                    if (info == null || info.Expired)
+                        continue;
+                    if (IsPackAlly(info.Attacker, master))
+                        return true;
+                }
+            }
+
+            List<AggressorInfo> aggressed = bc.Aggressed;
+            if (aggressed != null)
+            {
+                for (int i = 0; i < aggressed.Count; i++)
+                {
+                    AggressorInfo info = aggressed[i];
+                    if (info == null || info.Expired)
+                        continue;
+                    if (IsPackAlly(info.Defender, master))
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         private static readonly int[] FollowRingDX = { 1, 1, 0, -1, -1, -1, 0, 1 };
