@@ -357,6 +357,11 @@ namespace Server.Misc
 			if (target.IsStaff())
 				return Notoriety.CanBeAttacked;
 
+			// No PvP: player / summoned Dude vs other players, summoned Dudes, player pets → Innocent.
+			// Owner↔own Dude/pet left alone for existing master inheritance.
+			if (Server.Custom.Dudes.DudeNoPvP.ShouldForceInnocent(source, target))
+				return Notoriety.Innocent;
+
 			if (source.Player && target is BaseCreature)
 			{
 				var bc = (BaseCreature)target;

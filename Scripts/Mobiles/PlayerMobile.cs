@@ -1808,6 +1808,10 @@ namespace Server.Mobiles
 
         public override void DoHarmful(IDamageable damageable, bool indirect)
         {
+            Mobile harmTarget = damageable as Mobile;
+            if (harmTarget != null && Server.Custom.Dudes.DudeNoPvP.BlocksHarm(this, harmTarget))
+                return;
+
             base.DoHarmful(damageable, indirect);
 
             if (ViceVsVirtueSystem.Enabled && (ViceVsVirtueSystem.EnhancedRules || Map == Faction.Facet) && damageable is Mobile)
@@ -1832,6 +1836,14 @@ namespace Server.Mobiles
 
 			if (m_DesignContext != null || (target is PlayerMobile && ((PlayerMobile)target).m_DesignContext != null))
 			{
+				return false;
+			}
+
+			// No PvP: players cannot harm other players, summoned Dudes, or player pets.
+			if (target != null && Server.Custom.Dudes.DudeNoPvP.BlocksHarm(this, target))
+			{
+				if (message)
+					SendLocalizedMessage(1001018); // You can not perform negative acts on your target.
 				return false;
 			}
 

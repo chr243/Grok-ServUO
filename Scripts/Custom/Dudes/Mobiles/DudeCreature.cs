@@ -801,6 +801,10 @@ namespace Server.Mobiles
         /// </summary>
         public override void DoHarmful(IDamageable target, bool indirect)
         {
+            Mobile harmTarget = target as Mobile;
+            if (harmTarget != null && Server.Custom.Dudes.DudeNoPvP.BlocksHarm(this, harmTarget))
+                return;
+
             if (target is BaseGuard)
                 base.DoHarmful(target, true);
             else
@@ -860,9 +864,9 @@ namespace Server.Mobiles
                 ControlTarget = ControlMaster;
             }
 
-            // Never attack pack allies / master / party.
+            // Never attack pack allies / master / party, or no-PvP protected targets.
             Mobile thinkCombatant = Combatant as Mobile;
-            if (thinkCombatant != null && IsPackAlly(thinkCombatant))
+            if (thinkCombatant != null && (IsPackAlly(thinkCombatant) || Server.Custom.Dudes.DudeNoPvP.BlocksHarm(this, thinkCombatant)))
                 Combatant = null;
 
             TrySpreadFollowOffset();
@@ -989,6 +993,9 @@ namespace Server.Mobiles
         {
             if (IsPackAlly(m))
                 return false;
+            // Summoned Dudes: no PvP vs players, other summoned Dudes, or player pets.
+            if (!m_IsWild && Server.Custom.Dudes.DudeNoPvP.IsProtectedTarget(m))
+                return false;
             return base.IsEnemy(m);
         }
 
@@ -999,6 +1006,19 @@ namespace Server.Mobiles
             return base.IsFriend(m);
         }
 
+        public override bool CanBeHarmful(IDamageable damageable, bool message, bool ignoreOurBlessedness)
+        {
+            Mobile target = damageable as Mobile;
+            if (target != null && Server.Custom.Dudes.DudeNoPvP.BlocksHarm(this, target))
+            {
+                if (message)
+                    SendLocalizedMessage(1001018); // You can not perform negative acts on your target.
+                return false;
+            }
+
+            return base.CanBeHarmful(damageable, message, ignoreOurBlessedness);
+        }
+
         [CommandProperty(AccessLevel.GameMaster)]
         public override IDamageable Combatant
         {
@@ -1006,7 +1026,7 @@ namespace Server.Mobiles
             set
             {
                 Mobile m = value as Mobile;
-                if (m != null && IsPackAlly(m))
+                if (m != null && (IsPackAlly(m) || Server.Custom.Dudes.DudeNoPvP.BlocksHarm(this, m)))
                 {
                     if (base.Combatant != null)
                         base.Combatant = null;
