@@ -1420,6 +1420,11 @@ namespace Server.Mobiles
                 // Ignore backpack / loose DudeGear — only paperdoll layer winners count.
                 if (FindItemOnLayer(gear.Layer) != gear)
                     continue;
+                // Appearance-only costumes are not combat gear.
+                if (gear is DudeCostume)
+                    continue;
+                if (gear.SlotCost == 0 && string.IsNullOrEmpty(gear.AbilityId))
+                    continue;
                 m_EquippedGear.Add(gear);
                 if (!string.IsNullOrEmpty(gear.AbilityId))
                     m_EquippedAbilityIds.Add(gear.AbilityId);

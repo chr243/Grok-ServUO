@@ -6,7 +6,8 @@ namespace Server.Items
 {
     /// <summary>
     /// Universal OneHanded DudeGear: morphs the Dude body while equipped.
-    /// SlotCost 0 (ignored in gear slot budget). Form rolled once at construct.
+    /// Appearance only — SlotCost 0, no AbilityId, no gear XP/levels/combat effect.
+    /// Form rolled once at construct.
     /// </summary>
     public class DudeCostume : DudeGear
     {
@@ -18,14 +19,14 @@ namespace Server.Items
             4,   // Gargoyle
             9,   // Daemon
             11,  // Ettin
-            13,  // Fire elemental
-            14,  // Air elemental
-            15,  // Giant spider
+            13,  // Air elemental
+            14,  // Earth elemental
+            15,  // Fire elemental
             16,  // Water elemental
-            17,  // Earth elemental
+            28,  // Giant spider
             18,  // Lizardman
             7,   // Troll
-            28,  // Giant rat
+            0xD7,// Giant rat (215)
             29,  // Giant toad
             36,  // Lich
             48,  // Imp
@@ -44,11 +45,11 @@ namespace Server.Items
             "Gargoyle",
             "Daemon",
             "Ettin",
-            "Fire elemental",
             "Air elemental",
-            "Giant spider",
-            "Water elemental",
             "Earth elemental",
+            "Fire elemental",
+            "Water elemental",
+            "Giant spider",
             "Lizardman",
             "Troll",
             "Giant rat",
@@ -73,6 +74,9 @@ namespace Server.Items
             Layer = Layer.OneHanded;
             SlotCost = 0;
             // RequiredType unset → universal. No AbilityId.
+            // Appearance only: never gains gear XP / levels.
+            GearLevel = 0;
+            GearEXP = 0;
 
             int index = Utility.Random(FormBodies.Length);
             m_FormBody = FormBodies[index];
@@ -106,9 +110,22 @@ namespace Server.Items
             }
         }
 
+        /// <summary>Appearance only — no gear XP / levels / combat effect.</summary>
+        public override void AwardGearExp(int amount)
+        {
+            // no-op
+        }
+
+        /// <summary>Unused for costumes (appearance only).</summary>
+        public override double GetEffectMultiplier()
+        {
+            return 1.0;
+        }
+
         public override void GetProperties(ObjectPropertyList list)
         {
-            base.GetProperties(list);
+            // Skip DudeGear Lv / EXP / Effect lines — appearance only.
+            AddNameProperties(list);
             list.Add("Dude only. Zero slots. Changes form while equipped.");
         }
 
@@ -149,6 +166,14 @@ namespace Server.Items
 
             m_FormBody = reader.ReadInt();
             m_FormName = reader.ReadString();
+
+            // Repair mislabeled Air elemental body from prior table (Air was 14).
+            if (string.Equals(m_FormName, "Air elemental", StringComparison.OrdinalIgnoreCase) && m_FormBody == 14)
+                m_FormBody = 13;
+
+            // Appearance only: never keep gear XP / levels on costumes.
+            GearLevel = 0;
+            GearEXP = 0;
 
             // Keep rolled form — do not reroll. Morph legacy Form Staff art/name.
             ItemID = 6588;

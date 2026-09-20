@@ -125,7 +125,7 @@ namespace Server.Items
         }
 
         /// <summary>Effect strength: level 0 = x1.0, each level +10%, level 10 = x2.0.</summary>
-        public double GetEffectMultiplier()
+        public virtual double GetEffectMultiplier()
         {
             int lv = GearLevel;
             if (lv < 0)
@@ -136,7 +136,7 @@ namespace Server.Items
         }
 
         /// <summary>Award gear EXP from the same kill amount the Dude received (full, not split).</summary>
-        public void AwardGearExp(int amount)
+        public virtual void AwardGearExp(int amount)
         {
             if (amount < 1 || GearLevel >= 10)
                 return;

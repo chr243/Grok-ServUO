@@ -553,6 +553,11 @@ namespace Server.Items
                     continue;
                 if (dude.FindItemOnLayer(gear.Layer) != gear)
                     continue;
+                // Appearance-only / zero-slot cosmetics (e.g. DudeCostume): no manual line, no slot.
+                if (gear is DudeCostume)
+                    continue;
+                if (gear.SlotCost == 0 && string.IsNullOrEmpty(gear.AbilityId))
+                    continue;
                 if (!seen.Add(gear.Serial))
                     continue;
                 string n = gear.Name;
