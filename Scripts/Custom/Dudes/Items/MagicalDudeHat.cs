@@ -68,6 +68,11 @@ namespace Server.Items
             return value;
         }
 
+        protected override string GetRoleLine()
+        {
+            return "Grants magery skills";
+        }
+
         public override void GetProperties(ObjectPropertyList list)
         {
             base.GetProperties(list);

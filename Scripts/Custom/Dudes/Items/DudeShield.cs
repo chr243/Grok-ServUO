@@ -49,6 +49,11 @@ namespace Server.Items
             return value;
         }
 
+        protected override string GetRoleLine()
+        {
+            return "Grants parrying; taunts";
+        }
+
         public override void GetProperties(ObjectPropertyList list)
         {
             base.GetProperties(list);

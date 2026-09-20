@@ -118,11 +118,19 @@ namespace Server.Items
             return 1.0;
         }
 
+        protected override string GetRoleLine()
+        {
+            return "Changes form while equipped";
+        }
+
         public override void GetProperties(ObjectPropertyList list)
         {
             // Skip DudeGear Lv / EXP / Effect lines — appearance only.
             AddNameProperties(list);
-            list.Add("Dude only. Zero slots. Changes form while equipped.");
+            string role = GetRoleLine();
+            if (!string.IsNullOrEmpty(role))
+                list.Add(role);
+            list.Add("Dude only. Zero slots.");
         }
 
         public override void OnAdded(object parent)

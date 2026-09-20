@@ -201,21 +201,54 @@ namespace Server.Items
             return base.CanEquip(from);
         }
 
+        /// <summary>
+        /// Short mouseover role line (no numbers / no Trainer's Manual paragraph).
+        /// Hat/Shield/Costume override; ability gear maps AbilityId.
+        /// </summary>
+        protected virtual string GetRoleLine()
+        {
+            if (string.IsNullOrEmpty(m_AbilityId))
+                return null;
+
+            switch (m_AbilityId.ToLowerInvariant())
+            {
+                case "blast":
+                    return "Single-target damage";
+                case "ring_of_fire":
+                    return "AoE damage";
+                case "burn":
+                    return "Single-target damage";
+                case "tide_mend":
+                    return "Self heal";
+                case "tide_chorus":
+                    return "AoE heal";
+                case "spring":
+                    return "Self heal";
+                case "fault_strike":
+                    return "Single-target damage";
+                case "aftershock":
+                    return "AoE damage";
+                case "faultline":
+                    return "Periodic single-target damage";
+                case "tailwind_self":
+                    return "Self attack-speed";
+                case "slipstream":
+                    return "Self speed";
+                default:
+                    return null;
+            }
+        }
+
         public override void GetProperties(ObjectPropertyList list)
         {
             base.GetProperties(list);
 
+            string role = GetRoleLine();
+            if (!string.IsNullOrEmpty(role))
+                list.Add(role);
+
             if (m_HasRequiredType)
                 list.Add("{0} Dude gear", m_RequiredType);
-
-            if (!string.IsNullOrEmpty(m_AbilityId))
-            {
-                DudeAbility ability = DudeAbilityRegistry.Get(m_AbilityId);
-                if (ability != null && !string.IsNullOrEmpty(ability.Name))
-                    list.Add("Ability: {0}", ability.Name);
-                else
-                    list.Add("Ability: {0}", m_AbilityId);
-            }
 
             int lv = GearLevel;
             list.Add("Level {0} / 10", lv);
