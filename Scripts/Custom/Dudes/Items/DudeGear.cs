@@ -7,7 +7,8 @@ namespace Server.Items
     /// <summary>
     /// Wearable gear for DudeCreature paperdoll slots. Grants AbilityId while equipped.
     /// Allowed layers: Helm (hat), InnerTorso (sash), Earrings (type earrings), Bracelet (bracers);
-    /// Layer.TwoHanded also accepted for universal Dude Shield. Pants reserved for type shorts.
+    /// Layer.TwoHanded also accepted for universal Dude Shield; Layer.OneHanded for DudeCostume (SlotCost 0).
+    /// Pants reserved for type shorts.
     /// Slot budget is SlotCost sum vs GetGearSlotCount() — not a fixed layer unlock ladder.
     /// Optional RequiredType locks gear to Fire/Water/Earth/Air Dudes.
     /// Leave RequiredType unset so HasRequiredType stays false (universal gear).
@@ -51,8 +52,9 @@ namespace Server.Items
         [CommandProperty(AccessLevel.GameMaster)]
         public int SlotCost
         {
-            get { return m_SlotCost < 1 ? 1 : m_SlotCost; }
-            set { m_SlotCost = value < 1 ? 1 : value; InvalidateProperties(); }
+            // 0 is valid (e.g. DudeCostume) and ignored in gear slot budget.
+            get { return m_SlotCost < 0 ? 0 : m_SlotCost; }
+            set { m_SlotCost = value < 0 ? 0 : value; InvalidateProperties(); }
         }
 
         /// <summary>When true, only Dudes whose type matches RequiredType may equip this.</summary>
@@ -250,8 +252,8 @@ namespace Server.Items
 
             m_AbilityId = reader.ReadString();
             m_SlotCost = reader.ReadInt();
-            if (m_SlotCost < 1)
-                m_SlotCost = 1;
+            if (m_SlotCost < 0)
+                m_SlotCost = 0;
 
             if (version >= 1)
             {

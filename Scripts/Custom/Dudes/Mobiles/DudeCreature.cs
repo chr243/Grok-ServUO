@@ -39,6 +39,7 @@ namespace Server.Mobiles
         /// Allowed DudeGear paperdoll layers (order is documentation only — slot budget is a count).
         /// Helm = Magical Dude Hat; InnerTorso = sash; Earrings = type earrings; Bracelet = bracers.
         /// TwoHanded (Dude Shield) allowed separately via CanAcceptGear; still costs a slot.
+        /// OneHanded (DudeCostume) allowed separately; SlotCost 0 is ignored in slot budget.
         /// Pants reserved for type shorts.
         /// </summary>
         public static readonly Layer[] GearLayerOrder = new Layer[]
@@ -1204,11 +1205,14 @@ namespace Server.Mobiles
         }
 
         /// <summary>
-        /// True if layer is one of the allowed DudeGear layers (or TwoHanded shield).
+        /// True if layer is one of the allowed DudeGear layers (or TwoHanded / OneHanded).
         /// Does not check slot budget — use CanAcceptGear for that.
         /// </summary>
         public bool IsGearLayerAllowed(Layer layer)
         {
+            if (layer == Layer.OneHanded)
+                return true;
+
             if (GetGearSlotCount() <= 0)
                 return false;
 
@@ -1271,7 +1275,8 @@ namespace Server.Mobiles
 
             Layer layer = gear.Layer;
             bool isTwoHanded = (layer == Layer.TwoHanded);
-            bool layerOk = isTwoHanded;
+            bool isOneHanded = (layer == Layer.OneHanded);
+            bool layerOk = isTwoHanded || isOneHanded;
             if (!layerOk)
             {
                 for (int i = 0; i < GearLayerOrder.Length; i++)
@@ -1292,17 +1297,21 @@ namespace Server.Mobiles
 
             // Slot budget is a count of SlotCost, not a fixed layer ladder.
             // Stage 1 may wear any two allowed layers (hat+sash, sash+earrings, hat+shield, etc.).
-            int allowed = GetGearSlotCount();
-            if (allowed < 0)
-                allowed = 0;
-
-            int used = GetEquippedGearSlotCost(gear);
+            // SlotCost 0 (e.g. DudeCostume) does not consume budget.
             int cost = gear.SlotCost;
-            if (used + cost > allowed)
+            if (cost > 0)
             {
-                int stageNeeded = StageNeededForSlotCount(used + cost);
-                reason = string.Format("Needs stage {0} for another slot.", stageNeeded);
-                return false;
+                int allowed = GetGearSlotCount();
+                if (allowed < 0)
+                    allowed = 0;
+
+                int used = GetEquippedGearSlotCost(gear);
+                if (used + cost > allowed)
+                {
+                    int stageNeeded = StageNeededForSlotCount(used + cost);
+                    reason = string.Format("Needs stage {0} for another slot.", stageNeeded);
+                    return false;
+                }
             }
 
             if (gear.HasRequiredType)
@@ -1348,6 +1357,11 @@ namespace Server.Mobiles
                 if (!string.IsNullOrEmpty(gear.AbilityId))
                     m_EquippedAbilityIds.Add(gear.AbilityId);
             }
+
+            // Re-apply Dude Costume body after appearance resets (world load / ApplyData).
+            DudeCostume costume = FindItemOnLayer(Layer.OneHanded) as DudeCostume;
+            if (costume != null && !costume.Deleted && costume.FormBody > 0)
+                Body = costume.FormBody;
 
             ApplyUniversalGearEffects();
         }

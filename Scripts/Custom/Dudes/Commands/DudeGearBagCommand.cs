@@ -64,6 +64,7 @@ namespace Server.Custom.Dudes.Commands
             // Universal
             bag.DropItem(new MagicalDudeHat());
             bag.DropItem(new DudeShield());
+            bag.DropItem(new DudeCostume());
         }
     }
 }

@@ -210,7 +210,8 @@ namespace Server.Mobiles
                 typeof(StoneCirclet),
                 typeof(StoneBracers),
                 typeof(MagicalDudeHat),
-                typeof(DudeShield));
+                typeof(DudeShield),
+                typeof(DudeCostume));
         }
 
         public override void Serialize(GenericWriter writer)
