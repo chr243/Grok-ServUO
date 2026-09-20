@@ -5762,21 +5762,27 @@ namespace Server
 
 			Hits += amount;
 
-			if (message && amount > 0 && m_NetState != null)
+			if (amount > 0)
 			{
-				m_NetState.Send(
-					new MessageLocalizedAffix(
+				if (message && m_NetState != null)
+				{
+					m_NetState.Send(
+						new MessageLocalizedAffix(
                         m_NetState,
-						Serial.MinusOne,
-						-1,
-						MessageType.Label,
-						0x3B2,
-						3,
-						1008158,
-						"",
-						AffixType.Append | AffixType.System,
-						amount.ToString(),
-						""));
+							Serial.MinusOne,
+							-1,
+							MessageType.Label,
+							0x3B2,
+							3,
+							1008158,
+							"",
+							AffixType.Append | AffixType.System,
+							amount.ToString(),
+							""));
+				}
+
+				// Green floating +heal (not DamagePacket — that draws red damage).
+				PublicOverheadMessage(MessageType.Regular, 0x42, false, "+" + amount);
 			}
 
 			return amount;

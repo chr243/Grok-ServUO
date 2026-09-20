@@ -637,7 +637,7 @@ namespace Server.Custom.Dudes
             if (heal < 1)
                 heal = 1;
 
-            caster.Hits = Math.Min(caster.HitsMax, caster.Hits + heal);
+            caster.Heal(heal, caster, false);
             DudeAbilityVfx.PlayWaterHeal(caster);
 
             PlayerMobile pm = caster as PlayerMobile;
@@ -657,7 +657,7 @@ namespace Server.Custom.Dudes
 
                 int allyPct = Math.Max(1, (int)(ally.HitsMax * healFrac));
                 int allyHeal = Math.Min(Math.Max(1, (int)(blast * 0.15)), allyPct);
-                ally.Hits = Math.Min(ally.HitsMax, ally.Hits + allyHeal);
+                ally.Heal(allyHeal, caster, false);
                 DudeAbilityVfx.PlayWaterHeal(ally);
             }
         }

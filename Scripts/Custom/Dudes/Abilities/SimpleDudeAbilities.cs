@@ -376,7 +376,7 @@ namespace Server.Custom.Dudes
             DudeAbilityConfig.EnsureLoaded();
             int heal = DudeAbility.ApplyEffect(DudeExperience.GetBlastDamage(dude.DudeLevel));
             dude.PublicOverheadMessage(MessageType.Regular, 0x3B2, false, "*Tide Mend*");
-            dude.Hits = Math.Min(dude.HitsMax, dude.Hits + heal);
+            dude.Heal(heal, dude, false);
             DudeAbilityVfx.PlayWaterHeal(dude);
         }
 
@@ -396,7 +396,7 @@ namespace Server.Custom.Dudes
             DudeAbilityConfig.EnsureLoaded();
             int heal = DudeAbility.ApplyEffect(DudeExperience.GetBlastDamage(data != null ? data.Level : 1));
             caster.PublicOverheadMessage(MessageType.Regular, 0x3B2, false, "*Tide Mend*");
-            caster.Hits = Math.Min(caster.HitsMax, caster.Hits + heal);
+            caster.Heal(heal, caster, false);
             DudeAbilityVfx.PlayWaterHeal(caster);
         }
     }
@@ -717,7 +717,7 @@ namespace Server.Custom.Dudes
                     heal = 1;
                 heal = DudeAbility.ApplyEffect(heal);
 
-                ally.Hits = Math.Min(ally.HitsMax, ally.Hits + heal);
+                ally.Heal(heal, dude, false);
                 DudeAbilityVfx.PlayWaterHeal(ally);
             }
         }
@@ -751,7 +751,7 @@ namespace Server.Custom.Dudes
             if (selfHeal < 1)
                 selfHeal = 1;
             selfHeal = DudeAbility.ApplyEffect(selfHeal);
-            caster.Hits = Math.Min(caster.HitsMax, caster.Hits + selfHeal);
+            caster.Heal(selfHeal, caster, false);
             DudeAbilityVfx.PlayWaterHeal(caster);
 
             for (int i = 0; i < allies.Count; i++)
@@ -766,7 +766,7 @@ namespace Server.Custom.Dudes
                     heal = 1;
                 heal = DudeAbility.ApplyEffect(heal);
 
-                ally.Hits = Math.Min(ally.HitsMax, ally.Hits + heal);
+                ally.Heal(heal, caster, false);
                 DudeAbilityVfx.PlayWaterHeal(ally);
             }
         }

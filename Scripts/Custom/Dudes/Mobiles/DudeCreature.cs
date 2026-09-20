@@ -1606,7 +1606,7 @@ namespace Server.Mobiles
                 heal = 1;
             heal = DudeAbility.ApplyEffect(heal);
 
-            Hits = Math.Min(HitsMax, Hits + heal);
+            Heal(heal, this, false);
             DudeAbilityVfx.PlayWaterHeal(this);
 
             // Heal owned DudeCreatures within range 2 via master's followers (no hostile scan).
@@ -1638,7 +1638,7 @@ namespace Server.Mobiles
                 int allyPct = Math.Max(1, (int)(ally.HitsMax * healFrac));
                 int allyHeal = Math.Min(Math.Max(1, (int)(blast * 0.15)), allyPct);
                 allyHeal = DudeAbility.ApplyEffect(allyHeal);
-                ally.Hits = Math.Min(ally.HitsMax, ally.Hits + allyHeal);
+                ally.Heal(allyHeal, this, false);
                 DudeAbilityVfx.PlayWaterHeal(ally);
             }
 

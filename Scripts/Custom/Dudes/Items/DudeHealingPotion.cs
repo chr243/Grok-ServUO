@@ -136,9 +136,7 @@ namespace Server.Items
             MarkHealCooldown(from);
 
             int heal = Math.Max(1, (int)(data.HitsMax * HealFraction));
-            int before = from.Hits;
-            from.Hits = Math.Min(from.HitsMax, from.Hits + heal);
-            int actual = from.Hits - before;
+            int actual = from.Heal(heal, from, false);
 
             data.Hits = from.Hits;
             data.IsFainted = false;
@@ -284,9 +282,7 @@ namespace Server.Items
             }
 
             int heal = Math.Max(1, (int)(dude.HitsMax * HealFraction));
-            int before = dude.Hits;
-            dude.Hits = Math.Min(dude.HitsMax, dude.Hits + heal);
-            int actual = dude.Hits - before;
+            int actual = dude.Heal(heal, from, false);
 
             if (dude.BoundBall.StoredDude != null)
             {
