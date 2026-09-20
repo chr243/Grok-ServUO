@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Server.Custom.Dudes;
+using Server.Engines.PartySystem;
 using Server.Items;
 using Server.Network;
 
@@ -859,6 +860,11 @@ namespace Server.Mobiles
                 ControlTarget = ControlMaster;
             }
 
+            // Never attack pack allies / master / party.
+            Mobile thinkCombatant = Combatant as Mobile;
+            if (thinkCombatant != null && IsPackAlly(thinkCombatant))
+                Combatant = null;
+
             TrySpreadFollowOffset();
             TrySpreadAttackOffset();
             TryShieldTaunt();
@@ -904,8 +910,9 @@ namespace Server.Mobiles
                 if (m is BaseVendor || m is BaseGuard)
                     continue;
 
+                // Never taunt an owned Dude (any master) — that would make owned Dudes fight.
                 DudeCreature ownedDude = m as DudeCreature;
-                if (ownedDude != null && ownedDude.ControlMaster == master)
+                if (ownedDude != null && ownedDude.ControlMaster != null)
                     continue;
 
                 BaseCreature bc = m as BaseCreature;
@@ -920,6 +927,7 @@ namespace Server.Mobiles
                 if (!IsEngagedWithPack(bc, master))
                     continue;
 
+                // Only pull onto this tank — never onto some other Dude.
                 if (bc.Combatant != this)
                 {
                     bc.Combatant = this;
@@ -938,15 +946,74 @@ namespace Server.Mobiles
             }
         }
 
-        private static bool IsPackAlly(Mobile m, Mobile master)
+        /// <summary>
+        /// Pack ally of master: the master, same-master pets/Dudes, master's party members,
+        /// and pets/Dudes owned by those party members. Wilds (master null) never match.
+        /// </summary>
+        public static bool IsPackAlly(Mobile m, Mobile master)
         {
-            if (m == null || master == null || m.Deleted)
+            if (m == null || master == null || m.Deleted || master.Deleted)
                 return false;
             if (m == master)
                 return true;
 
-            DudeCreature dude = m as DudeCreature;
-            return dude != null && !dude.Deleted && dude.ControlMaster == master;
+            Server.Engines.PartySystem.Party party = Server.Engines.PartySystem.Party.Get(master);
+            if (party != null && party.Contains(m))
+                return true;
+
+            BaseCreature bc = m as BaseCreature;
+            if (bc != null)
+            {
+                Mobile theirMaster = bc.ControlMaster;
+                if (theirMaster != null && !theirMaster.Deleted)
+                {
+                    if (theirMaster == master)
+                        return true;
+                    if (party != null && party.Contains(theirMaster))
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Instance pack check — false for wilds / no ControlMaster.</summary>
+        public bool IsPackAlly(Mobile m)
+        {
+            if (m_IsWild || ControlMaster == null)
+                return false;
+            return IsPackAlly(m, ControlMaster);
+        }
+
+        public override bool IsEnemy(Mobile m)
+        {
+            if (IsPackAlly(m))
+                return false;
+            return base.IsEnemy(m);
+        }
+
+        public override bool IsFriend(Mobile m)
+        {
+            if (IsPackAlly(m))
+                return true;
+            return base.IsFriend(m);
+        }
+
+        [CommandProperty(AccessLevel.GameMaster)]
+        public override IDamageable Combatant
+        {
+            get { return base.Combatant; }
+            set
+            {
+                Mobile m = value as Mobile;
+                if (m != null && IsPackAlly(m))
+                {
+                    if (base.Combatant != null)
+                        base.Combatant = null;
+                    return;
+                }
+                base.Combatant = value;
+            }
         }
 
         /// <summary>
@@ -1818,6 +1885,8 @@ namespace Server.Mobiles
                 if (m is PlayerMobile)
                     continue;
                 if (m is DudeCreature)
+                    continue;
+                if (IsPackAlly(m))
                     continue;
                 valid.Add(m);
             }

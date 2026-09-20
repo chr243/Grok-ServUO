@@ -152,6 +152,12 @@ namespace Server.Custom.Dudes
                 return;
             if (master != null && m == master)
                 return;
+            // Never fight-list any Dude (any master).
+            if (m is DudeCreature)
+                return;
+            // Skip same-master pets and master's party.
+            if (DudeCreature.IsPackAlly(m, master))
+                return;
             if (!caster.CanBeHarmful(m))
                 return;
 
@@ -208,6 +214,12 @@ namespace Server.Custom.Dudes
             if (m == null || m == dude || m.Deleted || !m.Alive)
                 return;
             if (m == dude.ControlMaster)
+                return;
+            // Never fight-list any Dude (any master).
+            if (m is DudeCreature)
+                return;
+            // Skip same-master pets and master's party.
+            if (dude.IsPackAlly(m))
                 return;
             if (!dude.CanBeHarmful(m))
                 return;
@@ -332,6 +344,11 @@ namespace Server.Custom.Dudes
 
         public override void Execute(DudeCreature dude, Mobile target)
         {
+            if (target == null || target.Deleted || !target.Alive)
+                return;
+            if (target is DudeCreature || dude.IsPackAlly(target))
+                return;
+
             DudeAbilityConfig.EnsureLoaded();
             int damage = DudeAbility.ApplyEffect(DudeExperience.GetBlastDamage(dude.DudeLevel));
             dude.PublicOverheadMessage(MessageType.Regular, 0x22, false, "*Fire Blast*");
@@ -342,6 +359,11 @@ namespace Server.Custom.Dudes
 
         public override void ExecuteLinked(Mobile caster, DudeData data, DudeBall ball, Mobile target)
         {
+            if (target == null || target.Deleted || !target.Alive)
+                return;
+            if (target is DudeCreature || DudeCreature.IsPackAlly(target, caster))
+                return;
+
             DudeAbilityConfig.EnsureLoaded();
             int damage = DudeAbility.ApplyEffect(DudeExperience.GetBlastDamage(data != null ? data.Level : 1));
             caster.PublicOverheadMessage(MessageType.Regular, 0x22, false, "*Fire Blast*");
@@ -632,6 +654,10 @@ namespace Server.Custom.Dudes
                         continue;
                     if (master != null && m == master)
                         continue;
+                    if (m is DudeCreature)
+                        continue;
+                    if (DudeCreature.IsPackAlly(m, master))
+                        continue;
                     if (!caster.CanBeHarmful(m))
                         continue;
 
@@ -816,6 +842,8 @@ namespace Server.Custom.Dudes
                     continue;
                 if (m is DudeCreature)
                     continue;
+                if (dude.IsPackAlly(m))
+                    continue;
 
                 // Prefer nearby fight-list targets (Chebyshev ≤ radius).
                 int dist = Math.Max(Math.Abs(m.X - dude.X), Math.Abs(m.Y - dude.Y));
@@ -863,6 +891,8 @@ namespace Server.Custom.Dudes
                 if (m is PlayerMobile)
                     continue;
                 if (m is DudeCreature)
+                    continue;
+                if (DudeCreature.IsPackAlly(m, caster))
                     continue;
 
                 int dist = Math.Max(Math.Abs(m.X - caster.X), Math.Abs(m.Y - caster.Y));

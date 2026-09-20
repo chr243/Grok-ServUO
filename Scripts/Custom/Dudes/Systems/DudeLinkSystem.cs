@@ -695,6 +695,8 @@ namespace Server.Custom.Dudes
                     continue;
                 if (m is DudeCreature)
                     continue;
+                if (DudeCreature.IsPackAlly(m, caster))
+                    continue;
                 valid.Add(m);
             }
 
