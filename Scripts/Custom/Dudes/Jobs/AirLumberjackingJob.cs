@@ -79,11 +79,11 @@ namespace Server.Custom.Dudes.Jobs
             {
                 for (int dx = -r; dx <= r; dx++)
                 {
-                    for (int dy = -r; dy <= r; dy++)
-                    {
-                        if (Math.Abs(dx) != r && Math.Abs(dy) != r)
-                            continue;
+                    // Ring edge cells only, in the original order (see EarthGatheringJob).
+                    int dyStep = (dx == -r || dx == r) ? 1 : 2 * r;
 
+                    for (int dy = -r; dy <= r; dy += dyStep)
+                    {
                         int x = origin.X + dx;
                         int y = origin.Y + dy;
 
@@ -92,8 +92,9 @@ namespace Server.Custom.Dudes.Jobs
                         {
                             StaticTile tile = tiles[i];
                             int id = (tile.ID & 0x3FFF) | 0x4000;
+                            int rawId = tile.ID & 0x3FFF;
 
-                            if (!def.Validate(id) && !def.Validate(tile.ID) && !def.Validate(tile.ID & 0x3FFF))
+                            if (!def.Validate(id) && !def.Validate(tile.ID) && (rawId == tile.ID || !def.Validate(rawId)))
                                 continue;
 
                             if (!DudeJobHarvest.HasResources(def, map, x, y))

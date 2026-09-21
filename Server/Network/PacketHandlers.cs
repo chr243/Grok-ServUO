@@ -2926,6 +2926,9 @@ namespace Server.Network
 
 			uint authID;
 
+			// The client sends this key as the first 4 bytes of the game connection. If its high byte
+			// is 0xEF the listener (and MessagePump.HandleSeed) mistake it for a 0xEF seed packet and
+			// drop the login as "encrypted", so about 1 in 170 relays failed. Never issue those keys.
 			do
 			{
 				authID = (uint)(Utility.RandomMinMax(1, uint.MaxValue - 1));
@@ -2935,7 +2938,7 @@ namespace Server.Network
 					authID |= 1U << 31;
 				}
 			}
-			while (m_AuthIDWindow.ContainsKey(authID));
+			while ((authID >> 24) == 0xEF || m_AuthIDWindow.ContainsKey(authID));
 
 			m_AuthIDWindow[authID] = new AuthIDPersistence(state.Version);
 

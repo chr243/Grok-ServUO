@@ -97,7 +97,7 @@ namespace Server.Mobiles
             PublicOverheadMessage(MessageType.Regular, 0x22, false, "*Ember Burst*");
             PlaySound(0x208);
             Effects.SendLocationParticles(
-                EffectItem.Create(Location, map, EffectItem.DefaultDuration),
+                new Entity(Serial.Zero, Location, map),
                 0x3709, 10, 30, 5052);
 
             Point3D origin = Location;
@@ -149,7 +149,7 @@ namespace Server.Mobiles
         private static void PlayStrike(Point3D loc, Map map)
         {
             Effects.SendLocationParticles(
-                EffectItem.Create(loc, map, EffectItem.DefaultDuration),
+                new Entity(Serial.Zero, loc, map),
                 0x3709, 10, 30, 5052);
         }
 

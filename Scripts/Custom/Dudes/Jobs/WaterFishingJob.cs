@@ -105,18 +105,18 @@ namespace Server.Custom.Dudes.Jobs
             {
                 for (int dx = -r; dx <= r; dx++)
                 {
-                    for (int dy = -r; dy <= r; dy++)
-                    {
-                        if (Math.Abs(dx) != r && Math.Abs(dy) != r)
-                            continue;
+                    // Ring edge cells only, in the original order (see EarthGatheringJob).
+                    int dyStep = (dx == -r || dx == r) ? 1 : 2 * r;
 
+                    for (int dy = -r; dy <= r; dy += dyStep)
+                    {
                         int x = origin.X + dx;
                         int y = origin.Y + dy;
 
                         LandTile lt = map.Tiles.GetLandTile(x, y);
                         int tileId = lt.ID & 0x3FFF;
 
-                        if (!def.Validate(tileId) && !def.Validate(lt.ID))
+                        if (!def.Validate(tileId) && (tileId == lt.ID || !def.Validate(lt.ID)))
                             continue;
 
                         if (!DudeJobHarvest.HasResources(def, map, x, y))

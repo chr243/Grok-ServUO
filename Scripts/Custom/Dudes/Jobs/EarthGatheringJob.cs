@@ -79,18 +79,20 @@ namespace Server.Custom.Dudes.Jobs
             {
                 for (int dx = -r; dx <= r; dx++)
                 {
-                    for (int dy = -r; dy <= r; dy++)
-                    {
-                        if (Math.Abs(dx) != r && Math.Abs(dy) != r)
-                            continue;
+                    // Walk only the ring's edge cells (same order as before): every dy on the
+                    // outer columns, otherwise just dy = -r and dy = r. Scanning the whole
+                    // (2r+1)^2 square per ring and skipping the interior cost O(radius^3).
+                    int dyStep = (dx == -r || dx == r) ? 1 : 2 * r;
 
+                    for (int dy = -r; dy <= r; dy += dyStep)
+                    {
                         int x = origin.X + dx;
                         int y = origin.Y + dy;
 
                         LandTile lt = map.Tiles.GetLandTile(x, y);
                         int tileId = lt.ID & 0x3FFF;
 
-                        if (!def.Validate(tileId) && !def.Validate(lt.ID))
+                        if (!def.Validate(tileId) && (tileId == lt.ID || !def.Validate(lt.ID)))
                             continue;
 
                         if (!DudeJobHarvest.HasResources(def, map, x, y))

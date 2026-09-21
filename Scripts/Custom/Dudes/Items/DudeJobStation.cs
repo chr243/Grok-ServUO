@@ -772,6 +772,8 @@ private Point3D GetSpawnLocation()
             if (Worker == null)
                 return;
 
+            DudeJobStage stageBefore = m_Stage;
+
             switch (m_Stage)
             {
                 case DudeJobStage.TravelingOut:
@@ -788,7 +790,11 @@ private Point3D GetSpawnLocation()
                     break;
             }
 
-            InvalidateProperties();
+            // The tooltip only changes with the stage (CompleteJob refreshes after deposits/EXP).
+            // Rebuilding it every tick re-ran GetProperties (house lookup, storage scan, several
+            // string.Formats) once a second for every running station.
+            if (m_Stage != stageBefore && !Deleted)
+                InvalidateProperties();
         }
 
         private void ProcessTravel(bool outbound, DudeJob job, DudeData data)
@@ -887,7 +893,8 @@ private Point3D GetSpawnLocation()
             DepositReward(job);
             TryDepositBonusDust();
 
-            DespawnWorker();
+            // The worker is kept for the next loop (BeginNextJobLoop reuses it); it is only
+            // despawned below when the job stops.
             m_JobId = job != null ? job.Id : m_JobId;
 
             DudeBall ball = ActiveBall;
@@ -907,6 +914,7 @@ private Point3D GetSpawnLocation()
             // Auto-loop until stopped or resource cap reached.
             if (IsRewardStorageFull(job))
             {
+                DespawnWorker();
                 m_JobActive = false;
                 m_Stage = DudeJobStage.Idle;
                 StopJobTimer();
@@ -918,6 +926,7 @@ private Point3D GetSpawnLocation()
 
             if (!BeginNextJobLoop(job, data))
             {
+                DespawnWorker();
                 m_JobActive = false;
                 m_Stage = DudeJobStage.Idle;
                 StopJobTimer();
@@ -958,11 +967,21 @@ private Point3D GetSpawnLocation()
             m_NextWorkAnim = DateTime.UtcNow;
             m_PendingReward = null;
 
-            if (!SpawnWorker(data))
+            // Reuse the worker that just walked back to the station. Deleting it and spawning a
+            // fresh mobile (plus shorts and tool) every cycle sent remove/create packets to every
+            // client in range. ApplyFromDude picks up level-ups and is a no-op otherwise.
+            DudeJobWorker worker = Worker;
+            if (worker != null)
+                worker.ApplyFromDude(data);
+            else if (!SpawnWorker(data))
                 return false;
 
             m_Worker.SetGoal(m_Destination);
-            StartJobTimer();
+
+            // Called from JobTick, so the repeating timer is normally still running.
+            if (m_JobTimer == null)
+                StartJobTimer();
+
             return true;
         }
 
@@ -1350,6 +1369,9 @@ private Point3D GetSpawnLocation()
                 if (m_PendingReward == null || m_PendingReward.Deleted)
                     m_PendingReward = CreateJobReward(job, ball.StoredDude);
 
+                // The saved worker may be anywhere; start the next loop with a fresh one at the
+                // station (CompleteJob now keeps a live worker for reuse).
+                DespawnWorker();
                 CompleteJob(job, ball.StoredDude);
                 return;
             }

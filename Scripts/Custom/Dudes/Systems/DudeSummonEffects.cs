@@ -162,7 +162,7 @@ namespace Server.Custom.Dudes
             }
 
             Point3D p = new Point3D(loc.X, loc.Y, z);
-            IEntity ent = EffectItem.Create(p, map, EffectItem.DefaultDuration);
+            IEntity ent = new Entity(Serial.Zero, p, map);
 
             switch (type)
             {

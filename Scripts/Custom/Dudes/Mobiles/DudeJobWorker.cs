@@ -125,6 +125,11 @@ namespace Server.Mobiles
 
         private void EnsureWorkTool(DudeData data)
         {
+            // Workers are reused across job loops; keep a correct tool instead of deleting and
+            // re-equipping it (each swap sends remove/equip packets to nearby clients).
+            if (data != null && HasWorkTool(data.Type))
+                return;
+
             ClearWorkTool();
 
             if (data == null)
@@ -164,6 +169,25 @@ namespace Server.Mobiles
         private static bool IsWorkTool(Item item)
         {
             return item is DudeWorkPickaxe || item is DudeWorkHatchet;
+        }
+
+        /// <summary>True if exactly the tool EnsureWorkTool would equip for this type is held.</summary>
+        private bool HasWorkTool(DudeType type)
+        {
+            if (IsWorkTool(FindItemOnLayer(Layer.TwoHanded)))
+                return false;
+
+            Item held = FindItemOnLayer(Layer.OneHanded);
+
+            switch (type)
+            {
+                case DudeType.Earth:
+                    return held is DudeWorkPickaxe;
+                case DudeType.Air:
+                    return held is DudeWorkHatchet;
+                default:
+                    return false;
+            }
         }
 
         public bool PathAbandoned

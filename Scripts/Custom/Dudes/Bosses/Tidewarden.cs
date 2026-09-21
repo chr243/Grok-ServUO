@@ -94,7 +94,7 @@ namespace Server.Mobiles
             PublicOverheadMessage(MessageType.Regular, 0x44, false, "*Tide Crash*");
             PlaySound(0x026);
             Effects.SendLocationParticles(
-                EffectItem.Create(Location, map, EffectItem.DefaultDuration),
+                new Entity(Serial.Zero, Location, map),
                 0x352D, 10, 30, 1365, 0, 5022, 0);
 
             Point3D focus = primaryTarget.Location;
@@ -115,7 +115,7 @@ namespace Server.Mobiles
 
             // Splash on boss
             Effects.SendLocationParticles(
-                EffectItem.Create(Location, map, EffectItem.DefaultDuration),
+                new Entity(Serial.Zero, Location, map),
                 0x352D, 10, 40, 1365, 0, 5022, 0);
 
             // 3 water tiles near the target
@@ -131,7 +131,7 @@ namespace Server.Mobiles
                 Point3D loc = tiles[i];
                 Effects.SendLocationEffect(loc, map, 0x352D, 20, 10, 1365, 0);
                 Effects.SendLocationParticles(
-                    EffectItem.Create(loc, map, EffectItem.DefaultDuration),
+                    new Entity(Serial.Zero, loc, map),
                     0x3728, 8, 20, 1365, 0, 5022, 0);
             }
 

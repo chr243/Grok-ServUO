@@ -189,10 +189,10 @@ namespace Server.Custom.Dudes
 
             Effects.PlaySound(loc, map, CatchFanfareSound);
             Effects.SendLocationParticles(
-                EffectItem.Create(loc, map, EffectItem.DefaultDuration),
+                new Entity(Serial.Zero, loc, map),
                 CatchParticles, 10, 30, 5052);
             Effects.SendLocationParticles(
-                EffectItem.Create(loc, map, EffectItem.DefaultDuration),
+                new Entity(Serial.Zero, loc, map),
                 0x376A, 9, 32, 5008);
         }
     }

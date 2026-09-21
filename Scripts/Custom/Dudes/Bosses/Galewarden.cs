@@ -94,7 +94,7 @@ namespace Server.Mobiles
             PublicOverheadMessage(MessageType.Regular, 0x47E, false, "*Shear*");
             PlaySound(0x015);
             Effects.SendLocationParticles(
-                EffectItem.Create(Location, map, EffectItem.DefaultDuration),
+                new Entity(Serial.Zero, Location, map),
                 0x3728, 10, 30, 1153, 0, 5022, 0);
 
             Point3D origin = Location;
@@ -121,7 +121,7 @@ namespace Server.Mobiles
             {
                 Point3D loc = new Point3D(origin.X + ox[i], origin.Y + oy[i], origin.Z);
                 Effects.SendLocationParticles(
-                    EffectItem.Create(loc, map, EffectItem.DefaultDuration),
+                    new Entity(Serial.Zero, loc, map),
                     0x3728, 8, 20, 1153, 0, 5022, 0);
             }
 
@@ -170,7 +170,7 @@ namespace Server.Mobiles
 
             m.MoveToWorld(dest, map);
             Effects.SendLocationParticles(
-                EffectItem.Create(dest, map, EffectItem.DefaultDuration),
+                new Entity(Serial.Zero, dest, map),
                 0x3728, 6, 12, 1153, 0, 5022, 0);
         }
 

@@ -10,6 +10,10 @@ namespace Server.Custom.Dudes
 {
     /// <summary>
     /// Shared combat VFX helpers — damage formulas stay in each ability.
+    /// Location particles are anchored on a plain Entity(Serial.Zero, loc, map), not EffectItem:
+    /// classic clients get a location effect that never uses the anchor's serial, so an EffectItem
+    /// only added an item packet, a tooltip packet and a remove packet per nearby client (plus a
+    /// world item and a 5s timer on the server) for every effect.
     /// </summary>
     public static class DudeAbilityVfx
     {
@@ -21,7 +25,7 @@ namespace Server.Custom.Dudes
             target.FixedParticles(0x3709, 10, 30, 5052, EffectLayer.LeftFoot);
             target.FixedParticles(0x36BD, 10, 20, 5052, EffectLayer.Waist);
             Effects.SendLocationParticles(
-                EffectItem.Create(target.Location, target.Map, EffectItem.DefaultDuration),
+                new Entity(Serial.Zero, target.Location, target.Map),
                 0x3709, 10, 25, 5052);
 
             if (withRing)
@@ -59,7 +63,7 @@ namespace Server.Custom.Dudes
             target.FixedParticles(0x36B0, 20, 14, 5044, EffectLayer.Head);
             target.FixedParticles(0x3728, 10, 16, 5044, 0x3B2, 0, EffectLayer.Waist);
             Effects.SendLocationParticles(
-                EffectItem.Create(target.Location, target.Map, EffectItem.DefaultDuration),
+                new Entity(Serial.Zero, target.Location, target.Map),
                 0x36B0, 10, 20, 0x3F, 0, 5044, 0);
             Effects.SendLocationEffect(target.Location, target.Map, 0x3728, 14, 0x3B2, 0);
             target.PlaySound(0x1F3);
@@ -72,10 +76,10 @@ namespace Server.Custom.Dudes
 
             target.FixedParticles(0x3728, 10, 20, 5029, 0x47E, 0, EffectLayer.Waist);
             Effects.SendLocationParticles(
-                EffectItem.Create(target.Location, target.Map, EffectItem.DefaultDuration),
+                new Entity(Serial.Zero, target.Location, target.Map),
                 0x3728, 10, 22, 0x59B, 0, 5029, 0);
             Effects.SendLocationParticles(
-                EffectItem.Create(target.Location, target.Map, EffectItem.DefaultDuration),
+                new Entity(Serial.Zero, target.Location, target.Map),
                 0x36B0, 8, 14, 0x966, 0, 5044, 0);
             target.PlaySound(0x26);
         }
@@ -96,7 +100,7 @@ namespace Server.Custom.Dudes
 
             target.FixedParticles(0x37CC, 1, 20, 9917, 0x47E, 3, EffectLayer.Waist);
             Effects.SendLocationParticles(
-                EffectItem.Create(target.Location, target.Map, EffectItem.DefaultDuration),
+                new Entity(Serial.Zero, target.Location, target.Map),
                 0x37CC, 1, 18, 0x47E, 3, 9917, 0);
             Effects.SendBoltEffect(target, true, 0);
             target.PlaySound(0x1F5);

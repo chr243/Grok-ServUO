@@ -911,13 +911,25 @@ namespace Server.Network
 
                 SendQueue.Gram gram;
 
-                lock (m_SendQueue)
+                // Take the next gram and clear _Sending under the same lock Send() and Flush() use.
+                // Clearing it separately let Send() queue a full gram after the queue was found empty
+                // but before _Sending was reset; nothing would ever send that gram, so the client
+                // stalled until the pending cap disconnected it.
+                lock (_SendLock)
                 {
-                    gram = m_SendQueue.Dequeue();
-
-                    if (gram == null && m_SendQueue.IsFlushReady)
+                    lock (m_SendQueue)
                     {
-                        gram = m_SendQueue.CheckFlushReady();
+                        gram = m_SendQueue.Dequeue();
+
+                        if (gram == null && m_SendQueue.IsFlushReady)
+                        {
+                            gram = m_SendQueue.CheckFlushReady();
+                        }
+                    }
+
+                    if (gram == null)
+                    {
+                        _Sending = false;
                     }
                 }
 
@@ -933,13 +945,6 @@ namespace Server.Network
                     {
                         TraceException(ex);
                         Dispose(false);
-                    }
-                }
-                else
-                {
-                    lock (_SendLock)
-                    {
-                        _Sending = false;
                     }
                 }
             }
@@ -1054,9 +1059,11 @@ namespace Server.Network
 
         public static void FlushAll()
         {
-            foreach (NetState ns in m_Instances.Keys)
+            // Runs every main loop cycle: enumerate the dictionary directly instead of via .Keys,
+            // which takes every internal lock and copies all keys into a new list each call.
+            foreach (var kvp in m_Instances)
             {
-                _ = ns.Flush();
+                _ = kvp.Key.Flush();
             }
         }
 
@@ -1227,9 +1234,14 @@ namespace Server.Network
                 ns.ServerInfo = null;
                 ns.CityInfo = null;
 
-                if (!ns.m_SendQueue.IsEmpty)
+                // A send may still be completing on an I/O thread; clear under the queue lock so a
+                // gram can't be released twice (and handed to two connections).
+                lock (ns.m_SendQueue)
                 {
-                    ns.m_SendQueue.Clear();
+                    if (!ns.m_SendQueue.IsEmpty)
+                    {
+                        ns.m_SendQueue.Clear();
+                    }
                 }
 
                 Utility.PushColor(ConsoleColor.Red);

@@ -93,7 +93,7 @@ namespace Server.Items
             from.SendMessage(0x59, "You take {0} from the {1}.", item.Name, Name);
             from.PlaySound(0x57);
             Effects.SendLocationParticles(
-                EffectItem.Create(Location, Map, EffectItem.DefaultDuration),
+                new Entity(Serial.Zero, Location, Map),
                 0x376A, 9, 32, 5029);
         }
 

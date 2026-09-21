@@ -98,7 +98,11 @@ namespace Server.Mobiles
 
             if (ExecuteAbility(combatant))
                 m_NextAbilityTime = DateTime.UtcNow + AbilityCooldown;
+            else
+                m_NextAbilityTime = DateTime.UtcNow + AbilityRetryDelay; // no valid targets: don't rescan every AI tick
         }
+
+        private static readonly TimeSpan AbilityRetryDelay = TimeSpan.FromSeconds(1.0);
 
         /// <summary>
         /// Boss-specific combat ability. Return true if the ability fired (starts cooldown).

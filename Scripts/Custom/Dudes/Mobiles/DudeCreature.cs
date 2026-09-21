@@ -1764,6 +1764,11 @@ namespace Server.Mobiles
             if (!inCombat)
                 return;
 
+            // Cheap pulse check first — this runs every AI tick (10/s) while summoned.
+            DateTime now = DateTime.UtcNow;
+            if (now < m_NextBurnPulse)
+                return;
+
             DudeDefinition burnDef = DudeRegistry.Get(m_DefinitionId);
             if (burnDef == null || burnDef.Type != DudeType.Fire)
                 return;
@@ -1773,10 +1778,6 @@ namespace Server.Mobiles
             double tick = tune != null && tune.TickSeconds > 0.0 ? tune.TickSeconds : 1.0;
             double hitChance = tune != null && tune.HitChance > 0.0 ? tune.HitChance : 0.5;
             double vs = tune != null && tune.DamageVsBlast > 0.0 ? tune.DamageVsBlast : 0.3;
-
-            DateTime now = DateTime.UtcNow;
-            if (now < m_NextBurnPulse)
-                return;
 
             m_NextBurnPulse = now + TimeSpan.FromSeconds(tick);
 
@@ -1816,14 +1817,14 @@ namespace Server.Mobiles
             if (!inCombat)
                 return;
 
+            DateTime now = DateTime.UtcNow;
+            if (now < m_NextSpringPulse)
+                return;
+
             DudeAbilityConfig.EnsureLoaded();
             DudeAbilityTune tune = DudeAbilityConfig.Get("spring");
             double tick = tune != null && tune.TickSeconds > 0.0 ? tune.TickSeconds : 2.0;
             double healFrac = tune != null && tune.HealHitsFraction > 0.0 ? tune.HealHitsFraction : 0.05;
-
-            DateTime now = DateTime.UtcNow;
-            if (now < m_NextSpringPulse)
-                return;
 
             m_NextSpringPulse = now + TimeSpan.FromSeconds(tick);
 
@@ -1883,6 +1884,10 @@ namespace Server.Mobiles
             if (!inCombat)
                 return;
 
+            DateTime now = DateTime.UtcNow;
+            if (now < m_NextFaultlinePulse)
+                return;
+
             DudeAbilityConfig.EnsureLoaded();
             DudeAbilityTune tune = DudeAbilityConfig.Get("faultline");
             double gap = tune != null && tune.GapSeconds > 0.0 ? tune.GapSeconds : 10.0;
@@ -1891,10 +1896,6 @@ namespace Server.Mobiles
             double stunMax = tune != null && tune.StunMax > 0.0 ? tune.StunMax : 1.0;
             if (stunMax < stunMin)
                 stunMax = stunMin;
-
-            DateTime now = DateTime.UtcNow;
-            if (now < m_NextFaultlinePulse)
-                return;
 
             m_NextFaultlinePulse = now + TimeSpan.FromSeconds(gap);
 
@@ -2116,7 +2117,6 @@ namespace Server.Mobiles
             DudeAbilityRegistry.EnsureInitialized();
 
             DudeDefinition loaded = DudeRegistry.Get(m_DefinitionId);
-            ApplyHumanMaleAppearance(loaded);
             if (loaded != null && string.IsNullOrEmpty(Name))
                 Name = ResolveDudeName(null, loaded);
             else if (loaded != null && !HasDudeSuffix(Name)
@@ -2129,7 +2129,51 @@ namespace Server.Mobiles
                 m_EquippedGear = new List<DudeGear>();
             if (m_EquippedAbilityIds == null)
                 m_EquippedAbilityIds = new List<string>();
+
+            // Mobiles deserialize before items, so every worn item still reads Layer.Invalid here.
+            // Doing appearance/gear work now made EnsureTypeShorts add a new pair of shorts on every
+            // restart and rebuilt the gear cache from blank items (dropping hat/shield skills and
+            // costume bodies). Run it once the world has finished loading instead.
+            Timer.DelayCall(TimeSpan.Zero, new TimerCallback(AfterWorldLoad));
+        }
+
+        private void AfterWorldLoad()
+        {
+            if (Deleted)
+                return;
+
+            RemoveDuplicateTypeShorts();
+            ApplyHumanMaleAppearance(DudeRegistry.Get(m_DefinitionId));
             RebuildGearCache();
+        }
+
+        /// <summary>
+        /// Deletes extra worn DudeTypeShorts (left by the old load-time EnsureTypeShorts bug),
+        /// keeping the pair that FindItemOnLayer(Layer.Pants) resolves to.
+        /// </summary>
+        private void RemoveDuplicateTypeShorts()
+        {
+            Item worn = FindItemOnLayer(Layer.Pants);
+            List<Item> extras = null;
+
+            for (int i = 0; i < Items.Count; i++)
+            {
+                Item item = Items[i];
+
+                if (item is DudeTypeShorts && item != worn && !item.Deleted)
+                {
+                    if (extras == null)
+                        extras = new List<Item>();
+
+                    extras.Add(item);
+                }
+            }
+
+            if (extras == null)
+                return;
+
+            for (int i = 0; i < extras.Count; i++)
+                extras[i].Delete();
         }
     }
 }

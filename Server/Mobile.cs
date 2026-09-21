@@ -11171,9 +11171,11 @@ namespace Server
 				m_InDeltaQueue = true;
 
 				m_DeltaQueue.Add(this);
-			}
 
-			Core.Set();
+				// Only wake the core when queueing; if already queued, a wake-up is already pending.
+				// Delta runs on every stat/flag change, and each Set() is a kernel call.
+				Core.Set();
+			}
 		}
 
 		private bool m_NoMoveHS;
@@ -11372,7 +11374,11 @@ namespace Server
                 sendFace = true;
             }
 
-            var cache = new Packet[2][] {new Packet[8], new Packet[8]};
+			// Per-notoriety MobileMoving cache; only needed for moving/healthbar updates, so don't
+			// allocate it for the far more common hits/stam/mana-only deltas.
+			var cache = sendMoving || sendNonlocalMoving || sendHealthbarPoison || sendHealthbarYellow
+				? new Packet[2][] { new Packet[8], new Packet[8] }
+				: null;
 
 			NetState ourState = m.m_NetState;
 
@@ -11905,23 +11911,27 @@ namespace Server
 			{
 				Packet p = null;
 
-				if (ascii)
-				{
-					p = new AsciiMessage(m_Serial, Body, type, hue, 3, Name, text);
-				}
-				else
-				{
-					p = new UnicodeMessage(m_Serial, Body, type, hue, 3, m_Language, Name, text);
-				}
-
-				p.Acquire();
-
 				var eable = m_Map.GetClientsInRange(m_Location);
 
 				foreach (NetState state in eable)
 				{
 					if (state.Mobile.CanSee(this) && (noLineOfSight || state.Mobile.InLOS(this)))
 					{
+						// Build the packet only once someone will actually receive it.
+						if (p == null)
+						{
+							if (ascii)
+							{
+								p = new AsciiMessage(m_Serial, Body, type, hue, 3, Name, text);
+							}
+							else
+							{
+								p = new UnicodeMessage(m_Serial, Body, type, hue, 3, m_Language, Name, text);
+							}
+
+							p.Acquire();
+						}
+
 						state.Send(p);
 					}
 				}

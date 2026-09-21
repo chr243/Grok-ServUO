@@ -288,7 +288,7 @@ namespace Server.Items
 
             from.PlaySound(0x240);
             Effects.SendLocationParticles(
-                EffectItem.Create(from.Location, from.Map, EffectItem.DefaultDuration),
+                new Entity(Serial.Zero, from.Location, from.Map),
                 0x375A, 10, 15, 5020);
         }
 

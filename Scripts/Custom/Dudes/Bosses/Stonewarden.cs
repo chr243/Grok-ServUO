@@ -93,7 +93,7 @@ namespace Server.Mobiles
             PublicOverheadMessage(MessageType.Regular, 0x3B2, false, "*Fault Line*");
             PlaySound(0x1F3);
             Effects.SendLocationParticles(
-                EffectItem.Create(Location, map, EffectItem.DefaultDuration),
+                new Entity(Serial.Zero, Location, map),
                 0x36BD, 10, 30, 2413, 0, 5044, 0);
 
             Point3D from = Location;
@@ -124,7 +124,7 @@ namespace Server.Mobiles
 
             // Dirt burst at origin
             Effects.SendLocationParticles(
-                EffectItem.Create(from, map, EffectItem.DefaultDuration),
+                new Entity(Serial.Zero, from, map),
                 0x36BD, 12, 40, 2413, 0, 5044, 0);
             PlaySound(0x1F3);
 
@@ -139,7 +139,7 @@ namespace Server.Mobiles
 
                     Point3D loc = new Point3D(from.X + dx * s, from.Y + dy * s, from.Z);
                     Effects.SendLocationParticles(
-                        EffectItem.Create(loc, map, EffectItem.DefaultDuration),
+                        new Entity(Serial.Zero, loc, map),
                         0x36B0, 8, 20, 2413, 0, 5044, 0);
                     Effects.SendLocationEffect(loc, map, 0x36BD, 12, 8, 2413, 0);
                 });
