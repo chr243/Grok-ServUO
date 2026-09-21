@@ -272,7 +272,11 @@ namespace Server.Items
             string name = data.DisplayName;
             int amount = DudeDustFormula.Calculate(data);
 
-            ball.ClearDude();
+            // Deletes the Dude's parked instance; anything it was wearing goes back to the player.
+            int gearReturned = ball.ClearDude(from);
+
+            if (gearReturned > 0)
+                from.SendMessage(0x59, "{0}'s gear was returned to you ({1} piece{2}).", name, gearReturned, gearReturned == 1 ? "" : "s");
 
             DudeDust dust = new DudeDust(amount);
 
