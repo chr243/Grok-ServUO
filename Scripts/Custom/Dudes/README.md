@@ -38,14 +38,24 @@ Staff-spawned `DudeBoss` farm bosses — hostile, not catchable, no Dude Ball on
 | Path | Role |
 |------|------|
 | `DudeType.cs` / `DudeDefinition.cs` / `DudeRegistry.cs` / `DudeData.cs` | Species + persistent stats |
-| `Abilities/*` | Combat abilities |
-| `Items/DudeBall.cs` | Catch / store / summon / recall |
+| `Abilities/DudeAbility.cs` / `DudeAbilityRegistry.cs` | Ability base class + registry |
+| `Abilities/DudeAbilityVfx.cs` / `DudeAbilityConfig.cs` | Shared ability VFX / fight-list helpers; live tuning (`[DudeAbilities`) |
+| `Abilities/Fire` `Water` `Earth` `Air/*Ability.cs` | One file per ability. Active: `Execute` (summoned Dude) / `ExecuteLinked` (linked player). Stage-3 passives: `Pulse` / `PulseLinked`; Slipstream: `ReduceCooldown` |
+| `Items/DudeBall.cs` | Catch / store / Mixer clear / context menu |
+| `Spells/Summoning/DudeBall.Summon.cs` | Summon / recall / park (the ball's summon "spell") |
+| `Spells/Summoning/DudeSummonEffects.cs` | Summon / despawn FX |
+| `Spells/Linked/DudeLinkSystem.Casting.cs` | Linked-player `[abi1` / `[abi2` casting + passive pulse timer |
 | `Items/DudeDust.cs` | Recycled dust (stackable) |
 | `Items/DudeMixer.cs` | Dude → Dust converter (confirm gump) |
 | `Items/DudeCraftingKit.cs` + `Craft/DefDudeCrafting.cs` | Empty ball crafting |
 | `Items/DudeJobStation.cs` (+ Gump) | Generic job station + container |
 | `Jobs/*` | Abstract jobs, registry, Earth gathering |
-| `Mobiles/DudeCreature.cs` | Wild / summoned combat Dude |
+| `Mobiles/Summons/DudeCreature.cs` | Wild / summoned combat Dude: definition, stats, loot, persistence |
+| `Mobiles/Summons/DudeCreature.Summon.cs` | Despawn FX sequence, sync to ball, faint / park |
+| `Mobiles/Summons/DudeCreature.Inventory.cs` | Type shorts / sash, DudeGear slots, equip rules, hat / shield / costume effects |
+| `Mobiles/Summons/DudeCreature.Abilities.cs` | Picks abilities from equipped gear, cooldowns, passive dispatch |
+| `Mobiles/Summons/Ember.cs` … `Hurricane.cs` | Named species (one file each, `[add`-able) |
+| `Mobiles/AI/DudeCreature.Behavior.cs` | Pack AI: guard stance, target filtering, formation spread, shield taunt |
 | `Mobiles/DudeJobWorker.cs` | Temporary job worker |
 | `Bosses/DudeBoss.cs` | Abstract uncatchable boss (`DudeBoss` → subclass) |
 | `Bosses/Emberlord.cs` | Fire farm boss + Ember Burst |
@@ -58,6 +68,7 @@ Staff-spawned `DudeBoss` farm bosses — hostile, not catchable, no Dude Ball on
 
 ## Architecture notes
 
+- **Layout** mirrors ServUO's player-summoned creatures: the creature under `Mobiles/Summons/` (as `Scripts/Mobiles/Summons`), its AI layer under `Mobiles/AI/`, summoning and player casting under `Spells/`, and one ability per file grouped by element (like `Scripts/Spells/<circle>/`). `DudeCreature`, `DudeBall` and `DudeLinkSystem` are `partial` so each concern sits in its own folder; type names and namespaces are unchanged, so saves load as before.
 - **Dust formula** (`DudeDustFormula`): level-based quantity; rarity/type multipliers reserved.
 - **Jobs**: station asks `DudeJobRegistry.GetJobForDude(data)` — does not hard-code professions. Only **Earth Gathering** is registered.
 - **Travel**: real `PathFollower` movement; stuck / timeout → teleport fallback; station never permanently blocked.
@@ -68,7 +79,7 @@ Staff-spawned `DudeBoss` farm bosses — hostile, not catchable, no Dude Ball on
 
 ## Species roster
 
-Four elemental lines × three stages (12 total). Register in `DudeRegistry`. Abilities in `SimpleDudeAbilities` + `DudeAbilityRegistry`. Evolution unlocks that kit’s abilities through the current stage. Blast-scale damage = `8 + level×2` × ability multiplier.
+Four elemental lines × three stages (12 total). Register in `DudeRegistry`. Abilities in `Abilities/<Element>/` + `DudeAbilityRegistry`. Evolution unlocks that kit’s abilities through the current stage. Blast-scale damage = `8 + level×2` × ability multiplier.
 
 | Id | Name | Type | Stage | Ability |
 |----|------|------|-------|---------|

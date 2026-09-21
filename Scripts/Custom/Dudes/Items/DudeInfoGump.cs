@@ -982,7 +982,7 @@ namespace Server.Items
 
                 case "spring":
                 {
-                    // Same formula as DudeCreature.TrySpringPassive / DudeLinkSystem.TrySpringPassive.
+                    // Same formula as SpringAbility.Pulse / SpringAbility.PulseLinked.
                     double tick = tune != null && tune.TickSeconds > 0.0 ? tune.TickSeconds : 2.0;
                     double healFrac = tune != null && tune.HealHitsFraction > 0.0 ? tune.HealHitsFraction : 0.05;
                     int rawBlast = DudeExperience.GetBlastDamage(level);
@@ -1012,7 +1012,7 @@ namespace Server.Items
 
                 case "faultline":
                 {
-                    // Same as DudeCreature.TryFaultlinePassive: GapSeconds + DamageVsBlast fraction.
+                    // Same as FaultlineAbility.Pulse: GapSeconds + DamageVsBlast fraction.
                     double gap = tune != null && tune.GapSeconds > 0.0 ? tune.GapSeconds : 10.0;
                     double vs = tune != null && tune.DamageVsBlast > 0.0 ? tune.DamageVsBlast : 0.33;
                     int dmg = ScaleByEffect(Math.Max(1, (int)(DudeExperience.GetBlastDamage(level) * vs)), effectMultiplier);
