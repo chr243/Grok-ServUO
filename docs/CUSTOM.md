@@ -64,6 +64,16 @@ Staff-only spawn (`[SpawnEmberlord` / `[SpawnTidewarden` / `[SpawnStonewarden` /
 4. After script changes, rebuild (`_windebug.bat` / `_makedebug` while developing) and restart the shard.
 5. Stick to **C# 7.3**-compatible syntax in custom scripts (ServUO 57.4 / net48).
 
+## Local test tooling
+
+[`Tests/`](../Tests/README.md) holds a headless UO client and test-only GM commands for checking
+changes on a throwaway loopback shard without a real client: `[DrtRun` drives the whole Dude loop
+(summon / recall / park, gear abilities, stage-3 passives, linked casting, pack AI) and reports
+PASS/FAIL, `[DrtWorld` + `[DrtDump` compare a saved world across two branches, and the client covers
+logins, walking, speech, stress and spawner timing. None of it is part of the shard build — only
+`Tests/build.ps1 -Harness` compiles the commands in, and they should never be copied into `Scripts/`
+on a live shard.
+
 ## Engine changes (performance / networking)
 
 Upstream `Server/` files changed for speed and latency; each change has a comment at the site.

@@ -11,6 +11,9 @@
 /Scripts/obj
 /Scripts/Output
 
+/Tests/Client/bin
+/Tests/Client/obj
+
 /Honesty
 /Logs
 /Backups
