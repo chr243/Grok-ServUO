@@ -148,7 +148,6 @@ namespace Server.Items
             {
                 m_GearEXP -= GetExpToNext(GearLevel);
                 m_GearLevel++;
-                InvalidateProperties();
             }
 
             if (GearLevel >= 10)
@@ -156,6 +155,8 @@ namespace Server.Items
 
             if (GearLevel > oldLevel)
             {
+                InvalidateProperties();
+
                 Mobile wearer = Parent as Mobile;
                 DudeCreature dude = wearer as DudeCreature;
                 Mobile master = dude != null ? dude.ControlMaster : null;
@@ -173,8 +174,20 @@ namespace Server.Items
             }
             else
             {
-                InvalidateProperties();
+                // EXP-only change on a kill: coalesce tooltip refreshes (AoE kills land in bursts).
+                InvalidatePropertiesThrottled();
             }
+        }
+
+        private ThrottledPropertyRefresh m_PropertyRefresh;
+
+        /// <summary>At most one tooltip rebuild per 5s for per-kill EXP updates (see ThrottledPropertyRefresh).</summary>
+        public void InvalidatePropertiesThrottled()
+        {
+            if (m_PropertyRefresh == null)
+                m_PropertyRefresh = new ThrottledPropertyRefresh(InvalidateProperties, () => Deleted, TimeSpan.FromSeconds(5.0));
+
+            m_PropertyRefresh.Request();
         }
 
         public override bool CanEquip(Mobile from)

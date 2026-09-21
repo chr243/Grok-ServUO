@@ -45,6 +45,13 @@ Staff-only spawn (`[SpawnEmberlord` / `[SpawnTidewarden` / `[SpawnStonewarden` /
 ### Trainer's Manual
 `TrainersManual` + `DudeInfoGump`: double-click and target wild/summoned Dude, filled Dude Ball (no recall required), or Dude boss for a classic info sheet (stats, ability, status).
 
+**Packet budget (intentional):**
+- Ring of Fire flames are spaced ~1.5 tiles apart (67 effects per cast, was ~160); damage still covers every ring tile.
+- Burn ticks show one light flame per target, one sound per pulse, and `*Burn*` at most every 10s.
+- The floating "+N EXP" and Job Station status text go to the owner only.
+- Spring plays heal effects only when it actually heals.
+- Ground effects use location-only entities, not temporary `EffectItem`s.
+
 **GM commands:** `[CreateDudeBall`, `[SpawnTestDude`, `[FillDudeBall`, `[CreateDudeMixer`, `[CreateDudeDust`, `[CreateDudeCraftKit`, `[CreateDudeJobStation`, `[StartDudeJob`, `[SpawnEmberlord`/`Tidewarden`/`Stonewarden`/`Galewarden`, `[CreateEmberCore`/`TideCore`/`StoneCore`/`GaleCore`, `[CreateTrainersManual`
 
 **Still out of scope:** Multi-phase, auto world-spawn, elemental core recipes, processing jobs, multiple gathering professions, economy balancing.
@@ -68,6 +75,8 @@ Upstream `Server/` files changed for speed and latency; each change has a commen
 | `Server/Network/PacketHandlers.cs` | Relay auth keys never start with `0xEF` (the listener mistook them for a seed packet and dropped ~0.6% of logins as "encrypted") |
 | `Server/Main.cs` | Deltas processed after timers/packets so their updates share the same flush; `FileLogger` keeps one handle open (was open/close per line, and per character for `Console.Write`) |
 | `Server/Mobile.cs`, `Server/Item.cs` | `Delta` only wakes the core when first queued; `ProcessDelta` skips an allocation for hits/stam/mana-only updates; `PublicOverheadMessage` builds its packet only if someone receives it |
+| `Server/Mobile.cs` (healthbars) | When a mobile comes into view (`SetLocation`, `SendEverything`, `SendIncomingPacket`), poison/yellow healthbar packets are sent only when the flag is on (was 2 packets per mobile, almost always "off"); one variant per client type (0x17 classic / 0x16 enhanced) instead of both; no packets pre-built on every step |
+| `Server/Network/PacketWriter.cs` | Pool release is O(1) (a flag instead of `Stack.Contains` scanning the whole pool on every packet compile) |
 | `Scripts/Misc/ConnectionLog.cs` | One persistent log handle instead of reopening the file per line |
 
 ## What not to invent here

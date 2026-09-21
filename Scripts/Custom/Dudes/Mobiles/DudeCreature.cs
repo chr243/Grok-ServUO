@@ -28,6 +28,7 @@ namespace Server.Mobiles
         private bool m_Despawning;
         private bool m_BlessedBeforeDespawn;
         private DateTime m_NextBurnPulse;
+        private DateTime m_NextBurnText;
         private DateTime m_NextSpringPulse;
         private DateTime m_NextFaultlinePulse;
         private DateTime m_NextFollowSpread;
@@ -248,6 +249,17 @@ namespace Server.Mobiles
             int filled = pct * width / 100;
             string bar = "[" + new string('#', filled) + new string('.', width - filled) + "]";
             list.Add("EXP {0} {1}%", bar, pct);
+        }
+
+        private ThrottledPropertyRefresh m_PropertyRefresh;
+
+        /// <summary>At most one tooltip rebuild per 5s for per-kill EXP updates (see ThrottledPropertyRefresh).</summary>
+        public void InvalidatePropertiesThrottled()
+        {
+            if (m_PropertyRefresh == null)
+                m_PropertyRefresh = new ThrottledPropertyRefresh(InvalidateProperties, () => Deleted, TimeSpan.FromSeconds(5.0));
+
+            m_PropertyRefresh.Request();
         }
 
         /// <summary>True while recall/despawn FX plays — no aggro, not a guard candidate.</summary>
@@ -1801,16 +1813,24 @@ namespace Server.Mobiles
 
                 Mobile m = candidates[i];
                 AOS.Damage(m, this, damage, 0, 100, 0, 0, 0);
-                DudeAbilityVfx.PlayFireHit(m, false);
+                DudeAbilityVfx.PlayBurnTick(m);
                 anyHit = true;
             }
 
             if (anyHit)
             {
-                PublicOverheadMessage(MessageType.Regular, 0x22, false, "*Burn*");
+                // Burn ticks every second: one sound per pulse, and the label at most every 10s.
+                if (now >= m_NextBurnText)
+                {
+                    m_NextBurnText = now + BurnTextInterval;
+                    PublicOverheadMessage(MessageType.Regular, 0x22, false, "*Burn*");
+                }
+
                 PlaySound(0x208);
             }
         }
+
+        private static readonly TimeSpan BurnTextInterval = TimeSpan.FromSeconds(10.0);
 
         private void TrySpringPassive(bool inCombat)
         {
@@ -1840,8 +1860,9 @@ namespace Server.Mobiles
                 heal = 1;
             heal = DudeAbility.ApplyEffect(heal);
 
-            Heal(heal, this, false);
-            DudeAbilityVfx.PlayWaterHeal(this);
+            // The pulse runs every 2s in combat; only show the heal effect when something was healed.
+            if (Heal(heal, this, false) > 0)
+                DudeAbilityVfx.PlayWaterHeal(this);
 
             // Heal owned DudeCreatures within range 2 via master's followers (no hostile scan).
             Mobile master = ControlMaster;
@@ -1872,8 +1893,9 @@ namespace Server.Mobiles
                 int allyPct = Math.Max(1, (int)(ally.HitsMax * healFrac));
                 int allyHeal = Math.Min(Math.Max(1, (int)(blast * 0.15)), allyPct);
                 allyHeal = DudeAbility.ApplyEffect(allyHeal);
-                ally.Heal(allyHeal, this, false);
-                DudeAbilityVfx.PlayWaterHeal(ally);
+
+                if (ally.Heal(allyHeal, this, false) > 0)
+                    DudeAbilityVfx.PlayWaterHeal(ally);
             }
 
             DudeAbility.CurrentEffectMultiplier = prevSpring;

@@ -474,6 +474,16 @@ namespace Server.Items
             return string.Format("{0}: {1}/{2}", job.GetResourceLabel(), GetStoredRewardCount(job), cap);
         }
 
+        /// <summary>
+        /// Overhead status text for the station's owner only; these went to every client in range
+        /// on every cycle. Skipped when the owner is offline or out of range, as before.
+        /// </summary>
+        private void OwnerMessage(int hue, string text)
+        {
+            if (m_Placer != null && !m_Placer.Deleted)
+                PrivateOverheadMessage(MessageType.Regular, hue, false, text, m_Placer.NetState);
+        }
+
         public bool TryStopJob(Mobile from)
         {
             if (!ValidateHouseSecureUse(from, true))
@@ -487,7 +497,7 @@ namespace Server.Items
             }
 
             AbortJob(from, "Job stopped.");
-            PublicOverheadMessage(MessageType.Regular, 0x3B2, false, "Job stopped.");
+            OwnerMessage(0x3B2, "Job stopped.");
             return true;
         }
 
@@ -902,11 +912,11 @@ private Point3D GetSpawnLocation()
             {
                 int beforeLevel = data.Level;
                 DudeExperience.AwardExperience(ball, DudeJobConfig.JobCycleExp, null);
-                PublicOverheadMessage(MessageType.Regular, 0x59, false,
+                OwnerMessage(0x59,
                     string.Format("{0} +{1} EXP", data.DisplayName, DudeJobConfig.JobCycleExp));
                 if (data.Level > beforeLevel)
                 {
-                    PublicOverheadMessage(MessageType.Regular, 0x44, false,
+                    OwnerMessage(0x44,
                         string.Format("{0} reached level {1}!", data.DisplayName, data.Level));
                 }
             }
@@ -919,7 +929,7 @@ private Point3D GetSpawnLocation()
                 m_Stage = DudeJobStage.Idle;
                 StopJobTimer();
                 InvalidateProperties();
-                PublicOverheadMessage(MessageType.Regular, 0x22, false,
+                OwnerMessage(0x22,
                     string.Format("Station full ({0}). Job stopped.", FormatStorageLine(job)));
                 return;
             }
@@ -931,12 +941,12 @@ private Point3D GetSpawnLocation()
                 m_Stage = DudeJobStage.Idle;
                 StopJobTimer();
                 InvalidateProperties();
-                PublicOverheadMessage(MessageType.Regular, 0x22, false, "Could not continue job.");
+                OwnerMessage(0x22, "Could not continue job.");
                 return;
             }
 
             InvalidateProperties();
-            PublicOverheadMessage(MessageType.Regular, 0x3B2, false,
+            OwnerMessage(0x3B2,
                 string.Format("Cycle done ({0}). Continuing...", FormatStorageLine(job)));
         }
 
@@ -1009,7 +1019,7 @@ private Point3D GetSpawnLocation()
                 {
                     existing.Amount += dust.Amount;
                     dust.Delete();
-                    PublicOverheadMessage(MessageType.Regular, 0x59, false,
+                    OwnerMessage(0x59,
                         string.Format("+{0} Dude Dust!", DudeJobConfig.JobDustAmount));
                     return;
                 }
@@ -1018,7 +1028,7 @@ private Point3D GetSpawnLocation()
             if (!TryDropReward(dust))
                 dust.MoveToWorld(GetSpawnLocation(), Map);
 
-            PublicOverheadMessage(MessageType.Regular, 0x59, false,
+            OwnerMessage(0x59,
                 string.Format("+{0} Dude Dust!", DudeJobConfig.JobDustAmount));
         }
 
@@ -1072,7 +1082,7 @@ private Point3D GetSpawnLocation()
 
             // Container full — drop beside station, never silent-lose.
             reward.MoveToWorld(GetSpawnLocation(), Map);
-            PublicOverheadMessage(MessageType.Regular, 0x22, false, "Station full — resources left beside it.");
+            OwnerMessage(0x22, "Station full — resources left beside it.");
         }
 
         private bool TryDropReward(Item reward)

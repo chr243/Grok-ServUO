@@ -167,10 +167,13 @@ namespace Server.Custom.Dudes
 
             data.CurrentEXP += amount;
 
-            if (!linkedQuiet && live != null && !live.Deleted && live.Map != null && live.Map != Map.Internal)
+            // Only the owner sees the floating "+N EXP" (it was broadcast to everyone in range on
+            // every kill). The owner's journal line below is unchanged.
+            if (!linkedQuiet && live != null && !live.Deleted && live.Map != null && live.Map != Map.Internal
+                && owner != null && owner.NetState != null && owner.Map == live.Map && Utility.InUpdateRange(owner, live))
             {
-                live.PublicOverheadMessage(MessageType.Regular, 0x59, false,
-                    string.Format("+{0} EXP", amount));
+                live.PrivateOverheadMessage(MessageType.Regular, 0x59, false,
+                    string.Format("+{0} EXP", amount), owner.NetState);
             }
 
             if (owner != null)
@@ -212,11 +215,24 @@ namespace Server.Custom.Dudes
 
             if (!linkedQuiet)
             {
-                ball.InvalidateProperties();
+                // Level-ups refresh tooltips right away; EXP-only changes are coalesced, since AoE
+                // kills award EXP in bursts and each rebuild re-sends the tooltip revision to every
+                // client in range.
+                bool leveled = data.Level != oldLevel;
+
+                if (leveled)
+                    ball.InvalidateProperties();
+                else
+                    ball.InvalidatePropertiesThrottled();
 
                 // Refresh summoned Dude mouseover Level/EXP bar after EXP changes.
                 if (live != null && !live.Deleted)
-                    live.InvalidateProperties();
+                {
+                    if (leveled)
+                        live.InvalidateProperties();
+                    else
+                        live.InvalidatePropertiesThrottled();
+                }
             }
 
             // Only rewrite live creature stats/skills/speeds on a real level-up (not every XP tick).

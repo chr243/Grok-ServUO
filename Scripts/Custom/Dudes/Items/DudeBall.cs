@@ -172,44 +172,18 @@ namespace Server.Items
             InvalidateProperties();
         }
 
-        private static readonly TimeSpan PropertyRefreshDelay = TimeSpan.FromSeconds(5.0);
-
-        private DateTime m_NextPropertyRefresh;
-        private Timer m_PropertyRefreshTimer;
+        private ThrottledPropertyRefresh m_PropertyRefresh;
 
         /// <summary>
-        /// Coalesced InvalidateProperties for per-hit callers (combat skill gains). Each rebuild
-        /// re-runs GetProperties and sends a revision packet to every client in range, so refresh
-        /// at most once per PropertyRefreshDelay; a request inside the window schedules one
-        /// deferred refresh so the tooltip still ends up current.
+        /// InvalidateProperties for per-hit / per-kill callers (skill gains, EXP): at most one
+        /// tooltip rebuild per 5s, see ThrottledPropertyRefresh.
         /// </summary>
         public void InvalidatePropertiesThrottled()
         {
-            if (Deleted || m_PropertyRefreshTimer != null)
-                return;
+            if (m_PropertyRefresh == null)
+                m_PropertyRefresh = new ThrottledPropertyRefresh(InvalidateProperties, () => Deleted, TimeSpan.FromSeconds(5.0));
 
-            DateTime now = DateTime.UtcNow;
-
-            if (now >= m_NextPropertyRefresh)
-            {
-                m_NextPropertyRefresh = now + PropertyRefreshDelay;
-                InvalidateProperties();
-            }
-            else
-            {
-                m_PropertyRefreshTimer = Timer.DelayCall(m_NextPropertyRefresh - now, new TimerCallback(DeferredPropertyRefresh));
-            }
-        }
-
-        private void DeferredPropertyRefresh()
-        {
-            m_PropertyRefreshTimer = null;
-
-            if (Deleted)
-                return;
-
-            m_NextPropertyRefresh = DateTime.UtcNow + PropertyRefreshDelay;
-            InvalidateProperties();
+            m_PropertyRefresh.Request();
         }
 
         /// <summary>Drop the parked/world Dude instance (frees serial). Used on ball delete / faint cleanup.</summary>

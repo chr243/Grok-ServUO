@@ -7655,16 +7655,8 @@ namespace Server
 						{
 							ns.Send(MobileIncoming.Create(ns, this, m));
 
-							if (ns.IsEnhancedClient)
-							{
-								ns.Send(new HealthbarPoisonEC(m));
-								ns.Send(new HealthbarYellowEC(m));
-							}
-							else if (ns.StygianAbyss)
-							{
-								ns.Send(new HealthbarPoison(m));
-								ns.Send(new HealthbarYellow(m));
-							}
+							// Was two healthbar packets per mobile even when neither flag was set.
+							SendHealthbarStateTo(ns, m);
 
 							if (m.IsDeadBondedPet)
 							{
@@ -10119,11 +10111,9 @@ namespace Server
 
 					eable.Free();
 
-					Packet hbpPacket = Packet.Acquire(new HealthbarPoison(this)), 
-						   hbyPacket = Packet.Acquire(new HealthbarYellow(this));
-
-					Packet hbpKRPacket = Packet.Acquire(new HealthbarPoisonEC(this)),
-						   hbyKRPacket = Packet.Acquire(new HealthbarYellowEC(this));
+					// Built on first use only (most moves bring this mobile into nobody's view). These
+					// were four packets allocated up front on every location change of every mobile.
+					Packet hbpPacket = null, hbyPacket = null, hbpKRPacket = null, hbyKRPacket = null;
 
 					NetState ourState = m_NetState;
 
@@ -10164,16 +10154,7 @@ namespace Server
 								{
 									m.m_NetState.Send(MobileIncoming.Create(m.m_NetState, m, this));
 
-									if (m.m_NetState.IsEnhancedClient)
-									{
-										m.m_NetState.Send(hbpKRPacket);
-										m.m_NetState.Send(hbyKRPacket);
-									}
-									else if (m.m_NetState.StygianAbyss)
-									{
-										m.m_NetState.Send(hbpPacket);
-										m.m_NetState.Send(hbyPacket);
-									}
+									SendSharedHealthbarState(m.m_NetState, ref hbpPacket, ref hbyPacket, ref hbpKRPacket, ref hbyKRPacket);
 
 									if (IsDeadBondedPet)
 									{
@@ -10199,16 +10180,7 @@ namespace Server
 								{
 									ourState.Send(MobileIncoming.Create(ourState, this, m));
 
-									if (ourState.IsEnhancedClient)
-									{
-										ourState.Send(new HealthbarPoisonEC(m));
-										ourState.Send(new HealthbarYellowEC(m));
-									}
-									else if (ourState.StygianAbyss)
-									{
-										ourState.Send(new HealthbarPoison(m));
-										ourState.Send(new HealthbarYellow(m));
-									}
+									SendHealthbarStateTo(ourState, m);
 
 									if (m.IsDeadBondedPet)
 									{
@@ -10243,16 +10215,7 @@ namespace Server
 							{
 								ns.Send(MobileIncoming.Create(ns, ns.Mobile, this));
 
-								if (ns.IsEnhancedClient)
-								{
-									ns.Send(hbpKRPacket);
-									ns.Send(hbyKRPacket);
-								}
-								else if (ns.StygianAbyss)
-								{
-									ns.Send(hbpPacket);
-									ns.Send(hbyPacket);
-								}
+								SendSharedHealthbarState(ns, ref hbpPacket, ref hbyPacket, ref hbpKRPacket, ref hbyKRPacket);
 
 								if (IsDeadBondedPet)
 								{
@@ -10731,20 +10694,7 @@ namespace Server
 					{
 						state.Send(MobileIncoming.Create(state, state.Mobile, this));
 
-						if (state.StygianAbyss)
-						{
-							if (m_Poison != null)
-							{
-								state.Send(new HealthbarPoison(this));
-                                state.Send(new HealthbarPoisonEC(this));
-							}
-
-							if (m_Blessed || m_YellowHealthbar)
-							{
-								state.Send(new HealthbarYellow(this));
-                                state.Send(new HealthbarYellowEC(this));
-							}
-						}
+						SendHealthbarStateTo(state, this);
 
 						if (IsDeadBondedPet)
 						{
@@ -10759,6 +10709,89 @@ namespace Server
 				}
 
 				eable.Free();
+			}
+		}
+
+		/// <summary>
+		///     Sends a mobile's poison/yellow healthbar state to a client that has just started seeing it
+		///     (after its MobileIncoming). Only "on" states are sent: a newly seen mobile already defaults
+		///     to neither on the client, and later changes go out through ProcessDelta. One variant per
+		///     client type (0x16 for the enhanced client, 0x17 for SA classic clients).
+		/// </summary>
+		public static void SendHealthbarStateTo(NetState ns, Mobile m)
+		{
+			bool poisoned = m.m_Poison != null;
+			bool yellow = m.m_Blessed || m.m_YellowHealthbar;
+
+			if (!poisoned && !yellow)
+			{
+				return;
+			}
+
+			if (ns.IsEnhancedClient)
+			{
+				if (poisoned)
+				{
+					ns.Send(new HealthbarPoisonEC(m));
+				}
+
+				if (yellow)
+				{
+					ns.Send(new HealthbarYellowEC(m));
+				}
+			}
+			else if (ns.StygianAbyss)
+			{
+				if (poisoned)
+				{
+					ns.Send(new HealthbarPoison(m));
+				}
+
+				if (yellow)
+				{
+					ns.Send(new HealthbarYellow(m));
+				}
+			}
+		}
+
+		/// <summary>
+		///     Same as <see cref="SendHealthbarStateTo" /> for this mobile, but builds each packet once on
+		///     first use and shares it across recipients. Release the refs with Packet.Release afterwards.
+		/// </summary>
+		private void SendSharedHealthbarState(
+			NetState ns, ref Packet poison, ref Packet yellow, ref Packet poisonEC, ref Packet yellowEC)
+		{
+			bool isPoisoned = m_Poison != null;
+			bool isYellow = m_Blessed || m_YellowHealthbar;
+
+			if (!isPoisoned && !isYellow)
+			{
+				return;
+			}
+
+			if (ns.IsEnhancedClient)
+			{
+				if (isPoisoned)
+				{
+					ns.Send(poisonEC ?? (poisonEC = Packet.Acquire(new HealthbarPoisonEC(this))));
+				}
+
+				if (isYellow)
+				{
+					ns.Send(yellowEC ?? (yellowEC = Packet.Acquire(new HealthbarYellowEC(this))));
+				}
+			}
+			else if (ns.StygianAbyss)
+			{
+				if (isPoisoned)
+				{
+					ns.Send(poison ?? (poison = Packet.Acquire(new HealthbarPoison(this))));
+				}
+
+				if (isYellow)
+				{
+					ns.Send(yellow ?? (yellow = Packet.Acquire(new HealthbarYellow(this))));
+				}
 			}
 		}
 
@@ -11413,16 +11446,16 @@ namespace Server
 						ourState.Send(cache[0][noto] = Packet.Acquire(new MobileMoving(m, noto)));
 					}
 
+					// State changes go out on or off, but only in the client's own variant (0x16 enhanced,
+					// 0x17 classic); every client used to get both copies.
 					if (sendHealthbarPoison)
 					{
-						ourState.Send(new HealthbarPoison(m));
-                        ourState.Send(new HealthbarPoisonEC(m));
+						ourState.Send(ourState.IsEnhancedClient ? (Packet)new HealthbarPoisonEC(m) : new HealthbarPoison(m));
 					}
 
 					if (sendHealthbarYellow)
 					{
-						ourState.Send(new HealthbarYellow(m));
-                        ourState.Send(new HealthbarYellowEC(m));
+						ourState.Send(ourState.IsEnhancedClient ? (Packet)new HealthbarYellowEC(m) : new HealthbarYellow(m));
 					}
 				}
 				else
@@ -11587,26 +11620,26 @@ namespace Server
 
 							if (sendHealthbarPoison)
 							{
-								if (hbpPacket == null)
+								if (state.IsEnhancedClient)
 								{
-									hbpPacket = Packet.Acquire(new HealthbarPoison(m));
-                                    hbpPacketEC = Packet.Acquire(new HealthbarPoisonEC(m));
+									state.Send(hbpPacketEC ?? (hbpPacketEC = Packet.Acquire(new HealthbarPoisonEC(m))));
 								}
-
-								state.Send(hbpPacket);
-                                state.Send(hbpPacketEC);
+								else
+								{
+									state.Send(hbpPacket ?? (hbpPacket = Packet.Acquire(new HealthbarPoison(m))));
+								}
 							}
 
 							if (sendHealthbarYellow)
 							{
-								if (hbyPacket == null)
+								if (state.IsEnhancedClient)
 								{
-									hbyPacket = Packet.Acquire(new HealthbarYellow(m));
-                                    hbyPacketEC = Packet.Acquire(new HealthbarYellowEC(m));
+									state.Send(hbyPacketEC ?? (hbyPacketEC = Packet.Acquire(new HealthbarYellowEC(m))));
 								}
-
-								state.Send(hbyPacket);
-                                state.Send(hbyPacketEC);
+								else
+								{
+									state.Send(hbyPacket ?? (hbyPacket = Packet.Acquire(new HealthbarYellow(m))));
+								}
 							}
 						}
 						else
