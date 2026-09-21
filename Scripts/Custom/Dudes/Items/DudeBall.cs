@@ -123,10 +123,92 @@ namespace Server.Items
 
         public void ClearDude()
         {
-            RecallInternal(null, false);
+            ClearDude(null);
+        }
+
+        /// <summary>
+        /// Empties the ball (e.g. recycled in the Mixer) and deletes its Dude instance. Re-parking the
+        /// instance on the empty ball (the old recall path) left it linked, so the next Dude caught into
+        /// the ball reused it, worn gear and all, and after a restart it was an orphan deleted with that
+        /// gear. Its DudeGear goes to <paramref name="from"/> first (see ReturnGear).
+        /// </summary>
+        /// <returns>The number of gear pieces returned.</returns>
+        public int ClearDude(Mobile from)
+        {
+            DudeCreature dude = m_SummonedDude;
+            int returned = 0;
+
+            if (dude != null && !dude.Deleted)
+                returned = ReturnGear(dude, from);
+
             m_StoredDude = null;
             RefreshHue();
-            InvalidateProperties();
+
+            // Deletes the instance instead of re-parking it; a recall still finishing its FX sees the
+            // deleted Dude in FinishRecallPark and leaves the ball alone.
+            DestroyParkedDude();
+
+            return returned;
+        }
+
+        /// <summary>
+        /// Moves every DudeGear piece off a Dude instance that is about to be deleted (worn, loose on the
+        /// mobile, or in its pack): into <paramref name="to"/>'s backpack, else at their feet; with no
+        /// player, into the container holding this ball or next to it. Type shorts are not gear and go
+        /// with the Dude.
+        /// </summary>
+        private int ReturnGear(DudeCreature dude, Mobile to)
+        {
+            List<Item> gear = new List<Item>();
+
+            for (int i = 0; i < dude.Items.Count; i++)
+            {
+                Item item = dude.Items[i];
+
+                if (item is DudeGear && !item.Deleted)
+                    gear.Add(item);
+            }
+
+            Container pack = dude.Backpack;
+
+            if (pack != null)
+                gear.AddRange(pack.FindItemsByType<DudeGear>(true));
+
+            for (int i = 0; i < gear.Count; i++)
+                GiveItem(gear[i], to);
+
+            return gear.Count;
+        }
+
+        private void GiveItem(Item item, Mobile to)
+        {
+            if (to != null && !to.Deleted)
+            {
+                Container pack = to.Backpack;
+
+                if (pack != null && pack.TryDropItem(to, item, false))
+                    return;
+
+                if (to.Map != null && to.Map != Map.Internal)
+                {
+                    item.MoveToWorld(to.Location, to.Map);
+                    return;
+                }
+
+                // Offline (Internal map) with a full pack: overfill it rather than lose the item.
+                if (pack != null)
+                {
+                    pack.DropItem(item);
+                    return;
+                }
+            }
+
+            Container parent = Parent as Container;
+
+            if (parent != null)
+                parent.DropItem(item);
+            else if (Map != null && Map != Map.Internal)
+                item.MoveToWorld(GetWorldLocation(), Map);
         }
 
         /// <summary>Empty = green; filled = Fire red / Water blue / Air white / Earth light brown.</summary>
@@ -172,47 +254,21 @@ namespace Server.Items
             InvalidateProperties();
         }
 
-        private static readonly TimeSpan PropertyRefreshDelay = TimeSpan.FromSeconds(5.0);
-
-        private DateTime m_NextPropertyRefresh;
-        private Timer m_PropertyRefreshTimer;
+        private ThrottledPropertyRefresh m_PropertyRefresh;
 
         /// <summary>
-        /// Coalesced InvalidateProperties for per-hit callers (combat skill gains). Each rebuild
-        /// re-runs GetProperties and sends a revision packet to every client in range, so refresh
-        /// at most once per PropertyRefreshDelay; a request inside the window schedules one
-        /// deferred refresh so the tooltip still ends up current.
+        /// InvalidateProperties for per-hit / per-kill callers (skill gains, EXP): at most one
+        /// tooltip rebuild per 5s, see ThrottledPropertyRefresh.
         /// </summary>
         public void InvalidatePropertiesThrottled()
         {
-            if (Deleted || m_PropertyRefreshTimer != null)
-                return;
+            if (m_PropertyRefresh == null)
+                m_PropertyRefresh = new ThrottledPropertyRefresh(InvalidateProperties, () => Deleted, TimeSpan.FromSeconds(5.0));
 
-            DateTime now = DateTime.UtcNow;
-
-            if (now >= m_NextPropertyRefresh)
-            {
-                m_NextPropertyRefresh = now + PropertyRefreshDelay;
-                InvalidateProperties();
-            }
-            else
-            {
-                m_PropertyRefreshTimer = Timer.DelayCall(m_NextPropertyRefresh - now, new TimerCallback(DeferredPropertyRefresh));
-            }
+            m_PropertyRefresh.Request();
         }
 
-        private void DeferredPropertyRefresh()
-        {
-            m_PropertyRefreshTimer = null;
-
-            if (Deleted)
-                return;
-
-            m_NextPropertyRefresh = DateTime.UtcNow + PropertyRefreshDelay;
-            InvalidateProperties();
-        }
-
-        /// <summary>Drop the parked/world Dude instance (frees serial). Used on ball delete / faint cleanup.</summary>
+        /// <summary>Drop the parked/world Dude instance (frees serial). Used on ball delete and by ClearDude.</summary>
         public void DestroyParkedDude()
         {
             DudeCreature dude = m_SummonedDude;
@@ -503,13 +559,15 @@ namespace Server.Items
         {
             m_Recalling = false;
 
-            if (dude != null && !dude.Deleted)
-            {
-                dude.EndDespawnSequence();
-                dude.SetControlMaster(null);
-                ParkDude(dude);
-                m_SummonedDude = dude;
-            }
+            // Deleted while the recall FX played (e.g. the ball was emptied via ClearDude): nothing to
+            // park or re-link, and nothing "returns to the ball".
+            if (dude == null || dude.Deleted)
+                return;
+
+            dude.EndDespawnSequence();
+            dude.SetControlMaster(null);
+            ParkDude(dude);
+            m_SummonedDude = dude;
 
             InvalidateProperties();
 
@@ -535,6 +593,22 @@ namespace Server.Items
         {
             DestroyParkedDude();
             base.OnDelete();
+        }
+
+        /// <summary>Deletes a Dude instance left on this ball after it was emptied, keeping its gear.</summary>
+        private void DeleteOrphan(DudeCreature orphan)
+        {
+            if (orphan == null || orphan.Deleted)
+                return;
+
+            ReturnGear(orphan, null);
+
+            orphan.BoundBall = null;
+
+            if (orphan.ControlMaster != null)
+                orphan.SetControlMaster(null);
+
+            orphan.Delete();
         }
 
         public override void Serialize(GenericWriter writer)
@@ -577,8 +651,9 @@ namespace Server.Items
 
             // Never Delete() during World.Loading — it can hang/cascade the dual-save load.
             // Drop the link now and delete the orphan once loading finishes. Nothing else
-            // references it (e.g. a Dude parked on a ball that was then recycled in the Mixer),
-            // so previously it stayed on the Internal map, and in every save, forever.
+            // references it (e.g. a Dude parked on a ball recycled in the Mixer before ClearDude
+            // deleted instances), so previously it stayed on the Internal map, and in every save,
+            // forever. Its gear is returned next to the ball first.
             if (m_StoredDude == null && m_SummonedDude != null)
             {
                 DudeCreature orphan = m_SummonedDude;
@@ -587,9 +662,9 @@ namespace Server.Items
                 if (orphan != null && !orphan.Deleted)
                 {
                     if (World.Loading)
-                        Timer.DelayCall(TimeSpan.Zero, new TimerCallback(orphan.Delete));
+                        Timer.DelayCall(TimeSpan.Zero, () => DeleteOrphan(orphan));
                     else
-                        orphan.Delete();
+                        DeleteOrphan(orphan);
                 }
             }
 

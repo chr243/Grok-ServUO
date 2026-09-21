@@ -31,6 +31,7 @@ namespace Server.Network
 
 					if (pw != null)
 					{
+						pw.m_InPool = false;
 						pw.m_Capacity = capacity;
 						pw.m_Stream.SetLength(0);
 					}
@@ -49,8 +50,11 @@ namespace Server.Network
 		{
 			lock (m_Pool)
 			{
-				if (!m_Pool.Contains(pw))
+				// Track pool membership with a flag: Stack.Contains was a linear scan of the whole
+				// pool, under this lock, on every packet compile.
+				if (!pw.m_InPool)
 				{
+					pw.m_InPool = true;
 					m_Pool.Push(pw);
 				}
 				else
@@ -76,6 +80,11 @@ namespace Server.Network
 		private readonly MemoryStream m_Stream;
 
 		private int m_Capacity;
+
+		/// <summary>
+		///     True while this writer sits in the instance pool (guarded by the pool lock).
+		/// </summary>
+		private bool m_InPool;
 
 		/// <summary>
 		///     Internal format buffer.

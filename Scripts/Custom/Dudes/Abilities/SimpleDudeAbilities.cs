@@ -34,6 +34,19 @@ namespace Server.Custom.Dudes
             target.PlaySound(0x208);
         }
 
+        /// <summary>
+        /// Light per-target flame for the once-a-second Burn passive: one particle effect, no sound
+        /// (the Dude plays one per pulse). PlayFireHit is four packets per target to every nearby
+        /// client, which suits a one-off hit but not a damage-over-time tick.
+        /// </summary>
+        public static void PlayBurnTick(Mobile target)
+        {
+            if (target == null || target.Deleted || target.Map == null || target.Map == Map.Internal)
+                return;
+
+            target.FixedParticles(0x3709, 10, 30, 5052, EffectLayer.LeftFoot);
+        }
+
         public static void PlayBriefFireRing(Point3D center, Map map, int radius)
         {
             if (map == null || map == Map.Internal || radius < 1)
@@ -629,24 +642,40 @@ namespace Server.Custom.Dudes
             }
         }
 
+        // Visual spacing between flames on each ring, in tiles.
+        private const double FlameSpacing = 1.5;
+
         private static void PlayExpandingRing(Mobile caster, Mobile master, Point3D center, Map map, int radius, int damage)
         {
-            for (int dx = -radius; dx <= radius; dx++)
+            // Flames at evenly spaced points around the ring (at least 8). Drawing every ring tile
+            // plus a random second effect on half of them was ~160 location effects per cast, each a
+            // packet to every client in range; this is ~67. Damage below still covers every tile.
+            int points = Math.Max(8, (int)Math.Round(2.0 * Math.PI * radius / FlameSpacing));
+            int firstDx = 0, firstDy = 0, lastDx = 0, lastDy = 0;
+
+            for (int i = 0; i < points; i++)
             {
-                for (int dy = -radius; dy <= radius; dy++)
+                double angle = 2.0 * Math.PI * i / points;
+                int dx = (int)Math.Round(radius * Math.Cos(angle));
+                int dy = (int)Math.Round(radius * Math.Sin(angle));
+
+                // Adjacent angles can round to the same tile on small rings.
+                if (i > 0 && ((dx == lastDx && dy == lastDy) || (dx == firstDx && dy == firstDy)))
+                    continue;
+
+                if (i == 0)
                 {
-                    double d = Math.Sqrt(dx * dx + dy * dy);
-                    if (Math.Abs(d - radius) > 0.6)
-                        continue;
-
-                    int z = center.Z;
-                    try { z = map.GetAverageZ(center.X + dx, center.Y + dy); } catch { }
-
-                    Point3D p = new Point3D(center.X + dx, center.Y + dy, z);
-                    Effects.SendLocationEffect(p, map, 0x3709, 16, 0, 0);
-                    if (Utility.RandomBool())
-                        Effects.SendLocationEffect(p, map, 0x36BD, 12, 0, 0);
+                    firstDx = dx;
+                    firstDy = dy;
                 }
+
+                lastDx = dx;
+                lastDy = dy;
+
+                int z = center.Z;
+                try { z = map.GetAverageZ(center.X + dx, center.Y + dy); } catch { }
+
+                Effects.SendLocationEffect(new Point3D(center.X + dx, center.Y + dy, z), map, 0x3709, 16, 0, 0);
             }
 
             IPooledEnumerable eable = map.GetMobilesInRange(center, radius);
