@@ -4047,9 +4047,10 @@ namespace Server
                 SetFlag(ImplFlag.InQueue, true);
 
                 m_DeltaQueue.Add(this);
-            }
 
-            Core.Set();
+                // Only wake the core when queueing; if already queued, a wake-up is already pending.
+                Core.Set();
+            }
         }
 
         public void RemDelta(ItemDelta flags)

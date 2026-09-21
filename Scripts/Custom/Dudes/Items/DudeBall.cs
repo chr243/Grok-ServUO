@@ -172,6 +172,46 @@ namespace Server.Items
             InvalidateProperties();
         }
 
+        private static readonly TimeSpan PropertyRefreshDelay = TimeSpan.FromSeconds(5.0);
+
+        private DateTime m_NextPropertyRefresh;
+        private Timer m_PropertyRefreshTimer;
+
+        /// <summary>
+        /// Coalesced InvalidateProperties for per-hit callers (combat skill gains). Each rebuild
+        /// re-runs GetProperties and sends a revision packet to every client in range, so refresh
+        /// at most once per PropertyRefreshDelay; a request inside the window schedules one
+        /// deferred refresh so the tooltip still ends up current.
+        /// </summary>
+        public void InvalidatePropertiesThrottled()
+        {
+            if (Deleted || m_PropertyRefreshTimer != null)
+                return;
+
+            DateTime now = DateTime.UtcNow;
+
+            if (now >= m_NextPropertyRefresh)
+            {
+                m_NextPropertyRefresh = now + PropertyRefreshDelay;
+                InvalidateProperties();
+            }
+            else
+            {
+                m_PropertyRefreshTimer = Timer.DelayCall(m_NextPropertyRefresh - now, new TimerCallback(DeferredPropertyRefresh));
+            }
+        }
+
+        private void DeferredPropertyRefresh()
+        {
+            m_PropertyRefreshTimer = null;
+
+            if (Deleted)
+                return;
+
+            m_NextPropertyRefresh = DateTime.UtcNow + PropertyRefreshDelay;
+            InvalidateProperties();
+        }
+
         /// <summary>Drop the parked/world Dude instance (frees serial). Used on ball delete / faint cleanup.</summary>
         public void DestroyParkedDude()
         {
@@ -536,13 +576,21 @@ namespace Server.Items
             m_SummonedDude = reader.ReadMobile() as DudeCreature;
 
             // Never Delete() during World.Loading — it can hang/cascade the dual-save load.
-            // Drop the link now; orphan summoned mobiles are cleaned after load if needed.
+            // Drop the link now and delete the orphan once loading finishes. Nothing else
+            // references it (e.g. a Dude parked on a ball that was then recycled in the Mixer),
+            // so previously it stayed on the Internal map, and in every save, forever.
             if (m_StoredDude == null && m_SummonedDude != null)
             {
                 DudeCreature orphan = m_SummonedDude;
                 m_SummonedDude = null;
-                if (!World.Loading && orphan != null && !orphan.Deleted)
-                    orphan.Delete();
+
+                if (orphan != null && !orphan.Deleted)
+                {
+                    if (World.Loading)
+                        Timer.DelayCall(TimeSpan.Zero, new TimerCallback(orphan.Delete));
+                    else
+                        orphan.Delete();
+                }
             }
 
             if (version >= 1)

@@ -294,7 +294,7 @@ namespace Server.Items
             dude.PlaySound(0x1F2);
             dude.FixedEffect(0x376A, 9, 32);
             Effects.SendLocationParticles(
-                EffectItem.Create(dude.Location, dude.Map, EffectItem.DefaultDuration),
+                new Entity(Serial.Zero, dude.Location, dude.Map),
                 0x3728, 10, 10, 5029);
 
             if (!consumedFromStack)

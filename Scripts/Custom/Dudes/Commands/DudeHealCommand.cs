@@ -77,33 +77,43 @@ namespace Server.Custom.Dudes.Commands
             DudeCreature best = null;
             int bestMissing = 0;
 
-            foreach (Mobile m in from.GetMobilesInRange(8))
+            // Free() the pooled enumerable (the bare foreach never returned it to the pool).
+            IPooledEnumerable<Mobile> eable = from.GetMobilesInRange(8);
+
+            try
             {
-                DudeCreature dude = m as DudeCreature;
-                if (dude == null || dude.Deleted || !dude.Alive)
-                    continue;
-
-                if (dude.IsWild || dude.BoundBall == null || dude.BoundBall.Deleted)
-                    continue;
-
-                if (dude.ControlMaster != from && from.AccessLevel < AccessLevel.GameMaster)
-                    continue;
-
-                if (dude.Map == null || dude.Map == Map.Internal)
-                    continue;
-
-                if (!from.CanSee(dude) || !from.InLOS(dude))
-                    continue;
-
-                if (dude.Hits >= dude.HitsMax)
-                    continue;
-
-                int missing = dude.HitsMax - dude.Hits;
-                if (best == null || missing > bestMissing)
+                foreach (Mobile m in eable)
                 {
-                    best = dude;
-                    bestMissing = missing;
+                    DudeCreature dude = m as DudeCreature;
+                    if (dude == null || dude.Deleted || !dude.Alive)
+                        continue;
+
+                    if (dude.IsWild || dude.BoundBall == null || dude.BoundBall.Deleted)
+                        continue;
+
+                    if (dude.ControlMaster != from && from.AccessLevel < AccessLevel.GameMaster)
+                        continue;
+
+                    if (dude.Map == null || dude.Map == Map.Internal)
+                        continue;
+
+                    if (!from.CanSee(dude) || !from.InLOS(dude))
+                        continue;
+
+                    if (dude.Hits >= dude.HitsMax)
+                        continue;
+
+                    int missing = dude.HitsMax - dude.Hits;
+                    if (best == null || missing > bestMissing)
+                    {
+                        best = dude;
+                        bestMissing = missing;
+                    }
                 }
+            }
+            finally
+            {
+                eable.Free();
             }
 
             return best;

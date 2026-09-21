@@ -52,14 +52,30 @@ namespace Server.Network
 
             public void Release()
             {
-                _pool.Enqueue(this);
+                // Return the buffer before the gram goes back to the pool. The old order let another
+                // thread re-acquire this gram (and give it a new buffer) before ReleaseBuffer(_buffer)
+                // ran, which released the *new* buffer while it was still in use by that connection.
+                byte[] buffer = _buffer;
 
-                ReleaseBuffer(_buffer);
+                _buffer = null;
+                _length = 0;
+
+                ReleaseBuffer(buffer);
+
+                _pool.Enqueue(this);
             }
 		}
 
-		private static int m_CoalesceBufferSize = 512;
-		private static BufferPool m_UnusedBuffers = new BufferPool("Coalesced", 2048, m_CoalesceBufferSize);
+		// Larger grams mean fewer, fuller socket sends (and TCP segments) per flush. Grams are only
+		// held while data is pending, so idle connections don't keep one.
+		private static int m_CoalesceBufferSize = 8192;
+		private static BufferPool m_UnusedBuffers = new BufferPool("Coalesced", GetPoolCapacity(m_CoalesceBufferSize), m_CoalesceBufferSize);
+
+		private static int GetPoolCapacity(int bufferSize)
+		{
+			// Keep the pre-allocated pool at about 1MB regardless of the gram size.
+			return Math.Max(32, (1024 * 1024) / Math.Max(1, bufferSize));
+		}
 
 		public static int CoalesceBufferSize
 		{
@@ -74,7 +90,7 @@ namespace Server.Network
                 m_UnusedBuffers?.Free();
 
                 m_CoalesceBufferSize = value;
-                m_UnusedBuffers = new BufferPool("Coalesced", 2048, m_CoalesceBufferSize);
+                m_UnusedBuffers = new BufferPool("Coalesced", GetPoolCapacity(m_CoalesceBufferSize), m_CoalesceBufferSize);
             }
 		}
 

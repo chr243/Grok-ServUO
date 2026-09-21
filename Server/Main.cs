@@ -428,11 +428,22 @@ namespace Server
                 NoConsole = true;
             }
 
+			// Set up the console tee first so MultiConsoleOut is never null (RemoteAdmin adds to it),
+			// even if the log file can't be opened.
+			try
+			{
+				Console.SetOut(MultiConsoleOut = new MultiTextWriter(Console.Out));
+			}
+			catch
+			{ }
+
 			try
 			{
 				if (!Directory.Exists("Logs"))
 					Directory.CreateDirectory("Logs");
-				Console.SetOut(MultiConsoleOut = new MultiTextWriter(Console.Out, new FileLogger("Logs/Console.log", true)));
+
+				if (MultiConsoleOut != null)
+					MultiConsoleOut.Add(new FileLogger("Logs/Console.log", true));
 			}
 			catch
 			{ }
@@ -657,11 +668,13 @@ namespace Server
 				{
 					_Signal.WaitOne();
 
-					Mobile.ProcessDeltaQueue();
-					Item.ProcessDeltaQueue();
-
 					Timer.Slice();
 					MessagePump.Slice();
+
+					// Process deltas after timers and packet handlers so the updates they cause go out
+					// in this cycle's flush, instead of waiting for the next wake-up and a second send.
+					Mobile.ProcessDeltaQueue();
+					Item.ProcessDeltaQueue();
 
 					NetState.FlushAll();
 					NetState.ProcessDisposedQueue();
@@ -896,10 +909,18 @@ namespace Server
 		}
 	}
 
+	/// <summary>
+	///     Timestamped log file writer. Keeps a single file handle open for its lifetime; the previous
+	///     version reopened (and closed) the file for every call, and for every character written
+	///     through Write(string), which stalled the main thread on disk and antivirus scans.
+	/// </summary>
 	public class FileLogger : TextWriter
 	{
 		public const string DateFormat = "[MMMM dd hh:mm:ss.f tt]: ";
 
+		private readonly object _Sync = new object();
+
+		private StreamWriter _Writer;
 		private bool _NewLine;
 
 		public string FileName { get; private set; }
@@ -912,58 +933,158 @@ namespace Server
 		{
 			FileName = file;
 
-			using (
-				var writer =
-					new StreamWriter(
-						new FileStream(FileName, append ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.Read)))
-			{
-				writer.WriteLine(">>>Logging started on {0:f}.", DateTime.Now);
-				//f = Tuesday, April 10, 2001 3:51 PM 
-			}
+			_Writer = new StreamWriter(
+				new FileStream(
+					FileName,
+					append ? FileMode.Append : FileMode.Create,
+					FileAccess.Write,
+					FileShare.ReadWrite | FileShare.Delete));
+
+			_Writer.WriteLine(">>>Logging started on {0:f}.", DateTime.Now);
+			//f = Tuesday, April 10, 2001 3:51 PM
+			_Writer.Flush();
 
 			_NewLine = true;
 		}
 
+		private void WriteStamp()
+		{
+			if (_NewLine)
+			{
+				_Writer.Write(DateTime.UtcNow.ToString(DateFormat));
+				_NewLine = false;
+			}
+		}
+
 		public override void Write(char ch)
 		{
-			using (var writer = new StreamWriter(new FileStream(FileName, FileMode.Append, FileAccess.Write, FileShare.Read)))
+			lock (_Sync)
 			{
-				if (_NewLine)
+				if (_Writer == null)
 				{
-					writer.Write(DateTime.UtcNow.ToString(DateFormat));
-					_NewLine = false;
+					return;
 				}
 
-				writer.Write(ch);
+				try
+				{
+					WriteStamp();
+
+					_Writer.Write(ch);
+
+					if (ch == '\n')
+					{
+						_NewLine = true;
+					}
+
+					_Writer.Flush();
+				}
+				catch (IOException)
+				{ }
 			}
 		}
 
 		public override void Write(string str)
 		{
-			using (var writer = new StreamWriter(new FileStream(FileName, FileMode.Append, FileAccess.Write, FileShare.Read)))
+			if (String.IsNullOrEmpty(str))
 			{
-				if (_NewLine)
+				return;
+			}
+
+			lock (_Sync)
+			{
+				if (_Writer == null)
 				{
-					writer.Write(DateTime.UtcNow.ToString(DateFormat));
-					_NewLine = false;
+					return;
 				}
 
-				writer.Write(str);
+				try
+				{
+					WriteStamp();
+
+					_Writer.Write(str);
+
+					if (str[str.Length - 1] == '\n')
+					{
+						_NewLine = true;
+					}
+
+					_Writer.Flush();
+				}
+				catch (IOException)
+				{ }
 			}
+		}
+
+		public override void Write(char[] buffer, int index, int count)
+		{
+			if (buffer != null && count > 0)
+			{
+				Write(new String(buffer, index, count));
+			}
+		}
+
+		public override void WriteLine()
+		{
+			WriteLine(String.Empty);
 		}
 
 		public override void WriteLine(string line)
 		{
-			using (var writer = new StreamWriter(new FileStream(FileName, FileMode.Append, FileAccess.Write, FileShare.Read)))
+			lock (_Sync)
 			{
-				if (_NewLine)
+				if (_Writer == null)
 				{
-					writer.Write(DateTime.UtcNow.ToString(DateFormat));
+					return;
 				}
 
-				writer.WriteLine(line);
-				_NewLine = true;
+				try
+				{
+					WriteStamp();
+
+					_Writer.WriteLine(line);
+					_Writer.Flush();
+
+					_NewLine = true;
+				}
+				catch (IOException)
+				{ }
 			}
+		}
+
+		public override void Flush()
+		{
+			lock (_Sync)
+			{
+				try
+				{
+					_Writer?.Flush();
+				}
+				catch (IOException)
+				{ }
+			}
+		}
+
+		protected override void Dispose(bool disposing)
+		{
+			if (disposing)
+			{
+				lock (_Sync)
+				{
+					if (_Writer != null)
+					{
+						try
+						{
+							_Writer.Dispose();
+						}
+						catch (IOException)
+						{ }
+
+						_Writer = null;
+					}
+				}
+			}
+
+			base.Dispose(disposing);
 		}
 
 		public override Encoding Encoding { get { return Encoding.Default; } }
@@ -971,26 +1092,55 @@ namespace Server
 
 	public class MultiTextWriter : TextWriter
 	{
-		private readonly List<TextWriter> _Streams;
+		private readonly object _Sync = new object();
+
+		// Copy-on-write so Add/Remove (e.g. RemoteAdmin hooking the console) can't break a write
+		// that is enumerating the writers on another thread.
+		private volatile TextWriter[] _Streams;
 
 		public MultiTextWriter(params TextWriter[] streams)
 		{
-			_Streams = new List<TextWriter>(streams);
-
-			if (_Streams.Count < 0)
-			{
-				throw new ArgumentException("You must specify at least one stream.");
-			}
+			_Streams = streams != null ? (TextWriter[])streams.Clone() : new TextWriter[0];
 		}
 
 		public void Add(TextWriter tw)
 		{
-			_Streams.Add(tw);
+			if (tw == null)
+			{
+				return;
+			}
+
+			lock (_Sync)
+			{
+				var old = _Streams;
+				var list = new TextWriter[old.Length + 1];
+
+				Array.Copy(old, list, old.Length);
+				list[old.Length] = tw;
+
+				_Streams = list;
+			}
 		}
 
 		public void Remove(TextWriter tw)
 		{
-			_Streams.Remove(tw);
+			lock (_Sync)
+			{
+				var old = _Streams;
+				var index = Array.IndexOf(old, tw);
+
+				if (index < 0)
+				{
+					return;
+				}
+
+				var list = new TextWriter[old.Length - 1];
+
+				Array.Copy(old, 0, list, 0, index);
+				Array.Copy(old, index + 1, list, index, old.Length - index - 1);
+
+				_Streams = list;
+			}
 		}
 
 		public override void Write(char ch)
@@ -998,6 +1148,31 @@ namespace Server
 			foreach (var t in _Streams)
 			{
 				t.Write(ch);
+			}
+		}
+
+		// Without these overrides TextWriter splits strings into per-character Write(char) calls.
+		public override void Write(string str)
+		{
+			foreach (var t in _Streams)
+			{
+				t.Write(str);
+			}
+		}
+
+		public override void Write(char[] buffer, int index, int count)
+		{
+			foreach (var t in _Streams)
+			{
+				t.Write(buffer, index, count);
+			}
+		}
+
+		public override void WriteLine()
+		{
+			foreach (var t in _Streams)
+			{
+				t.WriteLine();
 			}
 		}
 
@@ -1012,6 +1187,14 @@ namespace Server
 		public override void WriteLine(string line, params object[] args)
 		{
 			WriteLine(String.Format(line, args));
+		}
+
+		public override void Flush()
+		{
+			foreach (var t in _Streams)
+			{
+				t.Flush();
+			}
 		}
 
 		public override Encoding Encoding { get { return Encoding.Default; } }

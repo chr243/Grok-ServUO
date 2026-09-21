@@ -57,6 +57,19 @@ Staff-only spawn (`[SpawnEmberlord` / `[SpawnTidewarden` / `[SpawnStonewarden` /
 4. After script changes, rebuild (`_windebug.bat` / `_makedebug` while developing) and restart the shard.
 5. Stick to **C# 7.3**-compatible syntax in custom scripts (ServUO 57.4 / net48).
 
+## Engine changes (performance / networking)
+
+Upstream `Server/` files changed for speed and latency; each change has a comment at the site.
+
+| File | Change |
+|------|--------|
+| `Server/Network/NetState.cs` | Send-completion race fixed (a full chunk could be left unsent, freezing the client until "Too much data pending" kicked it); disposed send queues cleared under lock; `FlushAll` no longer snapshots every key each loop |
+| `Server/Network/SendQueue.cs` | Send chunks 512 B → 8 KB (same bytes in far fewer socket sends / TCP segments); gram release order fixed so a buffer can't be handed to two connections |
+| `Server/Network/PacketHandlers.cs` | Relay auth keys never start with `0xEF` (the listener mistook them for a seed packet and dropped ~0.6% of logins as "encrypted") |
+| `Server/Main.cs` | Deltas processed after timers/packets so their updates share the same flush; `FileLogger` keeps one handle open (was open/close per line, and per character for `Console.Write`) |
+| `Server/Mobile.cs`, `Server/Item.cs` | `Delta` only wakes the core when first queued; `ProcessDelta` skips an allocation for hits/stam/mana-only updates; `PublicOverheadMessage` builds its packet only if someone receives it |
+| `Scripts/Misc/ConnectionLog.cs` | One persistent log handle instead of reopening the file per line |
+
 ## What not to invent here
 
 Do not strip core ServUO trees. Game systems should come from ServUO or deliberate custom scripts — this scaffolding does not add fictional frameworks beyond documented Custom systems (e.g. Dudes).

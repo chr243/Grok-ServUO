@@ -232,8 +232,9 @@ namespace Server.Custom.Dudes
             if (live != null && !live.Deleted)
                 ApplyToMobile(live, data);
 
+            // Gains land on most melee hits; don't rebuild/broadcast the ball tooltip every swing.
             if (ball != null && !ball.Deleted)
-                ball.InvalidateProperties();
+                ball.InvalidatePropertiesThrottled();
         }
 
         private static bool TryGainOne(DudeData data, SkillName skill, double chance, double amount)
