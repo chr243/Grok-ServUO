@@ -20,6 +20,7 @@ namespace Server.Items
         private TimeSpan m_MaxDelay = TimeSpan.FromMinutes(5.0);
         private bool m_Running = true;
         private DateTime m_NextSpawn;
+        private bool m_WasFull; // transient: last tick saw the spawner full (see OnTick)
         private Timer m_Timer;
         private readonly List<DudeCreature> m_Spawned = new List<DudeCreature>();
 
@@ -64,7 +65,14 @@ namespace Server.Items
             get { return m_MaxCount; }
             set
             {
-                m_MaxCount = Math.Max(0, value);
+                int max = Math.Max(0, value);
+
+                // Raising the cap is a GM change, not a kill/capture: fill the new slots on the
+                // usual schedule instead of starting a fresh respawn delay.
+                if (max > m_MaxCount)
+                    m_WasFull = false;
+
+                m_MaxCount = max;
                 InvalidateProperties();
             }
         }
@@ -103,6 +111,11 @@ namespace Server.Items
             get { return m_Running; }
             set
             {
+                // Re-enabling is a GM change too: slots emptied while stopped refill on the usual
+                // schedule rather than waiting a fresh respawn delay.
+                if (value && !m_Running)
+                    m_WasFull = false;
+
                 m_Running = value;
                 if (m_Running)
                     StartTimer();
@@ -267,7 +280,20 @@ namespace Server.Items
             Defrag();
 
             if (m_Spawned.Count >= m_MaxCount)
+            {
+                m_WasFull = true;
                 return;
+            }
+
+            // A slot just opened (kill or capture) after the spawner was full. m_NextSpawn was set
+            // by the last fill and goes stale while full, so start a fresh MinDelay..MaxDelay wait
+            // instead of respawning on the next tick.
+            if (m_WasFull)
+            {
+                m_WasFull = false;
+                ScheduleNext();
+                return;
+            }
 
             if (DateTime.UtcNow >= m_NextSpawn)
                 DoSpawn();
