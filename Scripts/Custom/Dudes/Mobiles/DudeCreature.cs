@@ -1482,14 +1482,14 @@ namespace Server.Mobiles
             MagicalDudeHat hat = FindItemOnLayer(Layer.Helm) as MagicalDudeHat;
             if (hat != null && !hat.Deleted)
             {
-                double mult = hat.GetEffectMultiplier();
-                double magery = Math.Min(hat.Magery * mult, cap);
-                double eval = Math.Min(hat.EvalInt * mult, cap);
-                double med = Math.Min(hat.Meditation * mult, cap);
+                // Lerp stored → 120 by gear level, then stage cap. Never 120 before gear 10.
+                double magery = Math.Min(hat.GetSkillLerp(hat.Magery, 120.0), cap);
+                double eval = Math.Min(hat.GetSkillLerp(hat.EvalInt, 120.0), cap);
+                double med = Math.Min(hat.GetSkillLerp(hat.Meditation, 120.0), cap);
                 DudeCombatSkills.SetGearCopySkill(this, SkillName.Magery, magery, cap);
                 DudeCombatSkills.SetGearCopySkill(this, SkillName.EvalInt, eval, cap);
                 DudeCombatSkills.SetGearCopySkill(this, SkillName.Meditation, med, cap);
-                // Level 0 = full stored skills (x1.0); higher levels scale up then stage-cap.
+                // Level 0 = full stored skills; higher levels lerp toward 120 then stage-cap.
                 if (magery > 0.0 || eval > 0.0 || med > 0.0)
                 {
                     if (AI != AIType.AI_Mage)
@@ -1512,7 +1512,7 @@ namespace Server.Mobiles
             DudeShield shield = FindItemOnLayer(Layer.TwoHanded) as DudeShield;
             if (shield != null && !shield.Deleted)
             {
-                double parry = Math.Min(shield.Parrying * shield.GetEffectMultiplier(), cap);
+                double parry = Math.Min(shield.GetSkillLerp(shield.Parrying, 120.0), cap);
                 DudeCombatSkills.SetGearCopySkill(this, SkillName.Parry, parry, cap);
             }
             else

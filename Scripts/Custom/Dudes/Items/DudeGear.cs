@@ -135,6 +135,28 @@ namespace Server.Items
             return 1.0 + (lv * 0.10);
         }
 
+        /// <summary>
+        /// Skill scaling for copy-in skills (Magical Dude Hat, Dude Shield): floor of stored,
+        /// then Lerp(stored, ceiling, GearLevel / 10). Level 0 = stored value, level 10 = ceiling,
+        /// never the ceiling before gear 10. Use instead of stored * GetEffectMultiplier().
+        /// </summary>
+        public double GetSkillLerp(double stored, double ceiling)
+        {
+            if (stored < 0.0)
+                stored = 0.0;
+
+            int lv = GearLevel;
+            if (lv < 0)
+                lv = 0;
+            if (lv > 10)
+                lv = 10;
+
+            double scaled = stored + (ceiling - stored) * (lv / 10.0);
+            if (scaled < stored)
+                scaled = stored;
+            return scaled;
+        }
+
         /// <summary>Award gear EXP from the same kill amount the Dude received (full, not split).</summary>
         public virtual void AwardGearExp(int amount)
         {

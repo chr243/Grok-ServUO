@@ -497,11 +497,10 @@ namespace Server.Items
                 MagicalDudeHat hat = gear as MagicalDudeHat;
                 if (hat != null)
                 {
-                    // Effective = stored * gear multiplier, then stage cap (100/110/120).
-                    double mult = hat.GetEffectMultiplier();
-                    double magery = Math.Min(hat.Magery * mult, stageCap);
-                    double eval = Math.Min(hat.EvalInt * mult, stageCap);
-                    double med = Math.Min(hat.Meditation * mult, stageCap);
+                    // Lerp stored → 120 by gear level, then stage cap (100/110/120).
+                    double magery = Math.Min(hat.GetSkillLerp(hat.Magery, 120.0), stageCap);
+                    double eval = Math.Min(hat.GetSkillLerp(hat.EvalInt, 120.0), stageCap);
+                    double med = Math.Min(hat.GetSkillLerp(hat.Meditation, 120.0), stageCap);
                     string hatLine = string.Format("Magery {0:0.0} / Eval {1:0.0} / Med {2:0.0}", magery, eval, med);
                     abilityLines.Add(hatLine);
 
@@ -518,8 +517,8 @@ namespace Server.Items
                 DudeShield shield = gear as DudeShield;
                 if (shield != null)
                 {
-                    double mult = shield.GetEffectMultiplier();
-                    double parry = Math.Min(shield.Parrying * mult, stageCap);
+                    // Lerp stored → 120 by gear level, then stage cap.
+                    double parry = Math.Min(shield.GetSkillLerp(shield.Parrying, 120.0), stageCap);
                     string shieldLine = string.Format("Parrying {0:0.0}", parry);
                     abilityLines.Add(shieldLine);
 
