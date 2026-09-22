@@ -488,8 +488,11 @@ namespace Server.Items
                     n = gear.GetType().Name;
                 int lv = gear.GearLevel;
                 int pct = lv * 10;
-                // e.g. "Stone Sash  Lv 3  +30%"
-                names.Add(string.Format("{0}  Lv {1}  +{2}%", n, lv, pct));
+                // e.g. "Stone Sash  Lv 3  +30%" or "Tide Earrings  Lv 3  +30%  12s"
+                string cdText = GetGearCooldownText(gear.AbilityId);
+                names.Add(string.IsNullOrEmpty(cdText)
+                    ? string.Format("{0}  Lv {1}  +{2}%", n, lv, pct)
+                    : string.Format("{0}  Lv {1}  +{2}%  {3}", n, lv, pct, cdText));
 
                 MagicalDudeHat hat = gear as MagicalDudeHat;
                 if (hat != null)
@@ -995,6 +998,48 @@ namespace Server.Items
             if (scaled < 0)
                 scaled = 0;
             return scaled;
+        }
+
+        /// <summary>
+        /// Cooldown text for a gear line (e.g. "12s"). Uses tune.GapSeconds when set, else the
+        /// ability's own Cooldown. Passives show their pulse gap ("every 2s"); abilities with no
+        /// timing (e.g. slipstream) return null so the line stays name/level/bonus only.
+        /// </summary>
+        private static string GetGearCooldownText(string abilityId)
+        {
+            if (string.IsNullOrEmpty(abilityId))
+                return null;
+
+            DudeAbility ability = DudeAbilityRegistry.Get(abilityId);
+            DudeAbilityConfig.EnsureLoaded();
+            DudeAbilityTune tune = DudeAbilityConfig.Get(abilityId);
+
+            bool passive = DudeCreature.IsPassiveAbilityId(abilityId);
+            double seconds = 0.0;
+
+            if (passive)
+            {
+                // Pulse gap: GapSeconds (faultline) or TickSeconds (burn/spring).
+                if (tune != null && tune.GapSeconds > 0.0)
+                    seconds = tune.GapSeconds;
+                else if (tune != null && tune.TickSeconds > 0.0)
+                    seconds = tune.TickSeconds;
+            }
+            else
+            {
+                if (tune != null && tune.GapSeconds > 0.0)
+                    seconds = tune.GapSeconds;
+                else if (ability != null)
+                    seconds = ability.Cooldown.TotalSeconds;
+            }
+
+            int rounded = (int)Math.Round(seconds);
+            if (rounded <= 0)
+                return null;
+
+            return passive
+                ? string.Format("every {0}s", rounded)
+                : string.Format("{0}s", rounded);
         }
     }
 }
