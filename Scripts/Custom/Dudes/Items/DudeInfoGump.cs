@@ -917,7 +917,7 @@ namespace Server.Items
                     int selfHeal = Math.Max(1, (int)(rawBlast * 0.15));
                     int pctHeal = Math.Max(1, (int)(hitsMax * healFrac));
                     int heal = ScaleByEffect(Math.Min(selfHeal, pctHeal), effectMultiplier);
-                    return string.Format("Passive. Every {0:0.#}s, heals itself and nearby allied Dudes for {1}.", tick, heal);
+                    return string.Format("Passive. Every {0:0.#}s, heals nearby allied Dudes (including itself) for {1}.", tick, heal);
                 }
 
                 case "fault_strike":

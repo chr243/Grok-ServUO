@@ -268,7 +268,7 @@ namespace Server.Items
                 case "tide_chorus":
                     return "AoE heal";
                 case "spring":
-                    return "Self heal";
+                    return "AoE heal";
                 case "fault_strike":
                     return "Single-target damage";
                 case "aftershock":
