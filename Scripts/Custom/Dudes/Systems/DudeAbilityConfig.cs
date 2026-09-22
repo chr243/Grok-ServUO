@@ -171,7 +171,8 @@ namespace Server.Custom.Dudes
             PutDefault("tailwind_self", 10, 0, 5.0, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
             PutDefault("ring_of_fire", 12, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-            PutDefault("tide_chorus", 12, 0, 0, 0, 0, 0.20, 0, 0, 0, 0, 0, 0, 0, 0);
+            // HealHitsFraction is unused by Tide Chorus (heal = 10% + 2%/gear level of target HitsMax); kept as base only.
+            PutDefault("tide_chorus", 12, 0, 0, 0, 0, 0.10, 0, 0, 0, 0, 0, 0, 0, 0);
             PutDefault("aftershock", 12, 1.0, 0, 0, 0.5, 0, 3, 0, 0, 0, 0, 0, 0, 0);
             PutDefault("tailwind", 12, 0, 5.0, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 

@@ -758,11 +758,8 @@ namespace Server.Custom.Dudes
             if (!hasSelf)
                 allies.Add(dude);
 
-            DudeAbilityConfig.EnsureLoaded();
-            DudeAbilityTune tune = DudeAbilityConfig.Get("tide_chorus");
-            double healFrac = tune != null && tune.HealHitsFraction > 0.0 ? tune.HealHitsFraction : 0.20;
-
-            int blastHeal = DudeExperience.GetBlastDamage(dude.DudeLevel);
+            // Heal = (10 + 2 * gearLevel)% of each target's HitsMax. No Blast cap, no effect multiplier.
+            double frac = 0.10 + (0.02 * GetChorusGearLevel(dude));
 
             for (int i = 0; i < allies.Count; i++)
             {
@@ -770,11 +767,7 @@ namespace Server.Custom.Dudes
                 if (ally == null || ally.Deleted || !ally.Alive)
                     continue;
 
-                int pctHeal = Math.Max(1, (int)(ally.HitsMax * healFrac));
-                int heal = Math.Min(pctHeal, blastHeal);
-                if (heal < 1)
-                    heal = 1;
-                heal = DudeAbility.ApplyEffect(heal);
+                int heal = Math.Max(1, (int)(ally.HitsMax * frac));
 
                 ally.Heal(heal, dude, false);
                 DudeAbilityVfx.PlayWaterHeal(ally);
@@ -799,17 +792,11 @@ namespace Server.Custom.Dudes
             List<DudeCreature> allies = new List<DudeCreature>();
             DudeAbilityVfx.CollectPartyOwnedDudes(caster, caster.Location, caster.Map, ChorusRange, allies);
 
-            DudeAbilityConfig.EnsureLoaded();
-            DudeAbilityTune tune = DudeAbilityConfig.Get("tide_chorus");
-            double healFrac = tune != null && tune.HealHitsFraction > 0.0 ? tune.HealHitsFraction : 0.20;
-            int blastHeal = DudeExperience.GetBlastDamage(data != null ? data.Level : 1);
+            // Heal = (10 + 2 * gearLevel)% of each target's HitsMax. No Blast cap, no effect multiplier.
+            double frac = 0.10 + (0.02 * GetChorusGearLevel(ball));
 
             // Heal linked caster
-            int selfPct = Math.Max(1, (int)(caster.HitsMax * healFrac));
-            int selfHeal = Math.Min(selfPct, blastHeal);
-            if (selfHeal < 1)
-                selfHeal = 1;
-            selfHeal = DudeAbility.ApplyEffect(selfHeal);
+            int selfHeal = Math.Max(1, (int)(caster.HitsMax * frac));
             caster.Heal(selfHeal, caster, false);
             DudeAbilityVfx.PlayWaterHeal(caster);
 
@@ -819,15 +806,44 @@ namespace Server.Custom.Dudes
                 if (ally == null || ally.Deleted || !ally.Alive)
                     continue;
 
-                int pctHeal = Math.Max(1, (int)(ally.HitsMax * healFrac));
-                int heal = Math.Min(pctHeal, blastHeal);
-                if (heal < 1)
-                    heal = 1;
-                heal = DudeAbility.ApplyEffect(heal);
+                int heal = Math.Max(1, (int)(ally.HitsMax * frac));
 
                 ally.Heal(heal, caster, false);
                 DudeAbilityVfx.PlayWaterHeal(ally);
             }
+        }
+
+        /// <summary>Chorus earrings gear level (0..10) worn by the casting Dude.</summary>
+        private static int GetChorusGearLevel(DudeCreature dude)
+        {
+            if (dude == null || dude.Deleted)
+                return 0;
+            return ClampGearLevel(dude.FindEquippedGearByAbility("tide_chorus"));
+        }
+
+        /// <summary>Chorus earrings gear level (0..10) on the Dude parked in the linked ball.</summary>
+        private static int GetChorusGearLevel(DudeBall ball)
+        {
+            if (ball == null || ball.Deleted)
+                return 0;
+
+            DudeCreature parked = ball.SummonedDude;
+            if (parked == null || parked.Deleted)
+                return 0;
+            return ClampGearLevel(parked.FindEquippedGearByAbility("tide_chorus"));
+        }
+
+        private static int ClampGearLevel(DudeGear gear)
+        {
+            if (gear == null || gear.Deleted)
+                return 0;
+
+            int lv = gear.GearLevel;
+            if (lv < 0)
+                lv = 0;
+            if (lv > 10)
+                lv = 10;
+            return lv;
         }
     }
 

@@ -896,9 +896,14 @@ namespace Server.Items
 
                 case "tide_chorus":
                 {
-                    double frac = tune != null && tune.HealHitsFraction > 0.0 ? tune.HealHitsFraction : 0.20;
-                    int heal = ScaleByEffect(Math.Min(DudeExperience.GetBlastDamage(level), Math.Max(1, (int)(hitsMax * frac))), effectMultiplier);
-                    return string.Format("Heals nearby allied Dudes for {0} hit points.", heal);
+                    // Heal = (10 + 2 * gearLevel)% of each target's HitsMax. gearLevel from the gear
+                    // effect multiplier (1.0 + 0.10 * level), so percent = 10 + 20 * (mult - 1).
+                    int gearLevel = (int)Math.Round((effectMultiplier - 1.0) / 0.10);
+                    if (gearLevel < 0)
+                        gearLevel = 0;
+                    if (gearLevel > 10)
+                        gearLevel = 10;
+                    return string.Format("Heals each nearby allied Dude for {0}% of that Dude's hit points.", 10 + (2 * gearLevel));
                 }
 
                 case "spring":
