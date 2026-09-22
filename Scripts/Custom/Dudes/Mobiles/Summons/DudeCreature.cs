@@ -30,7 +30,7 @@ namespace Server.Mobiles
 
         [Constructable]
         public DudeCreature()
-            : this("ember", true)
+            : this("fire", true)
         {
         }
 
@@ -54,9 +54,8 @@ namespace Server.Mobiles
 
             ApplyDefinition(def);
 
-            // Species ControlSlots mirrors stage (1/2/3) for named / wild spawns.
-            if (def != null && def.ControlSlots >= 1 && def.ControlSlots <= 3)
-                m_EvolutionStage = def.ControlSlots;
+            // Stage is carried by DudeData.EvolutionStage, never inferred from the definition.
+            m_EvolutionStage = 1;
 
             ApplyDudeSpeeds();
 
@@ -337,7 +336,7 @@ namespace Server.Mobiles
             else
                 Hits = Math.Max(1, Math.Min(data.Hits, HitsMax));
 
-            SetMana(30 + (data.Level * 2));
+            SetMana(Math.Max(1, data.ManaMax));
             Mana = ManaMax;
 
             SetDamage(data.MinDamage, data.MaxDamage);
@@ -508,9 +507,14 @@ namespace Server.Mobiles
             if (Utility.RandomDouble() < 0.20)
                 PackItem(new BreadLoaf());
 
+            // Rare typed essence drop (reserved for a future progression system).
             DudeDefinition def = DudeRegistry.Get(m_DefinitionId);
-            if (def != null && def.Type == DudeType.Fire && Utility.RandomDouble() < 0.05)
-                PackItem(new EmberCore());
+            if (def != null && Utility.RandomDouble() < 0.05)
+            {
+                DudeEssence essence = DudeEssence.CreateFor(def.Type);
+                if (essence != null)
+                    PackItem(essence);
+            }
         }
 
         public override void Serialize(GenericWriter writer)

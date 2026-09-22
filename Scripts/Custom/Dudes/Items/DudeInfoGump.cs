@@ -5,7 +5,6 @@ using Server.Custom.Dudes;
 using Server.Gumps;
 using Server.Mobiles;
 using Server.Network;
-using Server.Targeting;
 
 namespace Server.Items
 {
@@ -182,7 +181,7 @@ namespace Server.Items
             if (view.ShowEvolve)
             {
                 AddButton(560, 478, 4005, 4006, 2, GumpButtonType.Reply, 0);
-                AddLabel(595, 480, 0x35, "Evolve!");
+                AddLabel(595, 480, 0x35, "Ascend!");
                 if (!string.IsNullOrEmpty(view.EvolveHint))
                     AddLabel(560, 460, 0x480, Truncate(view.EvolveHint, 28));
             }
@@ -216,25 +215,13 @@ namespace Server.Items
                 Mobile from = sender.Mobile;
                 DudeBall ball = World.FindItem(m_BallSerial) as DudeBall;
 
-                if (!DudeEvolution.CanPlayerEvolveBall(from, ball))
+                if (!DudeEvolution.CanPlayerAscend(from, ball))
                 {
-                    from.SendMessage("That Dude cannot evolve right now.");
+                    from.SendMessage("That Dude cannot ascend right now (level-gated, unsummoned, ball in pack).");
                     return;
                 }
 
-                DudeData data = ball.StoredDude;
-                int cost = DudeEvolution.GetCoreCost(data.EvolutionStage);
-                Type coreType = DudeEvolution.GetRequiredCoreType(data.Type);
-                string name = DudeEvolution.GetCoreDisplayName(data.Type);
-
-                if (coreType == null || cost < 1)
-                {
-                    from.SendMessage("That Dude cannot evolve right now.");
-                    return;
-                }
-
-                from.SendMessage("Target {0} {1} in your backpack.", cost, name);
-                from.Target = new EvolveCoreTarget(ball.Serial, cost, coreType, data.Type);
+                DudeEvolution.TryAscend(from, ball);
             }
         }
 
@@ -278,69 +265,6 @@ namespace Server.Items
                 return text;
 
             return text.Substring(0, max - 1) + "...";
-        }
-    }
-
-    public sealed class EvolveCoreTarget : Target
-    {
-        private readonly Serial m_BallSerial;
-        private readonly int m_Cost;
-        private readonly Type m_RequiredType;
-        private readonly DudeType m_DudeType;
-
-        public EvolveCoreTarget(Serial ballSerial, int cost, Type requiredType, DudeType dudeType)
-            : base(2, false, TargetFlags.None)
-        {
-            m_BallSerial = ballSerial;
-            m_Cost = cost;
-            m_RequiredType = requiredType;
-            m_DudeType = dudeType;
-        }
-
-        protected override void OnTarget(Mobile from, object targeted)
-        {
-            if (from == null)
-                return;
-
-            Item item = targeted as Item;
-            if (item == null || item.Deleted || !item.IsChildOf(from.Backpack))
-            {
-                from.SendMessage("That must be in your backpack.");
-                return;
-            }
-
-            if (m_RequiredType == null
-                || (item.GetType() != m_RequiredType && !m_RequiredType.IsAssignableFrom(item.GetType())))
-            {
-                from.SendMessage("That is not the correct essence.");
-                return;
-            }
-
-            DudeBall ball = World.FindItem(m_BallSerial) as DudeBall;
-            if (!DudeEvolution.CanPlayerEvolveBall(from, ball))
-            {
-                from.SendMessage("That Dude cannot evolve right now.");
-                return;
-            }
-
-            switch (m_DudeType)
-            {
-                case DudeType.Fire:
-                    DudeEvolution.TryEvolve(from, ball, item, DudeType.Fire, "ember", "flame", "blaze");
-                    break;
-                case DudeType.Water:
-                    DudeEvolution.TryEvolve(from, ball, item, DudeType.Water, "droplet", "ripple", "torrent");
-                    break;
-                case DudeType.Earth:
-                    DudeEvolution.TryEvolve(from, ball, item, DudeType.Earth, "pebble", "boulder", "quake");
-                    break;
-                case DudeType.Air:
-                    DudeEvolution.TryEvolve(from, ball, item, DudeType.Air, "breeze", "gale", "hurricane");
-                    break;
-                default:
-                    from.SendMessage("That Dude cannot evolve right now.");
-                    break;
-            }
         }
     }
 
@@ -444,7 +368,7 @@ namespace Server.Items
             // Keep ball serial for Refresh even when evolve is unavailable.
             view.BallSerial = ball.Serial;
 
-            if (!DudeEvolution.CanEvolve(ball.StoredDude))
+            if (!DudeEvolution.CanAscend(ball.StoredDude))
             {
                 view.ShowEvolve = false;
                 view.EvolveCost = 0;
@@ -452,10 +376,9 @@ namespace Server.Items
                 return;
             }
 
-            int cost = DudeEvolution.GetCoreCost(ball.StoredDude.EvolutionStage);
             view.ShowEvolve = true;
-            view.EvolveCost = cost;
-            view.EvolveHint = string.Format("Needs {0} essences", cost);
+            view.EvolveCost = 0;
+            view.EvolveHint = "Ready to ascend";
         }
 
         private static void FillSkillTexts(DudeInfoView view, DudeData data)
@@ -565,17 +488,19 @@ namespace Server.Items
                     n = gear.GetType().Name;
                 int lv = gear.GearLevel;
                 int pct = lv * 10;
-                // e.g. "Stone Sash  Lv 3  +30%"
-                names.Add(string.Format("{0}  Lv {1}  +{2}%", n, lv, pct));
+                // e.g. "Stone Sash  Lv 3  +30%" or "Tide Earrings  Lv 3  +30%  12s"
+                string cdText = GetGearCooldownText(gear.AbilityId);
+                names.Add(string.IsNullOrEmpty(cdText)
+                    ? string.Format("{0}  Lv {1}  +{2}%", n, lv, pct)
+                    : string.Format("{0}  Lv {1}  +{2}%  {3}", n, lv, pct, cdText));
 
                 MagicalDudeHat hat = gear as MagicalDudeHat;
                 if (hat != null)
                 {
-                    // Effective = stored * gear multiplier, then stage cap (100/110/120).
-                    double mult = hat.GetEffectMultiplier();
-                    double magery = Math.Min(hat.Magery * mult, stageCap);
-                    double eval = Math.Min(hat.EvalInt * mult, stageCap);
-                    double med = Math.Min(hat.Meditation * mult, stageCap);
+                    // Lerp stored → 120 by gear level, then stage cap (100/110/120).
+                    double magery = Math.Min(hat.GetSkillLerp(hat.Magery, 120.0), stageCap);
+                    double eval = Math.Min(hat.GetSkillLerp(hat.EvalInt, 120.0), stageCap);
+                    double med = Math.Min(hat.GetSkillLerp(hat.Meditation, 120.0), stageCap);
                     string hatLine = string.Format("Magery {0:0.0} / Eval {1:0.0} / Med {2:0.0}", magery, eval, med);
                     abilityLines.Add(hatLine);
 
@@ -592,8 +517,8 @@ namespace Server.Items
                 DudeShield shield = gear as DudeShield;
                 if (shield != null)
                 {
-                    double mult = shield.GetEffectMultiplier();
-                    double parry = Math.Min(shield.Parrying * mult, stageCap);
+                    // Lerp stored → 120 by gear level, then stage cap.
+                    double parry = Math.Min(shield.GetSkillLerp(shield.Parrying, 120.0), stageCap);
                     string shieldLine = string.Format("Parrying {0:0.0}", parry);
                     abilityLines.Add(shieldLine);
 
@@ -673,13 +598,11 @@ namespace Server.Items
             bool showBurn = false;
             if (data != null)
             {
-                showBurn = data.EvolutionStage >= 3
-                    || string.Equals(data.DefinitionId, "blaze", StringComparison.OrdinalIgnoreCase);
+                showBurn = data.EvolutionStage >= 3;
             }
             if (!showBurn)
             {
-                showBurn = evolutionStage >= 3
-                    || string.Equals(definitionId, "blaze", StringComparison.OrdinalIgnoreCase);
+                showBurn = evolutionStage >= 3;
             }
 
             if (showBurn)
@@ -975,9 +898,14 @@ namespace Server.Items
 
                 case "tide_chorus":
                 {
-                    double frac = tune != null && tune.HealHitsFraction > 0.0 ? tune.HealHitsFraction : 0.20;
-                    int heal = ScaleByEffect(Math.Min(DudeExperience.GetBlastDamage(level), Math.Max(1, (int)(hitsMax * frac))), effectMultiplier);
-                    return string.Format("Heals nearby allied Dudes for {0} hit points.", heal);
+                    // Heal = (10 + 2 * gearLevel)% of each target's HitsMax. gearLevel from the gear
+                    // effect multiplier (1.0 + 0.10 * level), so percent = 10 + 20 * (mult - 1).
+                    int gearLevel = (int)Math.Round((effectMultiplier - 1.0) / 0.10);
+                    if (gearLevel < 0)
+                        gearLevel = 0;
+                    if (gearLevel > 10)
+                        gearLevel = 10;
+                    return string.Format("Heals each nearby allied Dude for {0}% of that Dude's hit points.", 10 + (2 * gearLevel));
                 }
 
                 case "spring":
@@ -989,7 +917,7 @@ namespace Server.Items
                     int selfHeal = Math.Max(1, (int)(rawBlast * 0.15));
                     int pctHeal = Math.Max(1, (int)(hitsMax * healFrac));
                     int heal = ScaleByEffect(Math.Min(selfHeal, pctHeal), effectMultiplier);
-                    return string.Format("Passive. Every {0:0.#}s, heals itself and nearby allied Dudes for {1}.", tick, heal);
+                    return string.Format("Passive. Every {0:0.#}s, heals nearby allied Dudes (including itself) for {1}.", tick, heal);
                 }
 
                 case "fault_strike":
@@ -1069,6 +997,48 @@ namespace Server.Items
             if (scaled < 0)
                 scaled = 0;
             return scaled;
+        }
+
+        /// <summary>
+        /// Cooldown text for a gear line (e.g. "12s"). Uses tune.GapSeconds when set, else the
+        /// ability's own Cooldown. Passives show their pulse gap ("every 2s"); abilities with no
+        /// timing (e.g. slipstream) return null so the line stays name/level/bonus only.
+        /// </summary>
+        private static string GetGearCooldownText(string abilityId)
+        {
+            if (string.IsNullOrEmpty(abilityId))
+                return null;
+
+            DudeAbility ability = DudeAbilityRegistry.Get(abilityId);
+            DudeAbilityConfig.EnsureLoaded();
+            DudeAbilityTune tune = DudeAbilityConfig.Get(abilityId);
+
+            bool passive = DudeCreature.IsPassiveAbilityId(abilityId);
+            double seconds = 0.0;
+
+            if (passive)
+            {
+                // Pulse gap: GapSeconds (faultline) or TickSeconds (burn/spring).
+                if (tune != null && tune.GapSeconds > 0.0)
+                    seconds = tune.GapSeconds;
+                else if (tune != null && tune.TickSeconds > 0.0)
+                    seconds = tune.TickSeconds;
+            }
+            else
+            {
+                if (tune != null && tune.GapSeconds > 0.0)
+                    seconds = tune.GapSeconds;
+                else if (ability != null)
+                    seconds = ability.Cooldown.TotalSeconds;
+            }
+
+            int rounded = (int)Math.Round(seconds);
+            if (rounded <= 0)
+                return null;
+
+            return passive
+                ? string.Format("every {0}s", rounded)
+                : string.Format("{0}s", rounded);
         }
     }
 }

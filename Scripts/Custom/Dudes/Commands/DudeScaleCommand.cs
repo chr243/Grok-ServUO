@@ -14,7 +14,20 @@ namespace Server.Custom.Dudes.Commands
         {
             CommandSystem.Register("DudeScale", AccessLevel.GameMaster, new CommandEventHandler(OnCommand));
             CommandSystem.Register("DudeAdmin", AccessLevel.GameMaster, new CommandEventHandler(OnCommand));
+            CommandSystem.Register("DudeTypesReload", AccessLevel.GameMaster, new CommandEventHandler(OnTypesReload));
             DudeScalingConfig.EnsureLoaded();
+            DudeTypeProfiles.EnsureInitialized();
+        }
+
+        [Usage("DudeTypesReload")]
+        [Description("Reloads Data/DudeTypes.cfg (per-type balance table) and re-seeds derived Dude stats.")]
+        private static void OnTypesReload(CommandEventArgs e)
+        {
+            Mobile from = e.Mobile;
+            DudeTypeConfig.Reload();
+
+            if (from != null)
+                from.SendMessage(0x59, "Dude type table reloaded ({0} types).", DudeTypeProfiles.GetAll().Count);
         }
 
         [Usage("DudeScale")]

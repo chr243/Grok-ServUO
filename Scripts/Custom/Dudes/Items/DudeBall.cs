@@ -217,19 +217,9 @@ namespace Server.Items
             if (data == null)
                 return EmptyHue;
 
-            switch (data.Type)
-            {
-                case DudeType.Fire:
-                    return FireHue;
-                case DudeType.Water:
-                    return WaterHue;
-                case DudeType.Air:
-                    return AirHue;
-                case DudeType.Earth:
-                    return EarthHue;
-                default:
-                    return FireHue;
-            }
+            // Ball hue tracks the type profile (shorts colour), so a new type needs no edit here.
+            DudeTypeProfile p = DudeTypeProfiles.Get(data.Type);
+            return p != null ? p.ShortsHue : FireHue;
         }
 
         public override bool OnDragLift(Mobile from)
@@ -240,7 +230,15 @@ namespace Server.Items
                 return false;
             }
 
-            return base.OnDragLift(from);
+            if (!base.OnDragLift(from))
+                return false;
+
+            // The ball is the Dude's anchor: lifting it (moving, trading or dropping it) recalls
+            // the summoned Dude, so the creature can never outlive the ball's place in the pack.
+            if (IsSummoned)
+                Recall(from);
+
+            return true;
         }
 
         public void ClearSummonLink()

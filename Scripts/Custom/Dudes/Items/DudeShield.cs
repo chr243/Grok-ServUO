@@ -22,6 +22,7 @@ namespace Server.Items
             Name = "Dude Shield";
             Layer = Layer.TwoHanded;
             SlotCost = 1;
+            LootType = LootType.Blessed;
             // RequiredType unset → HasRequiredType stays false (universal).
 
             Parrying = (double)Utility.RandomMinMax(RollMin, RollMax);
@@ -81,6 +82,7 @@ namespace Server.Items
             Name = "Dude Shield";
             Layer = Layer.TwoHanded;
             SlotCost = 1;
+            LootType = LootType.Blessed;
             // Do not set RequiredType — keep universal.
             Movable = true;
         }

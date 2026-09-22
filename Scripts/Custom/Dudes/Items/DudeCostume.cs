@@ -69,6 +69,7 @@ namespace Server.Items
             Hue = 1175;
             Layer = Layer.OneHanded;
             SlotCost = 0;
+            LootType = LootType.Blessed;
             // RequiredType unset → universal. No AbilityId.
             // Appearance only: never gains gear XP / levels.
             GearLevel = 0;
@@ -192,6 +193,7 @@ namespace Server.Items
             Hue = 1175;
             Layer = Layer.OneHanded;
             SlotCost = 0;
+            LootType = LootType.Blessed;
             if (!string.IsNullOrEmpty(m_FormName))
                 Name = m_FormName + " Dude Costume";
             else

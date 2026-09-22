@@ -1,21 +1,20 @@
 namespace Server.Mobiles
 {
     /// <summary>
-    /// Named Dude types for XmlSpawner / [add].
-    /// Fire: Ember, Flame, Blaze | Water: Droplet, Ripple, Torrent |
-    /// Earth: Pebble, Boulder, Quake | Air: Breeze, Gale, Hurricane.
-    /// Farm bosses already constructable: Emberlord, Tidewarden, Stonewarden, Galewarden.
+    /// Named Dude types for XmlSpawner / [add]. One class per element; a Dude grows
+    /// within its type via ascension rather than changing species.
+    /// Farm bosses (Emberlord, Tidewarden, Stonewarden, Galewarden) are unchanged.
     /// </summary>
-    [CorpseName("an ember corpse")]
-    public class Ember : DudeCreature
+    [CorpseName("a fire dude corpse")]
+    public class FireDude : DudeCreature
     {
         [Constructable]
-        public Ember()
-            : base("ember", true)
+        public FireDude()
+            : base("fire", true)
         {
         }
 
-        public Ember(Serial serial)
+        public FireDude(Serial serial)
             : base(serial)
         {
         }

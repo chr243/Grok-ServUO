@@ -203,9 +203,9 @@ namespace Server.Custom.Dudes
             {
                 // Unlink FX (same family as recall despawn) before restoring human form.
                 if (data != null)
-                    DudeSummonEffects.PlayDespawn(data.Type, from.Location, from.Map, data.DefinitionId);
+                    DudeSummonEffects.PlayDespawnForStage(data.Type, from.Location, from.Map, data.EvolutionStage);
                 else if (ball != null && ball.StoredDude != null)
-                    DudeSummonEffects.PlayDespawn(ball.StoredDude.Type, from.Location, from.Map, ball.StoredDude.DefinitionId);
+                    DudeSummonEffects.PlayDespawnForStage(ball.StoredDude.Type, from.Location, from.Map, ball.StoredDude.EvolutionStage);
 
                 RestoreBackup(from, true);
                 DudeLinkSystem.Unregister(from);

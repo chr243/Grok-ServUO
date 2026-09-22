@@ -232,7 +232,7 @@ namespace Server.Custom.Dudes
                 return;
             }
 
-            DudeSummonEffects.Play(data.Type, from.Location, from.Map, data.DefinitionId);
+            DudeSummonEffects.PlayForStage(data.Type, from.Location, from.Map, data.EvolutionStage);
             from.SendMessage(0x59, "You link with {0}!", data.DisplayName);
         }
 

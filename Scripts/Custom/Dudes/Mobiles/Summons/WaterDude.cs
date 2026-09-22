@@ -1,15 +1,15 @@
 namespace Server.Mobiles
 {
-    [CorpseName("a hurricane corpse")]
-    public class Hurricane : DudeCreature
+    [CorpseName("a water dude corpse")]
+    public class WaterDude : DudeCreature
     {
         [Constructable]
-        public Hurricane()
-            : base("hurricane", true)
+        public WaterDude()
+            : base("water", true)
         {
         }
 
-        public Hurricane(Serial serial)
+        public WaterDude(Serial serial)
             : base(serial)
         {
         }

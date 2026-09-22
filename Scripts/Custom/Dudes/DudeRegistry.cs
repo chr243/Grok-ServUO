@@ -4,23 +4,27 @@ using System.Collections.Generic;
 namespace Server.Custom.Dudes
 {
     /// <summary>
-    /// Central registry for Dude species. Four elemental lines × three stages (12 total).
-    /// All Dudes use human male body 0x190; Hue is the type color for shorts.
+    /// Central registry for Dude species. ONE definition per element type (Fire/Water/
+    /// Earth/Air) — Dudes grow within their type instead of being separate species per stage.
+    /// Stats come from <see cref="DudeTypeProfiles"/>; the definition only carries the
+    /// presentation/identity bits (body, hue, sound, default ability id).
+    ///
+    /// Legacy id compatibility: old saves used per-stage ids (ember/flame/blaze, ...).
+    /// <see cref="Get"/> still resolves those to the owning type so pre-existing balls
+    /// render, even though the beta wipe means nothing depends on it.
     /// </summary>
     public static class DudeRegistry
     {
         private static readonly Dictionary<string, DudeDefinition> m_ById =
             new Dictionary<string, DudeDefinition>(StringComparer.OrdinalIgnoreCase);
 
+        private static readonly Dictionary<DudeType, DudeDefinition> m_ByType =
+            new Dictionary<DudeType, DudeDefinition>();
+
         private static readonly List<DudeDefinition> m_All = new List<DudeDefinition>();
 
         private static bool m_Initialized;
 
-        // Type colors (match DudeBall filled hues) — shown on shorts, not body tint.
-        private const int FireHue = 0x21;
-        private const int WaterHue = 0x5A;
-        private const int EarthHue = 0x22C;
-        private const int AirHue = 0x47E;
         private const int HumanMaleBody = 0x190;
 
         public static void EnsureInitialized()
@@ -42,12 +46,16 @@ namespace Server.Custom.Dudes
             if (m_ById.ContainsKey(def.Id))
                 m_ById[def.Id] = def;
             else
-            {
                 m_ById.Add(def.Id, def);
+
+            if (!m_ByType.ContainsKey(def.Type))
+            {
+                m_ByType.Add(def.Type, def);
                 m_All.Add(def);
             }
         }
 
+        /// <summary>Resolve a definition by id. Accepts current type ids and legacy stage ids.</summary>
         public static DudeDefinition Get(string id)
         {
             EnsureInitialized();
@@ -59,6 +67,21 @@ namespace Server.Custom.Dudes
             if (m_ById.TryGetValue(id, out def))
                 return def;
 
+            DudeType type;
+            if (TryParseLegacyId(id, out type))
+                return GetByType(type);
+
+            return null;
+        }
+
+        public static DudeDefinition GetByType(DudeType type)
+        {
+            EnsureInitialized();
+
+            DudeDefinition def;
+            if (m_ByType.TryGetValue(type, out def))
+                return def;
+
             return null;
         }
 
@@ -68,148 +91,86 @@ namespace Server.Custom.Dudes
             return m_All.AsReadOnly();
         }
 
-        /// <summary>First wild-friendly (stage-1) match for type.</summary>
-        public static DudeDefinition GetByType(DudeType type)
-        {
-            EnsureInitialized();
-
-            for (int i = 0; i < m_All.Count; i++)
-            {
-                DudeDefinition def = m_All[i];
-                if (def.Type != type)
-                    continue;
-                if (IsEvolutionOnly(def.Id))
-                    continue;
-                return def;
-            }
-
-            return null;
-        }
-
-        public static bool IsEvolutionOnly(string definitionId)
-        {
-            if (string.IsNullOrEmpty(definitionId))
-                return false;
-
-            string id = definitionId.ToLowerInvariant();
-            return id == "flame" || id == "blaze"
-                || id == "ripple" || id == "torrent"
-                || id == "boulder" || id == "quake"
-                || id == "gale" || id == "hurricane";
-        }
-
-        public static bool IsStage1(string definitionId)
-        {
-            if (string.IsNullOrEmpty(definitionId))
-                return false;
-
-            string id = definitionId.ToLowerInvariant();
-            return id == "ember" || id == "droplet" || id == "pebble" || id == "breeze";
-        }
-
-        /// <summary>Follower slots: stage1=1, stage2=2, stage3=3.</summary>
+        /// <summary>Follower slots are a global stage property now (1 / 2 / 3).</summary>
         public static int GetControlSlots(string definitionId, int evolutionStage)
         {
-            EnsureInitialized();
-
-            if (evolutionStage >= 3)
-                return 3;
-            if (evolutionStage >= 2)
-                return 2;
-
-            DudeDefinition def = Get(definitionId);
-            if (def != null && def.ControlSlots > 0)
-                return def.ControlSlots;
-
-            return 1;
+            return DudeStage.ControlSlots(evolutionStage);
         }
 
         public static int GetControlSlots(DudeData data)
         {
             if (data == null)
-                return 1;
-            return GetControlSlots(data.DefinitionId, data.EvolutionStage);
+                return DudeStage.ControlSlots(1);
+            return DudeStage.ControlSlots(data.EvolutionStage);
+        }
+
+        /// <summary>
+        /// Maps historical per-stage ids to their element type. Keeps old saves/tooling working.
+        /// </summary>
+        private static bool TryParseLegacyId(string id, out DudeType type)
+        {
+            type = DudeType.Fire;
+
+            switch (id.ToLowerInvariant())
+            {
+                case "fire":
+                case "ember":
+                case "flame":
+                case "blaze":
+                    type = DudeType.Fire;
+                    return true;
+
+                case "water":
+                case "droplet":
+                case "ripple":
+                case "torrent":
+                    type = DudeType.Water;
+                    return true;
+
+                case "earth":
+                case "pebble":
+                case "boulder":
+                case "quake":
+                    type = DudeType.Earth;
+                    return true;
+
+                case "air":
+                case "breeze":
+                case "gale":
+                case "hurricane":
+                    type = DudeType.Air;
+                    return true;
+
+                default:
+                    return false;
+            }
         }
 
         private static void RegisterDefaults()
         {
-            // Body always human male 0x190. Hue = type color for shorts.
+            DudeTypeProfiles.EnsureInitialized();
 
-            // --- Fire: Ember → Flame → Blaze ---
-            Register(new DudeDefinition(
-                "ember", "Ember", DudeType.Fire,
-                HumanMaleBody, FireHue, 422,
-                45, 40, 15, 50, 4, 7, 14,
-                "blast", 1));
+            DudeType[] types = new DudeType[]
+            {
+                DudeType.Fire, DudeType.Water, DudeType.Earth, DudeType.Air
+            };
 
-            Register(new DudeDefinition(
-                "flame", "Flame", DudeType.Fire,
-                HumanMaleBody, FireHue, 0x174,
-                70, 70, 35, 100, 9, 14, 20,
-                "ring_of_fire", 2));
+            for (int i = 0; i < types.Length; i++)
+            {
+                DudeType type = types[i];
+                DudeTypeProfile p = DudeTypeProfiles.Get(type);
+                if (p == null)
+                    continue;
 
-            Register(new DudeDefinition(
-                "blaze", "Blaze", DudeType.Fire,
-                HumanMaleBody, FireHue, 357,
-                110, 65, 55, 180, 13, 19, 40,
-                "burn", 3));
-
-            // --- Water: Droplet → Ripple → Torrent ---
-            Register(new DudeDefinition(
-                "droplet", "Droplet", DudeType.Water,
-                HumanMaleBody, WaterHue, 0x266,
-                45, 40, 15, 50, 4, 7, 14,
-                "tide_mend", 1));
-
-            Register(new DudeDefinition(
-                "ripple", "Ripple", DudeType.Water,
-                HumanMaleBody, WaterHue, 278,
-                70, 70, 35, 100, 9, 14, 20,
-                "tide_chorus", 2));
-
-            Register(new DudeDefinition(
-                "torrent", "Torrent", DudeType.Water,
-                HumanMaleBody, WaterHue, 278,
-                110, 65, 55, 180, 13, 19, 40,
-                "spring", 3));
-
-            // --- Earth: Pebble → Boulder → Quake ---
-            Register(new DudeDefinition(
-                "pebble", "Pebble", DudeType.Earth,
-                HumanMaleBody, EarthHue, 397,
-                50, 28, 12, 55, 5, 8, 16,
-                "fault_strike", 1));
-
-            Register(new DudeDefinition(
-                "boulder", "Boulder", DudeType.Earth,
-                HumanMaleBody, EarthHue, 0x174,
-                90, 40, 25, 130, 10, 16, 32,
-                "aftershock", 2));
-
-            Register(new DudeDefinition(
-                "quake", "Quake", DudeType.Earth,
-                HumanMaleBody, EarthHue, 268,
-                110, 65, 55, 180, 13, 19, 40,
-                "faultline", 3));
-
-            // --- Air: Breeze → Gale → Hurricane ---
-            Register(new DudeDefinition(
-                "breeze", "Breeze", DudeType.Air,
-                HumanMaleBody, AirHue, 0x1B,
-                40, 50, 20, 48, 4, 7, 12,
-                "tailwind_self", 1));
-
-            Register(new DudeDefinition(
-                "gale", "Gale", DudeType.Air,
-                HumanMaleBody, AirHue, 655,
-                70, 70, 35, 100, 9, 14, 20,
-                "tailwind", 2));
-
-            Register(new DudeDefinition(
-                "hurricane", "Hurricane", DudeType.Air,
-                HumanMaleBody, AirHue, 655,
-                110, 65, 55, 180, 13, 19, 40,
-                "slipstream", 3));
+                // Body always human male 0x190. Hue = type color (shorts + ball).
+                // Stats here mirror the profile for legacy callers; DudeData derives its own.
+                Register(new DudeDefinition(
+                    p.Id, p.Name, p.Type,
+                    HumanMaleBody, p.ShortsHue, p.SoundId,
+                    p.BaseStr, p.BaseDex, p.BaseInt, p.BaseHits,
+                    p.BaseMinDamage, p.BaseMaxDamage, p.BaseVirtualArmor,
+                    null, DudeStage.ControlSlots(1)));
+            }
         }
     }
 }

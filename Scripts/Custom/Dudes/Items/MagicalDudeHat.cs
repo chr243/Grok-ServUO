@@ -76,10 +76,6 @@ namespace Server.Items
         public override void GetProperties(ObjectPropertyList list)
         {
             base.GetProperties(list);
-            list.Add("Magery: {0:0.0}", m_Magery);
-            list.Add("Eval Int: {0:0.0}", m_EvalInt);
-            list.Add("Meditation: {0:0.0}", m_Meditation);
-            list.Add("Skills do not gain. Capped by Dude stage.");
         }
 
         public override void Serialize(GenericWriter writer)

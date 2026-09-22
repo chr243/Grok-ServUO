@@ -6,6 +6,13 @@ namespace Server.Custom.Dudes
 {
     /// <summary>
     /// Persistent Dude state. Authoritative copy lives on DudeBall (not the world creature).
+    ///
+    /// STORAGE MODEL B1: only IDENTITY + PROGRESS are persisted
+    ///     (Type, Level, Stage, the three IV rolls, combat skills, current HP).
+    /// All combat stats (Str/Dex/Int/HitsMax/Damage/Armor/Mana) are DERIVED by
+    /// <see cref="DudeFormulas.Derive"/> and recomputed on every event that can change
+    /// them (create, level-up, ascension, skill change, load). They are never serialized,
+    /// so a recalled Dude can never disagree with its saved self.
     /// </summary>
     public sealed class DudeData
     {
@@ -15,17 +22,25 @@ namespace Server.Custom.Dudes
         private int m_Level;
         private int m_CurrentEXP;
         private int m_EXPToNext;
+
+        // --- Derived (recomputed, not persisted) ---
         private int m_Str;
         private int m_Dex;
         private int m_Int;
-        private int m_StrMod;
-        private int m_DexMod;
-        private int m_IntMod;
         private int m_HitsMax;
-        private int m_Hits;
         private int m_MinDamage;
         private int m_MaxDamage;
         private int m_VirtualArmor;
+        private int m_ManaMax;
+
+        // --- IVs: the only individual variance. Rolled once, never re-rolled. ---
+        private int m_StrMod;
+        private int m_DexMod;
+        private int m_IntMod;
+
+        // --- Persisted: current HP only (HitsMax is derived) ---
+        private int m_Hits;
+
         private string m_AbilityId;
         private bool m_IsFainted;
         private Mobile m_Catcher;
@@ -63,13 +78,26 @@ namespace Server.Custom.Dudes
         public DudeType Type
         {
             get { return m_Type; }
-            set { m_Type = value; }
+            set
+            {
+                if (m_Type == value)
+                    return;
+                m_Type = value;
+                RecomputeStats();
+            }
         }
 
         public int Level
         {
             get { return m_Level; }
-            set { m_Level = value; }
+            set
+            {
+                int v = value < 1 ? 1 : value;
+                if (m_Level == v)
+                    return;
+                m_Level = v;
+                RecomputeStats();
+            }
         }
 
         public int CurrentEXP
@@ -84,71 +112,47 @@ namespace Server.Custom.Dudes
             set { m_EXPToNext = value; }
         }
 
-        public int Str
-        {
-            get { return m_Str; }
-            set { m_Str = value; }
-        }
+        // --- Derived, read-only from outside ---
 
-        public int Dex
-        {
-            get { return m_Dex; }
-            set { m_Dex = value; }
-        }
-
-        public int Int
-        {
-            get { return m_Int; }
-            set { m_Int = value; }
-        }
+        public int Str { get { return m_Str; } }
+        public int Dex { get { return m_Dex; } }
+        public int Int { get { return m_Int; } }
+        public int HitsMax { get { return m_HitsMax; } }
+        public int MinDamage { get { return m_MinDamage; } }
+        public int MaxDamage { get { return m_MaxDamage; } }
+        public int VirtualArmor { get { return m_VirtualArmor; } }
+        public int ManaMax { get { return m_ManaMax; } }
 
         /// <summary>One-time IV-style Str roll at create/catch. Never re-rolled on level-up.</summary>
         public int StrMod
         {
             get { return m_StrMod; }
-            set { m_StrMod = value; }
+            set { m_StrMod = value; RecomputeStats(); }
         }
 
         public int DexMod
         {
             get { return m_DexMod; }
-            set { m_DexMod = value; }
+            set { m_DexMod = value; RecomputeStats(); }
         }
 
         public int IntMod
         {
             get { return m_IntMod; }
-            set { m_IntMod = value; }
+            set { m_IntMod = value; RecomputeStats(); }
         }
 
-        public int HitsMax
-        {
-            get { return m_HitsMax; }
-            set { m_HitsMax = value; }
-        }
-
+        /// <summary>Current hit points. The only HP value that is persisted.</summary>
         public int Hits
         {
             get { return m_Hits; }
-            set { m_Hits = value; }
-        }
-
-        public int MinDamage
-        {
-            get { return m_MinDamage; }
-            set { m_MinDamage = value; }
-        }
-
-        public int MaxDamage
-        {
-            get { return m_MaxDamage; }
-            set { m_MaxDamage = value; }
-        }
-
-        public int VirtualArmor
-        {
-            get { return m_VirtualArmor; }
-            set { m_VirtualArmor = value; }
+            set
+            {
+                int v = value < 0 ? 0 : value;
+                if (m_HitsMax > 0 && v > m_HitsMax)
+                    v = m_HitsMax;
+                m_Hits = v;
+            }
         }
 
         public string AbilityId
@@ -184,17 +188,24 @@ namespace Server.Custom.Dudes
             }
         }
 
-        /// <summary>1 = base form, 2 = first evo, 3 = final evo.</summary>
+        /// <summary>1 = base form, 2 = first ascension, 3 = final ascension.</summary>
         public int EvolutionStage
         {
             get { return m_EvolutionStage < 1 ? 1 : m_EvolutionStage; }
-            set { m_EvolutionStage = value < 1 ? 1 : value; }
+            set
+            {
+                int v = value < 1 ? 1 : value;
+                if (m_EvolutionStage == v)
+                    return;
+                m_EvolutionStage = v;
+                RecomputeStats();
+            }
         }
 
-        /// <summary>Gear slots unlocked at this Dude's evolution stage (2 / 3 / 4).</summary>
+        /// <summary>Gear slots unlocked at this Dude's ascension stage (2 / 3 / 4).</summary>
         public int GetGearSlots()
         {
-            return DudeExperience.GetGearSlots(EvolutionStage);
+            return DudeStage.GearSlots(EvolutionStage);
         }
 
         /// <summary>Comma-separated unlocked ability ids (always includes primary).</summary>
@@ -204,29 +215,45 @@ namespace Server.Custom.Dudes
             set { m_UnlockedAbilities = value; }
         }
 
-        /// <summary>Persistent combat skill (stage-scaled cap: 100/110/120). Wild catch rolls 40–60.</summary>
+        /// <summary>Persistent combat skill (stage-scaled cap: 100/110/120). Wild catch rolls 40-60.</summary>
         public double Wrestling
         {
             get { return m_Wrestling; }
-            set { m_Wrestling = DudeCombatSkills.Clamp(value, this); }
+            set
+            {
+                m_Wrestling = DudeCombatSkills.Clamp(value, this);
+                RecomputeStats();
+            }
         }
 
         public double Tactics
         {
             get { return m_Tactics; }
-            set { m_Tactics = DudeCombatSkills.Clamp(value, this); }
+            set
+            {
+                m_Tactics = DudeCombatSkills.Clamp(value, this);
+                RecomputeStats();
+            }
         }
 
         public double Anatomy
         {
             get { return m_Anatomy; }
-            set { m_Anatomy = DudeCombatSkills.Clamp(value, this); }
+            set
+            {
+                m_Anatomy = DudeCombatSkills.Clamp(value, this);
+                RecomputeStats();
+            }
         }
 
         public double MagicResist
         {
             get { return m_MagicResist; }
-            set { m_MagicResist = DudeCombatSkills.Clamp(value, this); }
+            set
+            {
+                m_MagicResist = DudeCombatSkills.Clamp(value, this);
+                RecomputeStats();
+            }
         }
 
         /// <summary>Persistent human skin hue. 0 = unset (roll on apply).</summary>
@@ -236,12 +263,49 @@ namespace Server.Custom.Dudes
             set { m_SkinHue = value; }
         }
 
+        /// <summary>
+        /// SINGLE WRITE PATH for derived stats. Called whenever identity or progress changes:
+        /// creation, catch, level-up, ascension, skill change, deserialize.
+        /// Never call from render/tooltip paths.
+        /// </summary>
+        public void RecomputeStats()
+        {
+            DudeStats s = DudeFormulas.Derive(
+                m_Type, m_Level, EvolutionStage,
+                m_StrMod, m_DexMod, m_IntMod,
+                m_Wrestling, m_Tactics, m_Anatomy, m_MagicResist);
+
+            m_Str = s.Str;
+            m_Dex = s.Dex;
+            m_Int = s.Int;
+            m_HitsMax = s.HitsMax;
+            m_MinDamage = s.MinDamage;
+            m_MaxDamage = s.MaxDamage;
+            m_VirtualArmor = s.VirtualArmor;
+            m_ManaMax = s.ManaMax;
+
+            // Refresh skill caches with the stage-clamped values the formula returned.
+            m_Wrestling = s.Wrestling;
+            m_Tactics = s.Tactics;
+            m_Anatomy = s.Anatomy;
+            m_MagicResist = s.MagicResist;
+
+            if (m_Hits > m_HitsMax)
+                m_Hits = m_HitsMax;
+        }
+
         public string DisplayName
         {
             get
             {
                 DudeDefinition def = DudeRegistry.Get(m_DefinitionId);
                 string species = def != null ? def.Name : null;
+                if (species == null)
+                {
+                    DudeTypeProfile profile = DudeTypeProfiles.Get(m_Type);
+                    if (profile != null)
+                        species = profile.Name;
+                }
 
                 string raw;
                 if (!string.IsNullOrEmpty(m_CustomName))
@@ -254,7 +318,7 @@ namespace Server.Custom.Dudes
                 if (HasDudeSuffix(raw))
                     return raw;
 
-                // Species-default name (or CustomName equal to species) → "{Name} Dude"
+                // Species-default name (or CustomName equal to species) -> "{Name} Dude"
                 if (!string.IsNullOrEmpty(species)
                     && string.Equals(raw, species, StringComparison.OrdinalIgnoreCase))
                     return species + " Dude";
@@ -274,7 +338,7 @@ namespace Server.Custom.Dudes
 
         /// <summary>
         /// Ability ids available for combat. Temporary: empty until gear cache grants them.
-        /// Evolution no longer unlocks kit abilities for combat.
+        /// Ascension no longer unlocks kit abilities for combat.
         /// </summary>
         public List<string> GetUnlockedAbilityIds()
         {
@@ -358,34 +422,33 @@ namespace Server.Custom.Dudes
             data.m_Level = 1;
             data.m_CurrentEXP = 0;
             data.m_EXPToNext = DudeExperience.GetExpRequiredForLevel(1);
-            // One-time IV roll; baked into Str/Dex/Int and stored as mods (no re-roll later).
+
+            // One-time IV roll; the only individual variance. Baked into derived stats.
             data.m_StrMod = Utility.RandomMinMax(-4, 4);
             data.m_DexMod = Utility.RandomMinMax(-4, 4);
             data.m_IntMod = Utility.RandomMinMax(-4, 4);
-            data.m_Str = Math.Max(1, def.Str + data.m_StrMod);
-            data.m_Dex = Math.Max(1, def.Dex + data.m_DexMod);
-            data.m_Int = Math.Max(1, def.Int + data.m_IntMod);
-            data.m_HitsMax = def.Hits;
-            data.m_Hits = def.Hits;
-            data.m_MinDamage = def.MinDamage;
-            data.m_MaxDamage = def.MaxDamage;
-            data.m_VirtualArmor = def.VirtualArmor;
+
             data.m_AbilityId = def.AbilityId;
             data.m_UnlockedAbilities = def.AbilityId;
             data.m_EvolutionStage = 1;
             data.m_IsFainted = false;
             data.m_Catcher = catcher;
             data.m_GatherSkill = Server.Custom.Dudes.Jobs.DudeJobConfig.BaseGatherSkill;
+
             data.m_Wrestling = DudeCombatSkills.Roll();
             data.m_Tactics = DudeCombatSkills.Roll();
             data.m_Anatomy = DudeCombatSkills.Roll();
             data.m_MagicResist = DudeCombatSkills.Roll();
+
+            // Derive everything from (Type, Level 1, Stage 1, IVs, skills).
+            data.RecomputeStats();
+            data.m_Hits = data.m_HitsMax;
             return data;
         }
 
         public void Serialize(GenericWriter writer)
         {
-            writer.Write((int)5); // version
+            writer.Write((int)6); // version - derived stats are no longer persisted
 
             writer.Write(m_DefinitionId);
             writer.Write(m_CustomName);
@@ -393,14 +456,7 @@ namespace Server.Custom.Dudes
             writer.Write(m_Level);
             writer.Write(m_CurrentEXP);
             writer.Write(m_EXPToNext);
-            writer.Write(m_Str);
-            writer.Write(m_Dex);
-            writer.Write(m_Int);
-            writer.Write(m_HitsMax);
-            writer.Write(m_Hits);
-            writer.Write(m_MinDamage);
-            writer.Write(m_MaxDamage);
-            writer.Write(m_VirtualArmor);
+            writer.Write(m_Hits);      // current HP only
             writer.Write(m_AbilityId);
             writer.Write(m_IsFainted);
             writer.Write(m_Catcher);
@@ -427,14 +483,26 @@ namespace Server.Custom.Dudes
             m_Level = reader.ReadInt();
             m_CurrentEXP = reader.ReadInt();
             m_EXPToNext = reader.ReadInt();
-            m_Str = reader.ReadInt();
-            m_Dex = reader.ReadInt();
-            m_Int = reader.ReadInt();
-            m_HitsMax = reader.ReadInt();
-            m_Hits = reader.ReadInt();
-            m_MinDamage = reader.ReadInt();
-            m_MaxDamage = reader.ReadInt();
-            m_VirtualArmor = reader.ReadInt();
+
+            if (version >= 6)
+            {
+                m_Hits = reader.ReadInt();
+            }
+            else
+            {
+                // Legacy layout (v5 and below) persisted derived stats.
+                // Read and discard them; RecomputeStats rebuilds them below.
+                // Old field order: Str, Dex, Int, HitsMax, Hits, MinDamage, MaxDamage, VirtualArmor.
+                reader.ReadInt();      // old m_Str
+                reader.ReadInt();      // old m_Dex
+                reader.ReadInt();      // old m_Int
+                reader.ReadInt();      // old m_HitsMax
+                m_Hits = reader.ReadInt(); // old m_Hits (authoritative current HP)
+                reader.ReadInt();      // old m_MinDamage
+                reader.ReadInt();      // old m_MaxDamage
+                reader.ReadInt();      // old m_VirtualArmor
+            }
+
             m_AbilityId = reader.ReadString();
             m_IsFainted = reader.ReadBool();
             m_Catcher = reader.ReadMobile();
@@ -509,6 +577,9 @@ namespace Server.Custom.Dudes
                 m_GatherSkill = 0.0;
             else if (m_GatherSkill > max)
                 m_GatherSkill = max;
+
+            // Rebuild all derived stats from identity + progress.
+            RecomputeStats();
         }
 
         public DudeData Clone()
@@ -520,17 +591,10 @@ namespace Server.Custom.Dudes
             copy.m_Level = m_Level;
             copy.m_CurrentEXP = m_CurrentEXP;
             copy.m_EXPToNext = m_EXPToNext;
-            copy.m_Str = m_Str;
-            copy.m_Dex = m_Dex;
-            copy.m_Int = m_Int;
             copy.m_StrMod = m_StrMod;
             copy.m_DexMod = m_DexMod;
             copy.m_IntMod = m_IntMod;
-            copy.m_HitsMax = m_HitsMax;
             copy.m_Hits = m_Hits;
-            copy.m_MinDamage = m_MinDamage;
-            copy.m_MaxDamage = m_MaxDamage;
-            copy.m_VirtualArmor = m_VirtualArmor;
             copy.m_AbilityId = m_AbilityId;
             copy.m_IsFainted = m_IsFainted;
             copy.m_Catcher = m_Catcher;
@@ -542,6 +606,7 @@ namespace Server.Custom.Dudes
             copy.m_Anatomy = m_Anatomy;
             copy.m_MagicResist = m_MagicResist;
             copy.m_SkinHue = m_SkinHue;
+            copy.RecomputeStats();
             return copy;
         }
     }

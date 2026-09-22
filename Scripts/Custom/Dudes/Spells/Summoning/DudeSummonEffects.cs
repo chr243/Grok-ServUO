@@ -6,7 +6,7 @@ namespace Server.Custom.Dudes
 {
     /// <summary>
     /// Short type-themed summon/despawn burst (~0.3–0.5s).
-    /// Radius scales by Dude tier (weak 1 / basic+medium 2 / strong 3).
+    /// Radius scales by ascension stage (1 / 2 / 3).
     /// Despawn mirrors Play with rings collapsing inward.
     /// </summary>
     public static class DudeSummonEffects
@@ -14,33 +14,10 @@ namespace Server.Custom.Dudes
         private const int RingStepMs = 100;
         private const int DespawnTailMs = 50;
 
-        public static int GetSummonRadius(DudeType type, string definitionId)
+        /// <summary>Summon/despawn radius now comes purely from the ascension stage (1 / 2 / 3).</summary>
+        public static int GetSummonRadius(int stage)
         {
-            if (!string.IsNullOrEmpty(definitionId))
-            {
-                switch (definitionId.ToLowerInvariant())
-                {
-                    case "ember":
-                    case "droplet":
-                    case "pebble":
-                    case "breeze":
-                        return 1;
-
-                    case "flame":
-                    case "ripple":
-                    case "boulder":
-                    case "gale":
-                        return 2;
-
-                    case "blaze":
-                    case "torrent":
-                    case "quake":
-                    case "hurricane":
-                        return 3;
-                }
-            }
-
-            return 2;
+            return DudeStage.SummonRadius(stage);
         }
 
         public static void Play(DudeType type, Point3D center, Map map)
@@ -48,9 +25,9 @@ namespace Server.Custom.Dudes
             Play(type, center, map, 3);
         }
 
-        public static void Play(DudeType type, Point3D center, Map map, string definitionId)
+        public static void PlayForStage(DudeType type, Point3D center, Map map, int stage)
         {
-            Play(type, center, map, GetSummonRadius(type, definitionId));
+            Play(type, center, map, GetSummonRadius(stage));
         }
 
         public static void Play(DudeType type, Point3D center, Map map, int maxRadius)
@@ -89,9 +66,9 @@ namespace Server.Custom.Dudes
             return TimeSpan.FromMilliseconds(RingStepMs * maxRadius + DespawnTailMs);
         }
 
-        public static TimeSpan GetDespawnDuration(DudeType type, string definitionId)
+        public static TimeSpan GetDespawnDurationForStage(int stage)
         {
-            return GetDespawnDuration(GetSummonRadius(type, definitionId));
+            return GetDespawnDuration(GetSummonRadius(stage));
         }
 
         public static void PlayDespawn(DudeType type, Point3D center, Map map)
@@ -99,9 +76,9 @@ namespace Server.Custom.Dudes
             PlayDespawn(type, center, map, 3);
         }
 
-        public static void PlayDespawn(DudeType type, Point3D center, Map map, string definitionId)
+        public static void PlayDespawnForStage(DudeType type, Point3D center, Map map, int stage)
         {
-            PlayDespawn(type, center, map, GetSummonRadius(type, definitionId));
+            PlayDespawn(type, center, map, GetSummonRadius(stage));
         }
 
         public static void PlayDespawn(DudeType type, Point3D center, Map map, int maxRadius)
@@ -164,28 +141,38 @@ namespace Server.Custom.Dudes
             Point3D p = new Point3D(loc.X, loc.Y, z);
             IEntity ent = new Entity(Serial.Zero, p, map);
 
-            switch (type)
+            switch (GetVfx(type))
             {
-                case DudeType.Fire:
+                case DudeVfx.Fire:
                     // Short particle flash (was 10/30).
                     Effects.SendLocationParticles(ent, 0x3709, 5, 10, 5052);
                     if (wave == 0)
                         Effects.SendLocationEffect(p, map, 0x36BD, 8);
                     break;
 
-                case DudeType.Water:
+                case DudeVfx.Water:
                     Effects.SendLocationParticles(ent, 0x3728, 5, 8, 0x59B, 0, 5029, 0);
                     if (wave == 0)
                         Effects.SendLocationEffect(p, map, 0x3728, 6, 2101, 0);
                     break;
 
-                case DudeType.Earth:
-                    Effects.SendLocationParticles(ent, 0x36B0, 5, 8, 0x3F, 0, 5044, 0);
+                case DudeVfx.Earth:
+                    // Stonewarden Fault Line look: dirt burst (0x36BD) + stone spikes (0x36B0), hue 2413.
+                    Effects.SendLocationParticles(ent, 0x36BD, 10, 30, 2413, 0, 5044, 0);
                     if (wave == 0)
-                        Effects.SendLocationEffect(p, map, 0x3728, 6, 0x3B2, 0);
+                    {
+                        Effects.SendLocationParticles(ent, 0x36B0, 8, 20, 2413, 0, 5044, 0);
+                        Effects.SendLocationEffect(p, map, 0x36BD, 12, 8, 2413, 0);
+                    }
                     break;
 
-                case DudeType.Air:
+                case DudeVfx.Poison:
+                    Effects.SendLocationParticles(ent, 0x374A, 5, 8, 0x44, 0, 5031, 0);
+                    if (wave == 0)
+                        Effects.SendLocationEffect(p, map, 0x3728, 6, 0x44, 0);
+                    break;
+
+                case DudeVfx.Air:
                 default:
                     Effects.SendLocationParticles(ent, 0x37CC, 1, 8, 0x47E, 3, 9917, 0);
                     if (wave == 0)
@@ -194,20 +181,16 @@ namespace Server.Custom.Dudes
             }
         }
 
+        private static DudeVfx GetVfx(DudeType type)
+        {
+            DudeTypeProfile p = DudeTypeProfiles.Get(type);
+            return p != null ? p.Vfx : DudeVfx.Fire;
+        }
+
         private static int GetSound(DudeType type)
         {
-            switch (type)
-            {
-                case DudeType.Fire:
-                    return 0x208;
-                case DudeType.Water:
-                    return 0x026;
-                case DudeType.Earth:
-                    return 0x2F3;
-                case DudeType.Air:
-                default:
-                    return 0x29;
-            }
+            DudeTypeProfile p = DudeTypeProfiles.Get(type);
+            return p != null && p.SoundId > 0 ? p.SoundId : 0x208;
         }
     }
 }

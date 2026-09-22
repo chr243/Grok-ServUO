@@ -209,17 +209,9 @@ namespace Server.Mobiles
             if (item == null || item.Deleted)
                 return false;
 
-            switch (type)
-            {
-                case DudeType.Water:
-                    return item is TideSash;
-                case DudeType.Earth:
-                    return item is StoneSash;
-                case DudeType.Air:
-                    return item is GaleSash;
-                default:
-                    return item is EmberSash;
-            }
+            DudeTypeProfile profile = DudeTypeProfiles.Get(type);
+            Type sashType = profile != null ? profile.StarterSashType : null;
+            return sashType != null && sashType.IsInstanceOfType(item);
         }
 
         private static bool IsBlessedStarterTypeSashDuplicate(Item candidate, Item worn)
@@ -235,17 +227,12 @@ namespace Server.Mobiles
 
         private static DudeGear CreateTypeSash(DudeType type)
         {
-            switch (type)
-            {
-                case DudeType.Water:
-                    return new TideSash();
-                case DudeType.Earth:
-                    return new StoneSash();
-                case DudeType.Air:
-                    return new GaleSash();
-                default:
-                    return new EmberSash();
-            }
+            DudeTypeProfile profile = DudeTypeProfiles.Get(type);
+            Type sashType = profile != null ? profile.StarterSashType : null;
+            if (sashType == null)
+                return null;
+
+            return Activator.CreateInstance(sashType) as DudeGear;
         }
 
         private bool IsOwnerOrStaff(Mobile m)
@@ -463,14 +450,14 @@ namespace Server.Mobiles
             MagicalDudeHat hat = FindItemOnLayer(Layer.Helm) as MagicalDudeHat;
             if (hat != null && !hat.Deleted)
             {
-                double mult = hat.GetEffectMultiplier();
-                double magery = Math.Min(hat.Magery * mult, cap);
-                double eval = Math.Min(hat.EvalInt * mult, cap);
-                double med = Math.Min(hat.Meditation * mult, cap);
+                // Lerp stored → 120 by gear level, then stage cap. Never 120 before gear 10.
+                double magery = Math.Min(hat.GetSkillLerp(hat.Magery, 120.0), cap);
+                double eval = Math.Min(hat.GetSkillLerp(hat.EvalInt, 120.0), cap);
+                double med = Math.Min(hat.GetSkillLerp(hat.Meditation, 120.0), cap);
                 DudeCombatSkills.SetGearCopySkill(this, SkillName.Magery, magery, cap);
                 DudeCombatSkills.SetGearCopySkill(this, SkillName.EvalInt, eval, cap);
                 DudeCombatSkills.SetGearCopySkill(this, SkillName.Meditation, med, cap);
-                // Level 0 = full stored skills (x1.0); higher levels scale up then stage-cap.
+                // Level 0 = full stored skills; higher levels lerp toward 120 then stage-cap.
                 if (magery > 0.0 || eval > 0.0 || med > 0.0)
                 {
                     if (AI != AIType.AI_Mage)
@@ -493,7 +480,7 @@ namespace Server.Mobiles
             DudeShield shield = FindItemOnLayer(Layer.TwoHanded) as DudeShield;
             if (shield != null && !shield.Deleted)
             {
-                double parry = Math.Min(shield.Parrying * shield.GetEffectMultiplier(), cap);
+                double parry = Math.Min(shield.GetSkillLerp(shield.Parrying, 120.0), cap);
                 DudeCombatSkills.SetGearCopySkill(this, SkillName.Parry, parry, cap);
             }
             else
@@ -504,6 +491,20 @@ namespace Server.Mobiles
         public void Refresh()
         {
             RebuildGearCache();
+        }
+
+        /// <summary>
+        /// A Dude has no backpack. If a cast ever removes a hand item, re-equip it in place instead
+        /// of letting the base ClearHand path drop it (AddToBackpack → MoveToWorld). Never delete.
+        /// </summary>
+        public override void ClearHand(Item item)
+        {
+            DudeGear gear = item as DudeGear;
+            if (gear == null || gear.Deleted)
+                return;
+
+            if (FindItemOnLayer(gear.Layer) != gear)
+                EquipItem(gear);
         }
 
         public override void OnItemAdded(Item item)

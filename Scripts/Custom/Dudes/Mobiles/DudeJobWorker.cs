@@ -135,19 +135,13 @@ namespace Server.Mobiles
             if (data == null)
                 return;
 
-            Item tool = null;
+            Type toolType = GetWorkToolType(data.Type);
+            if (toolType == null)
+                return;
 
-            switch (data.Type)
-            {
-                case DudeType.Earth:
-                    tool = new DudeWorkPickaxe();
-                    break;
-                case DudeType.Air:
-                    tool = new DudeWorkHatchet();
-                    break;
-                default:
-                    return;
-            }
+            Item tool = (Item)Activator.CreateInstance(toolType);
+            if (tool == null)
+                return;
 
             tool.LootType = LootType.Blessed;
             tool.Movable = false;
@@ -177,16 +171,28 @@ namespace Server.Mobiles
             if (IsWorkTool(FindItemOnLayer(Layer.TwoHanded)))
                 return false;
 
-            Item held = FindItemOnLayer(Layer.OneHanded);
+            Type expected = GetWorkToolType(type);
+            if (expected == null)
+                return false;
 
+            Item held = FindItemOnLayer(Layer.OneHanded);
+            return held != null && held.GetType() == expected;
+        }
+
+        /// <summary>
+        /// Job type → work tool. Only the gathering jobs registered in DudeJobRegistry have a
+        /// tool; extend this when a new gathering profession is added.
+        /// </summary>
+        private static Type GetWorkToolType(DudeType type)
+        {
             switch (type)
             {
                 case DudeType.Earth:
-                    return held is DudeWorkPickaxe;
+                    return typeof(DudeWorkPickaxe);
                 case DudeType.Air:
-                    return held is DudeWorkHatchet;
+                    return typeof(DudeWorkHatchet);
                 default:
-                    return false;
+                    return null;
             }
         }
 

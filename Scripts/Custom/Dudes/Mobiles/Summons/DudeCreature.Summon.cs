@@ -52,15 +52,10 @@ namespace Server.Mobiles
                 return;
 
             DudeData data = m_BoundBall.StoredDude;
+            // Only identity + progress is persisted. Str/Dex/Int/HitsMax/Damage/Armor are
+            // derived from (Type, Level, Stage, IVs), so they are intentionally NOT written back
+            // here — the live creature is a consumer of the data, not a source of truth for stats.
             data.Hits = Hits;
-            // Persist seed, not HitsMax property (seed + Str offset), to avoid inflation.
-            data.HitsMax = HitsMaxSeed > 0 ? HitsMaxSeed : HitsMax;
-            data.Str = RawStr;
-            data.Dex = RawDex;
-            data.Int = RawInt;
-            data.MinDamage = DamageMin;
-            data.MaxDamage = DamageMax;
-            data.VirtualArmor = VirtualArmor;
             data.Level = m_DudeLevel;
             data.CustomName = Name;
             if (Hue > 0)
@@ -91,7 +86,7 @@ namespace Server.Mobiles
                 Point3D loc = Location;
                 Map map = Map;
                 DudeType fxType = data != null ? data.Type : DudeType.Fire;
-                string defId = data != null ? data.DefinitionId : m_DefinitionId;
+                int fxStage = data != null ? data.EvolutionStage : m_EvolutionStage;
 
                 Mobile master = ControlMaster;
                 SetControlMaster(null);
@@ -106,8 +101,8 @@ namespace Server.Mobiles
                 TimeSpan delay = TimeSpan.Zero;
                 if (map != null && map != Map.Internal)
                 {
-                    DudeSummonEffects.PlayDespawn(fxType, loc, map, defId);
-                    delay = DudeSummonEffects.GetDespawnDuration(fxType, defId);
+                    DudeSummonEffects.PlayDespawnForStage(fxType, loc, map, fxStage);
+                    delay = DudeSummonEffects.GetDespawnDurationForStage(fxStage);
                 }
 
                 DudeBall ball = m_BoundBall;
