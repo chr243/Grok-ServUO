@@ -1525,6 +1525,20 @@ namespace Server.Mobiles
             RebuildGearCache();
         }
 
+        /// <summary>
+        /// A Dude has no backpack. If a cast ever removes a hand item, re-equip it in place instead
+        /// of letting the base ClearHand path drop it (AddToBackpack → MoveToWorld). Never delete.
+        /// </summary>
+        public override void ClearHand(Item item)
+        {
+            DudeGear gear = item as DudeGear;
+            if (gear == null || gear.Deleted)
+                return;
+
+            if (FindItemOnLayer(gear.Layer) != gear)
+                EquipItem(gear);
+        }
+
         public override void OnItemAdded(Item item)
         {
             base.OnItemAdded(item);

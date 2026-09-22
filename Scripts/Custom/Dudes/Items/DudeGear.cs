@@ -136,6 +136,16 @@ namespace Server.Items
         }
 
         /// <summary>
+        /// DudeGear never drops for a cast. A Dude has no backpack, so the base ClearHand path
+        /// (AddToBackpack → MoveToWorld) would strand costumes/shields on the ground. Treating
+        /// DudeGear as cast-safe keeps Mage Dudes in costume like wrestling stays "empty hands".
+        /// </summary>
+        public override bool AllowEquipedCast(Mobile from)
+        {
+            return true;
+        }
+
+        /// <summary>
         /// Skill scaling for copy-in skills (Magical Dude Hat, Dude Shield): floor of stored,
         /// then Lerp(stored, ceiling, GearLevel / 10). Level 0 = stored value, level 10 = ceiling,
         /// never the ceiling before gear 10. Use instead of stored * GetEffectMultiplier().
