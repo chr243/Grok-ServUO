@@ -3,17 +3,20 @@ using Server.Items;
 
 namespace Server.Mobiles
 {
-    [CorpseName("a training dummy corpse")]
+    [CorpseName("a seifer corpse")]
     public class TrainingDummyNpc : BaseCreature
     {
+        /// <summary>Permanent gray hue — the seifer never changes colour.</summary>
+        private const int SeiferHue = 0x3B2;
+
         [Constructable]
         public TrainingDummyNpc()
             : base(AIType.AI_Animal, FightMode.None, 10, 1, 0.2, 0.4)
         {
-            Name = "a training dummy";
+            Name = "a seifer";
             Title = null;
             Body = 0x190;
-            Hue = 0x83F;
+            Hue = SeiferHue;
 
             Blessed = false;
             CantWalk = true;
@@ -42,6 +45,13 @@ namespace Server.Mobiles
         public TrainingDummyNpc(Serial serial)
             : base(serial)
         {
+        }
+
+        /// <summary>Permanently gray: any hue assignment (staff [set, load) is ignored.</summary>
+        public override int Hue
+        {
+            get { return SeiferHue; }
+            set { }
         }
 
         public override bool BardImmune { get { return true; } }
@@ -112,8 +122,27 @@ namespace Server.Mobiles
         {
             base.Deserialize(reader);
             reader.ReadInt();
+            Name = "a seifer";
+            Title = null;
             Frozen = true;
             CantWalk = true;
+        }
+    }
+
+    /// <summary>
+    /// Seifer: the permanently gray training dummy. Same behaviour as TrainingDummyNpc;
+    /// exists so <c>[add seifer</c> resolves and spawns one.
+    /// </summary>
+    public class Seifer : TrainingDummyNpc
+    {
+        [Constructable]
+        public Seifer()
+        {
+        }
+
+        public Seifer(Serial serial)
+            : base(serial)
+        {
         }
     }
 }
