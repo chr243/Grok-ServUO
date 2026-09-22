@@ -157,9 +157,13 @@ namespace Server.Custom.Dudes
                     break;
 
                 case DudeVfx.Earth:
-                    Effects.SendLocationParticles(ent, 0x36B0, 5, 8, 0x3F, 0, 5044, 0);
+                    // Stonewarden Fault Line look: dirt burst (0x36BD) + stone spikes (0x36B0), hue 2413.
+                    Effects.SendLocationParticles(ent, 0x36BD, 10, 30, 2413, 0, 5044, 0);
                     if (wave == 0)
-                        Effects.SendLocationEffect(p, map, 0x3728, 6, 0x3B2, 0);
+                    {
+                        Effects.SendLocationParticles(ent, 0x36B0, 8, 20, 2413, 0, 5044, 0);
+                        Effects.SendLocationEffect(p, map, 0x36BD, 12, 8, 2413, 0);
+                    }
                     break;
 
                 case DudeVfx.Poison:
