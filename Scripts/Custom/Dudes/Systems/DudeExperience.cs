@@ -278,35 +278,14 @@ namespace Server.Custom.Dudes
 
             DudeScalingConfig.EnsureLoaded();
 
+            // Level raises the input to the pure derivation; RecomputeStats rebuilds every
+            // stat (Str/Dex/Int/Hits/Damage/Armor) so per-type gains live in one place.
             data.Level++;
             data.EXPToNext = GetExpRequiredForLevel(data.Level);
             if (data.EXPToNext < 1)
                 data.EXPToNext = 1;
 
-            // Shared Fire-baseline gains (Str/Dex/Int/Damage). Hits/Armor may be overridden by type.
-            // Defaults: Str+5 / Dex+6 / Int+2 / Damage+MeleeDamagePerLevel.
-            data.Str += DudeScalingConfig.StrGainPerLevel;
-            data.Dex += DudeScalingConfig.DexGainPerLevel;
-            data.Int += DudeScalingConfig.IntGainPerLevel;
-            data.MinDamage += DudeScalingConfig.MeleeDamagePerLevel;
-            data.MaxDamage += DudeScalingConfig.MeleeDamagePerLevel;
-
-            bool isEarth = data.Type == DudeType.Earth;
-
-            // Hits: Fire/Water/Air use band table; Earth uses +50% (rounded) on every band.
-            if (isEarth)
-                data.HitsMax += GetEarthHitsGainForLevel(data.Level);
-            else
-                data.HitsMax += GetHitsGainForLevel(data.Level);
-
-            // Armor: Fire/Water/Air keep +1 every 3 levels; Earth +2 VirtualArmor every level-up.
-            if (isEarth)
-                data.VirtualArmor += 2;
-            else if (data.Level % 3 == 0)
-                data.VirtualArmor += 1;
-
-            // Type specialty extras (Fire: none). Water Int×2 total; Air Dex+3 extra.
-            ApplyTypeLevelUpExtras(data);
+            data.RecomputeStats();
 
             data.Hits = data.HitsMax;
             data.IsFainted = false;
@@ -315,44 +294,6 @@ namespace Server.Custom.Dudes
             {
                 owner.SendMessage(0x44, "{0} reached level {1}!", data.DisplayName, data.Level);
                 owner.PlaySound(0x1F2);
-            }
-        }
-
-        /// <summary>
-        /// Earth Hits gain: +50% of Fire band values, rounded (defaults +26 / +45 / +75).
-        /// Pebble base 55 → ~1489 @30 (~1500 target).
-        /// </summary>
-        public static int GetEarthHitsGainForLevel(int newLevel)
-        {
-            return (int)Math.Round(GetHitsGainForLevel(newLevel) * 1.5);
-        }
-
-        /// <summary>
-        /// Per-type LevelUp extras after shared Fire baseline + Earth hits/armor overrides.
-        /// Fire: none.
-        /// Earth: hits/armor already applied in LevelUp (no further extras here).
-        /// Water: +IntGainPerLevel again → Int +4 total (double Fire).
-        /// Air: +3 Dex → Dex +9 total (Fire 6 + 3).
-        /// Does not respec existing characters — only future level-ups.
-        /// </summary>
-        private static void ApplyTypeLevelUpExtras(DudeData data)
-        {
-            if (data == null)
-                return;
-
-            switch (data.Type)
-            {
-                case DudeType.Water:
-                    // Caster: double Int gain (IntGainPerLevel already applied → one more).
-                    data.Int += DudeScalingConfig.IntGainPerLevel;
-                    break;
-
-                case DudeType.Air:
-                    // Fast: DexGainPerLevel + 3.
-                    data.Dex += 3;
-                    break;
-
-                // Fire / Earth / default: no further extras (Earth handled above).
             }
         }
 

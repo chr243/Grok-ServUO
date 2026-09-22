@@ -5,7 +5,6 @@ using Server.Custom.Dudes;
 using Server.Gumps;
 using Server.Mobiles;
 using Server.Network;
-using Server.Targeting;
 
 namespace Server.Items
 {
@@ -182,7 +181,7 @@ namespace Server.Items
             if (view.ShowEvolve)
             {
                 AddButton(560, 478, 4005, 4006, 2, GumpButtonType.Reply, 0);
-                AddLabel(595, 480, 0x35, "Evolve!");
+                AddLabel(595, 480, 0x35, "Ascend!");
                 if (!string.IsNullOrEmpty(view.EvolveHint))
                     AddLabel(560, 460, 0x480, Truncate(view.EvolveHint, 28));
             }
@@ -216,25 +215,13 @@ namespace Server.Items
                 Mobile from = sender.Mobile;
                 DudeBall ball = World.FindItem(m_BallSerial) as DudeBall;
 
-                if (!DudeEvolution.CanPlayerEvolveBall(from, ball))
+                if (!DudeEvolution.CanPlayerAscend(from, ball))
                 {
-                    from.SendMessage("That Dude cannot evolve right now.");
+                    from.SendMessage("That Dude cannot ascend right now (level-gated, unsummoned, ball in pack).");
                     return;
                 }
 
-                DudeData data = ball.StoredDude;
-                int cost = DudeEvolution.GetCoreCost(data.EvolutionStage);
-                Type coreType = DudeEvolution.GetRequiredCoreType(data.Type);
-                string name = DudeEvolution.GetCoreDisplayName(data.Type);
-
-                if (coreType == null || cost < 1)
-                {
-                    from.SendMessage("That Dude cannot evolve right now.");
-                    return;
-                }
-
-                from.SendMessage("Target {0} {1} in your backpack.", cost, name);
-                from.Target = new EvolveCoreTarget(ball.Serial, cost, coreType, data.Type);
+                DudeEvolution.TryAscend(from, ball);
             }
         }
 
@@ -278,69 +265,6 @@ namespace Server.Items
                 return text;
 
             return text.Substring(0, max - 1) + "...";
-        }
-    }
-
-    public sealed class EvolveCoreTarget : Target
-    {
-        private readonly Serial m_BallSerial;
-        private readonly int m_Cost;
-        private readonly Type m_RequiredType;
-        private readonly DudeType m_DudeType;
-
-        public EvolveCoreTarget(Serial ballSerial, int cost, Type requiredType, DudeType dudeType)
-            : base(2, false, TargetFlags.None)
-        {
-            m_BallSerial = ballSerial;
-            m_Cost = cost;
-            m_RequiredType = requiredType;
-            m_DudeType = dudeType;
-        }
-
-        protected override void OnTarget(Mobile from, object targeted)
-        {
-            if (from == null)
-                return;
-
-            Item item = targeted as Item;
-            if (item == null || item.Deleted || !item.IsChildOf(from.Backpack))
-            {
-                from.SendMessage("That must be in your backpack.");
-                return;
-            }
-
-            if (m_RequiredType == null
-                || (item.GetType() != m_RequiredType && !m_RequiredType.IsAssignableFrom(item.GetType())))
-            {
-                from.SendMessage("That is not the correct essence.");
-                return;
-            }
-
-            DudeBall ball = World.FindItem(m_BallSerial) as DudeBall;
-            if (!DudeEvolution.CanPlayerEvolveBall(from, ball))
-            {
-                from.SendMessage("That Dude cannot evolve right now.");
-                return;
-            }
-
-            switch (m_DudeType)
-            {
-                case DudeType.Fire:
-                    DudeEvolution.TryEvolve(from, ball, item, DudeType.Fire, "ember", "flame", "blaze");
-                    break;
-                case DudeType.Water:
-                    DudeEvolution.TryEvolve(from, ball, item, DudeType.Water, "droplet", "ripple", "torrent");
-                    break;
-                case DudeType.Earth:
-                    DudeEvolution.TryEvolve(from, ball, item, DudeType.Earth, "pebble", "boulder", "quake");
-                    break;
-                case DudeType.Air:
-                    DudeEvolution.TryEvolve(from, ball, item, DudeType.Air, "breeze", "gale", "hurricane");
-                    break;
-                default:
-                    from.SendMessage("That Dude cannot evolve right now.");
-                    break;
-            }
         }
     }
 
@@ -444,7 +368,7 @@ namespace Server.Items
             // Keep ball serial for Refresh even when evolve is unavailable.
             view.BallSerial = ball.Serial;
 
-            if (!DudeEvolution.CanEvolve(ball.StoredDude))
+            if (!DudeEvolution.CanAscend(ball.StoredDude))
             {
                 view.ShowEvolve = false;
                 view.EvolveCost = 0;
@@ -452,10 +376,9 @@ namespace Server.Items
                 return;
             }
 
-            int cost = DudeEvolution.GetCoreCost(ball.StoredDude.EvolutionStage);
             view.ShowEvolve = true;
-            view.EvolveCost = cost;
-            view.EvolveHint = string.Format("Needs {0} essences", cost);
+            view.EvolveCost = 0;
+            view.EvolveHint = "Ready to ascend";
         }
 
         private static void FillSkillTexts(DudeInfoView view, DudeData data)
@@ -673,13 +596,11 @@ namespace Server.Items
             bool showBurn = false;
             if (data != null)
             {
-                showBurn = data.EvolutionStage >= 3
-                    || string.Equals(data.DefinitionId, "blaze", StringComparison.OrdinalIgnoreCase);
+                showBurn = data.EvolutionStage >= 3;
             }
             if (!showBurn)
             {
-                showBurn = evolutionStage >= 3
-                    || string.Equals(definitionId, "blaze", StringComparison.OrdinalIgnoreCase);
+                showBurn = evolutionStage >= 3;
             }
 
             if (showBurn)

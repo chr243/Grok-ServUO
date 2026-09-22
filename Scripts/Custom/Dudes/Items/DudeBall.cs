@@ -222,19 +222,9 @@ namespace Server.Items
             if (data == null)
                 return EmptyHue;
 
-            switch (data.Type)
-            {
-                case DudeType.Fire:
-                    return FireHue;
-                case DudeType.Water:
-                    return WaterHue;
-                case DudeType.Air:
-                    return AirHue;
-                case DudeType.Earth:
-                    return EarthHue;
-                default:
-                    return FireHue;
-            }
+            // Ball hue tracks the type profile (shorts colour), so a new type needs no edit here.
+            DudeTypeProfile p = DudeTypeProfiles.Get(data.Type);
+            return p != null ? p.ShortsHue : FireHue;
         }
 
         public override bool OnDragLift(Mobile from)
@@ -495,7 +485,7 @@ namespace Server.Items
             InvalidateProperties();
 
             from.SendMessage(0x59, "{0} emerges from the Dude Ball!", m_StoredDude.DisplayName);
-            DudeSummonEffects.Play(m_StoredDude.Type, dude.Location, dude.Map, m_StoredDude.DefinitionId);
+            DudeSummonEffects.PlayForStage(m_StoredDude.Type, dude.Location, dude.Map, m_StoredDude.EvolutionStage);
             MarkUsed();
         }
 
@@ -529,7 +519,7 @@ namespace Server.Items
             Point3D loc = dude.Location;
             Map map = dude.Map;
             DudeType fxType = m_StoredDude != null ? m_StoredDude.Type : DudeType.Fire;
-            string defId = m_StoredDude != null ? m_StoredDude.DefinitionId : null;
+            int fxStage = m_StoredDude != null ? m_StoredDude.EvolutionStage : 1;
 
             // Keep ControlMaster through the FX so the Dude never goes "wild" / guard-candidate.
             // Pacify + bless during the animation; park only after it finishes.
@@ -539,8 +529,8 @@ namespace Server.Items
             TimeSpan delay = TimeSpan.Zero;
             if (map != null && map != Map.Internal)
             {
-                DudeSummonEffects.PlayDespawn(fxType, loc, map, defId);
-                delay = DudeSummonEffects.GetDespawnDuration(fxType, defId);
+                DudeSummonEffects.PlayDespawnForStage(fxType, loc, map, fxStage);
+                delay = DudeSummonEffects.GetDespawnDurationForStage(fxStage);
             }
 
             MarkUsed();

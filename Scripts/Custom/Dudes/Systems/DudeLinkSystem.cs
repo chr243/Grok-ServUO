@@ -233,7 +233,7 @@ namespace Server.Custom.Dudes
                 return;
             }
 
-            DudeSummonEffects.Play(data.Type, from.Location, from.Map, data.DefinitionId);
+            DudeSummonEffects.PlayForStage(data.Type, from.Location, from.Map, data.EvolutionStage);
             from.SendMessage(0x59, "You link with {0}!", data.DisplayName);
         }
 
@@ -443,7 +443,7 @@ namespace Server.Custom.Dudes
         }
 
         /// <summary>
-        /// Evolution stage for link gates (definition id can imply stage 2/3 forms).
+        /// Ascension stage for link gates. Stage is now purely data-driven (no id implies it).
         /// </summary>
         private static int GetEffectiveEvolutionStage(DudeData data)
         {
@@ -451,26 +451,7 @@ namespace Server.Custom.Dudes
                 return 1;
 
             int stage = data.EvolutionStage;
-            if (stage < 1)
-                stage = 1;
-
-            string id = data.DefinitionId;
-            if (string.IsNullOrEmpty(id))
-                return stage;
-
-            id = id.ToLowerInvariant();
-            if (id == "flame" || id == "ripple" || id == "boulder" || id == "gale")
-            {
-                if (stage < 2)
-                    stage = 2;
-            }
-            else if (id == "blaze" || id == "torrent" || id == "quake" || id == "hurricane")
-            {
-                if (stage < 3)
-                    stage = 3;
-            }
-
-            return stage;
+            return stage < 1 ? 1 : stage;
         }
 
         private static DudeAbility FindActiveAbility(DudeData data, int stage)

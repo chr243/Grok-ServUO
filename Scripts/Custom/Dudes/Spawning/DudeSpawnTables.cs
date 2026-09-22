@@ -4,54 +4,43 @@ using System.Collections.Generic;
 namespace Server.Custom.Dudes.Spawning
 {
     /// <summary>
-    /// Weighted species tables for DudeSpawner. Wilds are stage-1 only.
+    /// Weighted wild-spawn table for DudeSpawner. Derived from DudeTypeProfiles so a new
+    /// type is added in exactly one place. Wilds are always stage 1.
     /// </summary>
     public static class DudeSpawnTables
     {
-        private struct Entry
-        {
-            public readonly string Id;
-            public readonly int Weight;
-            public readonly DudeType Type;
-
-            public Entry(string id, int weight, DudeType type)
-            {
-                Id = id;
-                Weight = weight;
-                Type = type;
-            }
-        }
-
-        private static readonly Entry[] AllEntries = new Entry[]
-        {
-            new Entry("ember", 10, DudeType.Fire),
-            new Entry("droplet", 10, DudeType.Water),
-            new Entry("pebble", 10, DudeType.Earth),
-            new Entry("breeze", 10, DudeType.Air)
-        };
+        /// <summary>Default type used when nothing matches.</summary>
+        public const string FallbackId = "fire";
 
         public static string Pick(DudeSpawnPreset preset)
         {
-            List<Entry> pool = new List<Entry>();
+            DudeTypeProfiles.EnsureInitialized();
 
-            for (int i = 0; i < AllEntries.Length; i++)
+            IList<DudeTypeProfile> all = DudeTypeProfiles.GetAll();
+            List<DudeTypeProfile> pool = new List<DudeTypeProfile>();
+            int total = 0;
+
+            for (int i = 0; i < all.Count; i++)
             {
-                Entry e = AllEntries[i];
-                if (Matches(preset, e))
-                    pool.Add(e);
+                DudeTypeProfile p = all[i];
+                if (p == null || p.SpawnWeight <= 0)
+                    continue;
+                if (!Matches(preset, p.Type))
+                    continue;
+
+                pool.Add(p);
             }
 
             if (pool.Count == 0)
-                return "ember";
+                return FallbackId;
 
-            int total = 0;
             for (int i = 0; i < pool.Count; i++)
-                total += pool[i].Weight;
+                total += pool[i].SpawnWeight;
 
             int roll = Utility.Random(total);
             for (int i = 0; i < pool.Count; i++)
             {
-                roll -= pool[i].Weight;
+                roll -= pool[i].SpawnWeight;
                 if (roll < 0)
                     return pool[i].Id;
             }
@@ -59,28 +48,17 @@ namespace Server.Custom.Dudes.Spawning
             return pool[pool.Count - 1].Id;
         }
 
-        private static bool Matches(DudeSpawnPreset preset, Entry e)
+        private static bool Matches(DudeSpawnPreset preset, DudeType type)
         {
-            switch (preset)
-            {
-                case DudeSpawnPreset.Fire:
-                    return e.Type == DudeType.Fire;
-                case DudeSpawnPreset.Water:
-                    return e.Type == DudeType.Water;
-                case DudeSpawnPreset.Earth:
-                    return e.Type == DudeType.Earth;
-                case DudeSpawnPreset.Air:
-                    return e.Type == DudeType.Air;
-                case DudeSpawnPreset.Weak:
-                case DudeSpawnPreset.Basic:
-                case DudeSpawnPreset.Starter:
-                case DudeSpawnPreset.All:
-                case DudeSpawnPreset.Medium:
-                case DudeSpawnPreset.Strong:
-                default:
-                    // Only S1s exist in the wild table — all presets draw from them.
-                    return true;
-            }
+            // A preset whose name is a type id (Fire / Water / Earth / Air / …) selects just that
+            // type, so a new type gets a preset for free once its profile is registered.
+            // Any other preset (All, Weak, Starter, …) draws from the whole stage-1 pool, since
+            // only stage-1 wilds exist.
+            DudeTypeProfile typeProfile = DudeTypeProfiles.GetById(preset.ToString());
+            if (typeProfile == null)
+                return true;
+
+            return typeProfile.Type == type;
         }
     }
 }

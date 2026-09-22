@@ -56,7 +56,7 @@ namespace Server.Mobiles
 
         [Constructable]
         public DudeCreature()
-            : this("ember", true)
+            : this("fire", true)
         {
         }
 
@@ -80,9 +80,8 @@ namespace Server.Mobiles
 
             ApplyDefinition(def);
 
-            // Species ControlSlots mirrors stage (1/2/3) for named / wild spawns.
-            if (def != null && def.ControlSlots >= 1 && def.ControlSlots <= 3)
-                m_EvolutionStage = def.ControlSlots;
+            // Stage is carried by DudeData.EvolutionStage, never inferred from the definition.
+            m_EvolutionStage = 1;
 
             ApplyDudeSpeeds();
 
@@ -393,7 +392,7 @@ namespace Server.Mobiles
             else
                 Hits = Math.Max(1, Math.Min(data.Hits, HitsMax));
 
-            SetMana(30 + (data.Level * 2));
+            SetMana(Math.Max(1, data.ManaMax));
             Mana = ManaMax;
 
             SetDamage(data.MinDamage, data.MaxDamage);
@@ -650,17 +649,9 @@ namespace Server.Mobiles
             if (item == null || item.Deleted)
                 return false;
 
-            switch (type)
-            {
-                case DudeType.Water:
-                    return item is TideSash;
-                case DudeType.Earth:
-                    return item is StoneSash;
-                case DudeType.Air:
-                    return item is GaleSash;
-                default:
-                    return item is EmberSash;
-            }
+            DudeTypeProfile profile = DudeTypeProfiles.Get(type);
+            Type sashType = profile != null ? profile.StarterSashType : null;
+            return sashType != null && sashType.IsInstanceOfType(item);
         }
 
         private static bool IsBlessedStarterTypeSashDuplicate(Item candidate, Item worn)
@@ -676,17 +667,12 @@ namespace Server.Mobiles
 
         private static DudeGear CreateTypeSash(DudeType type)
         {
-            switch (type)
-            {
-                case DudeType.Water:
-                    return new TideSash();
-                case DudeType.Earth:
-                    return new StoneSash();
-                case DudeType.Air:
-                    return new GaleSash();
-                default:
-                    return new EmberSash();
-            }
+            DudeTypeProfile profile = DudeTypeProfiles.Get(type);
+            Type sashType = profile != null ? profile.StarterSashType : null;
+            if (sashType == null)
+                return null;
+
+            return Activator.CreateInstance(sashType) as DudeGear;
         }
 
         /// <summary>
@@ -753,15 +739,10 @@ namespace Server.Mobiles
                 return;
 
             DudeData data = m_BoundBall.StoredDude;
+            // Only identity + progress is persisted. Str/Dex/Int/HitsMax/Damage/Armor are
+            // derived from (Type, Level, Stage, IVs), so they are intentionally NOT written back
+            // here — the live creature is a consumer of the data, not a source of truth for stats.
             data.Hits = Hits;
-            // Persist seed, not HitsMax property (seed + Str offset), to avoid inflation.
-            data.HitsMax = HitsMaxSeed > 0 ? HitsMaxSeed : HitsMax;
-            data.Str = RawStr;
-            data.Dex = RawDex;
-            data.Int = RawInt;
-            data.MinDamage = DamageMin;
-            data.MaxDamage = DamageMax;
-            data.VirtualArmor = VirtualArmor;
             data.Level = m_DudeLevel;
             data.CustomName = Name;
             if (Hue > 0)
@@ -1995,9 +1976,14 @@ namespace Server.Mobiles
             if (Utility.RandomDouble() < 0.20)
                 PackItem(new BreadLoaf());
 
+            // Rare typed essence drop (reserved for a future progression system).
             DudeDefinition def = DudeRegistry.Get(m_DefinitionId);
-            if (def != null && def.Type == DudeType.Fire && Utility.RandomDouble() < 0.05)
-                PackItem(new EmberCore());
+            if (def != null && Utility.RandomDouble() < 0.05)
+            {
+                DudeEssence essence = DudeEssence.CreateFor(def.Type);
+                if (essence != null)
+                    PackItem(essence);
+            }
         }
 
         public override bool OnBeforeDeath()
@@ -2022,7 +2008,7 @@ namespace Server.Mobiles
                 Point3D loc = Location;
                 Map map = Map;
                 DudeType fxType = data != null ? data.Type : DudeType.Fire;
-                string defId = data != null ? data.DefinitionId : m_DefinitionId;
+                int fxStage = data != null ? data.EvolutionStage : m_EvolutionStage;
 
                 Mobile master = ControlMaster;
                 SetControlMaster(null);
@@ -2037,8 +2023,8 @@ namespace Server.Mobiles
                 TimeSpan delay = TimeSpan.Zero;
                 if (map != null && map != Map.Internal)
                 {
-                    DudeSummonEffects.PlayDespawn(fxType, loc, map, defId);
-                    delay = DudeSummonEffects.GetDespawnDuration(fxType, defId);
+                    DudeSummonEffects.PlayDespawnForStage(fxType, loc, map, fxStage);
+                    delay = DudeSummonEffects.GetDespawnDurationForStage(fxStage);
                 }
 
                 DudeBall ball = m_BoundBall;

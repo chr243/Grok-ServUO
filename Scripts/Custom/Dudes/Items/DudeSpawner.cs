@@ -301,24 +301,13 @@ namespace Server.Items
 
         private void ApplyPresetName()
         {
-            switch (m_Preset)
-            {
-                case DudeSpawnPreset.Fire:
-                    Name = "Fire Dude Spawner";
-                    break;
-                case DudeSpawnPreset.Water:
-                    Name = "Water Dude Spawner";
-                    break;
-                case DudeSpawnPreset.Earth:
-                    Name = "Earth Dude Spawner";
-                    break;
-                case DudeSpawnPreset.Air:
-                    Name = "Air Dude Spawner";
-                    break;
-                default:
-                    Name = "Dude Spawner (" + m_Preset + ")";
-                    break;
-            }
+            // A type preset names itself "{Type} Dude Spawner" automatically; anything else falls
+            // back to the plain preset label.
+            DudeTypeProfile typeProfile = DudeTypeProfiles.GetById(m_Preset.ToString());
+            if (typeProfile != null)
+                Name = typeProfile.DisplayName + " Spawner";
+            else
+                Name = "Dude Spawner (" + m_Preset + ")";
         }
 
         public override void Serialize(GenericWriter writer)

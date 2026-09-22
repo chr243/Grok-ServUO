@@ -12,10 +12,10 @@ namespace Server.Items
     {
         public static readonly string[] StarterIds = new string[]
         {
-            "ember",
-            "droplet",
-            "pebble",
-            "breeze"
+            "fire",
+            "water",
+            "earth",
+            "air"
         };
 
         private const int BallItemId = 0xE73; // match Dude Ball graphic

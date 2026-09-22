@@ -1,4 +1,4 @@
-# Dude System (v1 + Phase 2–3 + roster tiers + first boss + Trainer's Manual)
+# Dude System (one Dude per type — ascension model)
 
 Pokémon-style companion loop for Grok-ServUO, designed for **UOR (Ultima Online Renaissance)** rules:
 
@@ -9,19 +9,79 @@ Pokémon-style companion loop for Grok-ServUO, designed for **UOR (Ultima Online
 
 Persistent state lives on **DudeBall**. The world creature is a temporary projection.
 
+> **Design rule:** there is exactly **one Dude per type** (Fire, Water, Earth, Air, …).
+> A Dude does not change species as it grows — it gains **levels** and **ascends** through stages.
+> New types are added by one enum value + one profile row; no per-type branches elsewhere.
+
+## Core model
+
+### One Dude per type
+
+Wild Dudes of a type are the same species at every strength. Growth is horizontal-agnostic:
+same identity, higher level, higher stage.
+
+| Type | Role | Level-1 style |
+|------|------|---------------|
+| **Fire** | baseline melee | balanced Str/Dex, standard hits |
+| **Water** | caster | **Int ×2** gain per level |
+| **Earth** | tank | **Hits ×1.5**, **+2 armor per level** |
+| **Air** | fast | **Dex +3** gain per level |
+
+Poison and other types are planned; the table is type-agnostic from day one.
+
+### Ascension (stages)
+
+Ascension replaces the old "evolve into a bigger species" idea. A Dude keeps its name and type.
+Level-gated, costs no cores. Requires the Dude to be **unsummoned and stored in a DudeBall**.
+
+| Stage | Max level | Ascend at | Follower slots | Gear slots | Skill cap | Summon radius |
+|-------|-----------|-----------|----------------|------------|-----------|---------------|
+| 1 | 10 | L10 | 1 | 2 | 100 | 1 |
+| 2 | 20 | L20 | 2 | 3 | 110 | 2 |
+| 3 | 30 | — | 3 | 4 | 120 | 3 |
+
+- **No name change on ascension.** Display name is always `"{Type} Dude"` (e.g. `Fire Dude`).
+- **Renaming is off.** A rename deed may exist later.
+
+### Appearance
+
+- **Shorts hue** = type colour (from the type profile)
+- **Skin hue** = random per Dude
+- **±4 IV rolls** (Str/Dex/Int) are the *only* individual variance. Rolled once at create/catch, never re-rolled.
+
+### Abilities
+
+- **All combat abilities come from equipped gear** (`DudeGear.AbilityId`), unlocked by gear level.
+- Simple kits stay in `SimpleDudeAbilities` / `DudeAbilityRegistry`.
+
+## Storage model (B1)
+
+Only **identity + progress** are persisted on the ball:
+
+`Type`, `Level`, `EvolutionStage`, the three IV rolls, combat skills, current HP.
+
+Every combat stat (Str/Dex/Int/HitsMax/Damage/Armor/Mana) is **derived** by `DudeFormulas.Derive`
+and recomputed on each event that can change it — **create, summon, level-up, ascension, skill change, load**.
+Derived stats are **never serialized**, so a recalled Dude can never disagree with its saved self.
+
 ## Loops
 
-### Combat / catch (v1)
-Wild Dude → catch with Dude Ball (100%) → store → summon → fight + ability → EXP/level → recall.
+### Combat / catch
+Wild Dude → catch with Dude Ball (100%) → store → summon → fight → EXP/level → recall.
 
-### Craft / Mixer / Dust (Phase 2)
+### Craft / Mixer / Dust
 Filled Dude Ball → **Dude Mixer** (confirm) → **Dude Dust** + empty ball → **Dude Crafting Kit** recipe (`Iron Ingot` + `Dude Dust` → empty Dude Ball).
 
-### Job Station / Gathering (Phase 3)
+### Job Station / Gathering
 Filled **Earth**-type Dude Ball → drop on **Dude Job Station** → Start Job → worker travels to nearest mineable tile → works → returns → deposits **Iron Ore** into station container → ball remains.
 
 ### Bosses (elemental farm)
-Staff-spawned `DudeBoss` farm bosses — hostile, not catchable, no Dude Ball on death, no world spawners. Stage-1 Dude + healing pots intended. Melee 10–16, delayed AoE ability 14–20 (12s CD, range 6).
+Staff-spawned `DudeBoss` farm bosses — hostile, not catchable, no Dude Ball on death, no world spawners.
+Melee 10–16, delayed AoE ability 14–20 (12s CD, range 6).
+
+> **Essences** (`Ember/Tide/Stone/GaleCore`, base `DudeEssence`) are **reserved** for a future
+> progression system. They are **not** part of ascension (ascension is free + level-gated) and
+> currently do nothing when double-clicked. Kept as drops/collectables so the future system can consume them.
 
 | Boss | Type | Ability | Unique core (0–2) |
 |------|------|---------|-------------------|
@@ -37,24 +97,30 @@ Staff-spawned `DudeBoss` farm bosses — hostile, not catchable, no Dude Ball on
 
 | Path | Role |
 |------|------|
-| `DudeType.cs` / `DudeDefinition.cs` / `DudeRegistry.cs` / `DudeData.cs` | Species + persistent stats |
+| `DudeType.cs` / `DudeDefinition.cs` / `DudeRegistry.cs` | Type enum + registry (one def per type) |
+| `DudeTypeProfile.cs` / `DudeTypeProfiles.cs` | **Single source of truth per type** (stats, hues, gains, VFX) |
+| `DudeStage.cs` | Global ascension table (level cap, slots, skill cap, radius) |
+| `DudeData.cs` | Persistent state + `RecomputeStats()` (derived stats) |
+| `DudeFormulas.cs` | Derived-stat math (`Derive`) |
+| `DudeVfx.cs` | Summon/despawn particle families |
+| `Systems/DudeTypeConfig.cs` | `Data/DudeTypes.cfg` overlay for live balance tuning |
 | `Abilities/*` | Combat abilities |
 | `Items/DudeBall.cs` | Catch / store / summon / recall |
-| `Items/DudeDust.cs` | Recycled dust (stackable) |
-| `Items/DudeMixer.cs` | Dude → Dust converter (confirm gump) |
-| `Items/DudeCraftingKit.cs` + `Craft/DefDudeCrafting.cs` | Empty ball crafting |
+| `Items/DudeGear.cs` + `DudeGearSet.cs` | Wearable gear granting abilities |
 | `Items/DudeJobStation.cs` (+ Gump) | Generic job station + container |
 | `Jobs/*` | Abstract jobs, registry, Earth gathering |
 | `Mobiles/DudeCreature.cs` | Wild / summoned combat Dude |
 | `Mobiles/DudeJobWorker.cs` | Temporary job worker |
-| `Bosses/DudeBoss.cs` | Abstract uncatchable boss (`DudeBoss` → subclass) |
-| `Bosses/Emberlord.cs` | Fire farm boss + Ember Burst |
-| `Bosses/Tidewarden.cs` / `Stonewarden.cs` / `Galewarden.cs` | Water / Earth / Air farm bosses |
-| `Items/EmberCore.cs` (+ Tide/Stone/GaleCore) | Rare typed boss essences (no recipes yet) |
-| `Items/TrainersManual.cs` | Inspect tool (target Dude / ball / boss) |
-| `Items/DudeInfoGump.cs` | Read-only info sheet (+ `DudeInfoView`) |
-| `Systems/*` | Capture, EXP, kill handler, dust formula |
-| `Commands/DudeTestCommands.cs` | GM helpers |
+| `Bosses/*` | Abstract uncatchable boss + four elemental farm bosses |
+| `Items/TrainersManual.cs` / `DudeInfoGump.cs` | Inspect tool + info sheet |
+| `Systems/*` | Capture, EXP, kill handler, dust formula, summon FX, link |
+| `Commands/*` | GM helpers |
+
+## Type profiles
+
+Each type is one row in `DudeTypeProfiles.RegisterDefaults()` (overridable via `Data/DudeTypes.cfg`).
+A profile carries: display name, shorts/ball hue, summon sound + VFX, spawn weight, level-1
+Str/Dex/Int/Hits/damage/armor, per-level gains, hits-gain multiplier, armor gain.
 
 ## Architecture notes
 
@@ -63,75 +129,25 @@ Staff-spawned `DudeBoss` farm bosses — hostile, not catchable, no Dude Ball on
 - **Travel**: real `PathFollower` movement; stuck / timeout → teleport fallback; station never permanently blocked.
 - **Persistence**: station serializes ball, job id, stage, times, destination, worker; on load recovers stage from elapsed time.
 - **Safety**: rejects empty/wrong balls, multi-ball, no-job, no-resource; blocks ball lift mid-job; ejects ball/resources on station delete; deposits beside station if full.
-- **Bosses**: `DudeBoss` is a `BaseCreature`, not a companion. `DudeCapture.GetCaptureBlockReason` / `DudeCreature.CanBeCaught` reject bosses. Boss abilities are local; companion Fire Blast stays single-target. Add a new boss by subclassing `DudeBoss` (stats/ability/unique loot).
-
-
-## Species roster
-
-Four elemental lines × three stages (12 total). Register in `DudeRegistry`. Abilities in `SimpleDudeAbilities` + `DudeAbilityRegistry`. Evolution unlocks that kit’s abilities through the current stage. Blast-scale damage = `8 + level×2` × ability multiplier.
-
-| Id | Name | Type | Stage | Ability |
-|----|------|------|-------|---------|
-| ember | Ember | Fire | 1 | blast |
-| flame | Flame | Fire | 2 | ring_of_fire |
-| blaze | Blaze | Fire | 3 | burn (passive) |
-| droplet | Droplet | Water | 1 | tide_mend |
-| ripple | Ripple | Water | 2 | tide_chorus |
-| torrent | Torrent | Water | 3 | spring (passive) |
-| pebble | Pebble | Earth | 1 | fault_strike |
-| boulder | Boulder | Earth | 2 | aftershock |
-| quake | Quake | Earth | 3 | faultline (passive) |
-| breeze | Breeze | Air | 1 | tailwind_self |
-| gale | Gale | Air | 2 | tailwind |
-| hurricane | Hurricane | Air | 3 | slipstream (passive) |
-
-Earth-type Dudes qualify for **Earth Gathering** via the existing type check. `[SpawnAllTestDudes` spawns every registered id; `[SpawnTestDude <id>` / `[FillDudeBall <id>` accept any of the above.
+- **Bosses**: `DudeBoss` is a `BaseCreature`, not a companion. Capture is rejected for bosses. Boss abilities are local.
 
 ## GM test commands
 
 | Command | Purpose |
 |---------|---------|
 | `[CreateDudeBall` | Empty ball |
-| `[SpawnTestDude pebble` | Wild Earth Dude |
-| `[FillDudeBall pebble` | Skip catch |
+| `[SpawnTestDude <type>` | Wild Dude of a type (e.g. `earth`) |
+| `[FillDudeBall <type>` | Skip catch |
 | `[CreateDudeMixer` | Mixer |
 | `[CreateDudeDust 5` | Dust stack |
 | `[CreateDudeCraftKit` | Craft kit + ingots |
 | `[CreateDudeJobStation` | Station at feet |
 | `[StartDudeJob` | Target station to start |
-| `[SpawnEmberlord` / `Tidewarden` / `Stonewarden` / `Galewarden` | Hostile elemental boss at your feet |
-| `[CreateEmberCore` / `TideCore` / `StoneCore` / `GaleCore` | Typed boss essence |
+| `[SpawnEmberlord` / `Tidewarden` / `Stonewarden` / `Galewarden` | Hostile elemental boss |
 | `[CreateTrainersManual` | Trainer's Manual (info gump) |
-
-## In-game test steps
-
-### Phase 2 loop
-1. `[CreateDudeMixer`, `[CreateDudeBall`, `[FillDudeBall ember`
-2. Double-click Mixer → target filled ball → OK confirm → receive Dude Dust; ball empties.
-3. `[CreateDudeCraftKit` (gives kit + iron). Ensure dust in pack.
-4. Double-click kit → craft **Dude Ball** (Iron Ingot ×5 + Dude Dust ×1).
-
-### Phase 3 loop
-1. Place station near **mountains/caves** (mineable land tiles): `[CreateDudeJobStation`
-2. `[CreateDudeBall` + `[FillDudeBall pebble` (or `pebblet` / `boulderback` — any Earth type).
-3. Drag filled ball onto station → assigned.
-4. Double-click station → **Start Job**.
-5. Watch worker path to ore tile, work, return; open storage for Iron Ore.
-6. After job: **Retrieve Dude Ball** from gump. Restart shard mid-job to verify recovery.
-
-### Boss loop
-1. `[SpawnEmberlord` / `[SpawnTidewarden` / `[SpawnStonewarden` / `[SpawnGalewarden` (or `[add …`). Hostile (`FightMode.Closest`).
-2. Fight: melee + **Ember Burst** AoE fire (~12s cooldown, nearby players/pets).
-3. `[CreateDudeBall` → double-click → target Emberlord: capture must fail ("cannot be caught in a Dude Ball").
-4. Kill it: corpse has Dude Dust, Iron Ingots, 25% Ember Core. No Dude Ball drop.
-5. `[CreateEmberCore` to inspect the item without fighting. Restart shard with the item in pack to verify serialize.
-
-### Trainer's Manual loop
-1. `[CreateTrainersManual` (or `[add TrainersManual`).
-2. `[SpawnTestDude pebble` → double-click manual → target wild Dude → info gump (Wild).
-3. `[CreateDudeBall` + `[FillDudeBall ember` → target the filled ball (no need to summon) → Captured sheet with EXP/owner.
-4. Summon from ball → target the pet → Summoned sheet with live HP.
-5. `[SpawnEmberlord` → target boss → Boss sheet (uncatchable + Ember Burst). Empty balls / non-Dudes are rejected with messages.
+| `[DudeScale` | Scaling / stage helpers |
 
 ## Out of scope (still)
-Multi-phase fights, automatic world spawn, elemental core recipes, resource-processing jobs, multiple gathering professions, economy balancing, rarity dust variants.
+
+Multi-phase fights, automatic world spawn, elemental core recipes, resource-processing jobs,
+multiple gathering professions, economy balancing, rarity dust variants, rename deeds.

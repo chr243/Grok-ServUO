@@ -2,7 +2,9 @@ using Server.Custom.Dudes;
 
 namespace Server.Items
 {
-    // Type-locked DudeGear for all 12 kit abilities.
+    // Type-locked DudeGear granting the kit abilities (4 types × 3 abilities = 12).
+    // Each type profile names its starter sash (DudeTypeProfile.StarterSashType), so no
+    // per-type switch is needed to find a Dude's starting gear.
     // Hues match essences: Fire 1161, Water 1365, Earth 2413, Air 1153.
     // Layers: Helm reserved for Magical Dude Hat; type earrings on Earrings;
     // sash InnerTorso; bracers Bracelet. Slot budget is a count, not a layer ladder.
