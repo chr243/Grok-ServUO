@@ -35,6 +35,7 @@ namespace Server.Items
             Weight = 1.0;
             m_SlotCost = 1;
             Movable = true;
+            LootType = LootType.Blessed;
         }
 
         public DudeGear(Serial serial)
@@ -361,6 +362,7 @@ namespace Server.Items
                 m_GearEXP = 0;
 
             Movable = true;
+            LootType = LootType.Blessed;
         }
     }
 

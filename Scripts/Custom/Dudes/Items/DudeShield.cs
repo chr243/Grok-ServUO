@@ -58,7 +58,6 @@ namespace Server.Items
         public override void GetProperties(ObjectPropertyList list)
         {
             base.GetProperties(list);
-            list.Add("Parrying: {0:0.0}", m_Parrying);
             list.Add("Skills do not gain. Capped by Dude stage.");
         }
 
