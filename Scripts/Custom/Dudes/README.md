@@ -52,7 +52,7 @@ Level-gated, costs no cores. Requires the Dude to be **unsummoned and stored in 
 ### Abilities
 
 - **All combat abilities come from equipped gear** (`DudeGear.AbilityId`), unlocked by gear level.
-- Simple kits stay in `SimpleDudeAbilities` / `DudeAbilityRegistry`.
+- Simple kits stay in `Abilities/<Element>/` (one file per ability) / `DudeAbilityRegistry`.
 
 ## Storage model (B1)
 
@@ -104,16 +104,26 @@ Melee 10–16, delayed AoE ability 14–20 (12s CD, range 6).
 | `DudeFormulas.cs` | Derived-stat math (`Derive`) |
 | `DudeVfx.cs` | Summon/despawn particle families |
 | `Systems/DudeTypeConfig.cs` | `Data/DudeTypes.cfg` overlay for live balance tuning |
-| `Abilities/*` | Combat abilities |
-| `Items/DudeBall.cs` | Catch / store / summon / recall |
+| `Abilities/DudeAbility.cs` / `DudeAbilityRegistry.cs` | Ability base class + registry |
+| `Abilities/DudeAbilityVfx.cs` / `DudeAbilityConfig.cs` | Shared ability VFX / fight-list helpers; live tuning (`[DudeAbilities`) |
+| `Abilities/Fire` `Water` `Earth` `Air/*Ability.cs` | One file per ability. Active: `Execute` (summoned Dude) / `ExecuteLinked` (linked player). Stage-3 passives: `Pulse` / `PulseLinked`; Slipstream: `ReduceCooldown` |
+| `Items/DudeBall.cs` | Catch / store / Mixer clear / context menu |
+| `Spells/Summoning/DudeBall.Summon.cs` | Summon / recall / park (the ball's summon "spell") |
+| `Spells/Summoning/DudeSummonEffects.cs` | Summon / despawn FX |
+| `Spells/Linked/DudeLinkSystem.Casting.cs` | Linked-player `[abi1` / `[abi2` casting + passive pulse timer |
 | `Items/DudeGear.cs` + `DudeGearSet.cs` | Wearable gear granting abilities |
 | `Items/DudeJobStation.cs` (+ Gump) | Generic job station + container |
 | `Jobs/*` | Abstract jobs, registry, Earth gathering |
-| `Mobiles/DudeCreature.cs` | Wild / summoned combat Dude |
+| `Mobiles/Summons/DudeCreature.cs` | Wild / summoned combat Dude: definition, stats, loot, persistence |
+| `Mobiles/Summons/DudeCreature.Summon.cs` | Despawn FX sequence, sync to ball, faint / park |
+| `Mobiles/Summons/DudeCreature.Inventory.cs` | Type shorts / sash, DudeGear slots, equip rules, hat / shield / costume effects |
+| `Mobiles/Summons/DudeCreature.Abilities.cs` | Picks abilities from equipped gear, cooldowns, passive dispatch |
+| `Mobiles/Summons/FireDude.cs` … `AirDude.cs` | Named types (one file each, `[add`-able) |
+| `Mobiles/AI/DudeCreature.Behavior.cs` | Pack AI: guard stance, target filtering, formation spread, shield taunt |
 | `Mobiles/DudeJobWorker.cs` | Temporary job worker |
 | `Bosses/*` | Abstract uncatchable boss + four elemental farm bosses |
 | `Items/TrainersManual.cs` / `DudeInfoGump.cs` | Inspect tool + info sheet |
-| `Systems/*` | Capture, EXP, kill handler, dust formula, summon FX, link |
+| `Systems/*` | Capture, EXP, kill handler, dust formula, link state |
 | `Commands/*` | GM helpers |
 
 ## Type profiles
@@ -124,6 +134,7 @@ Str/Dex/Int/Hits/damage/armor, per-level gains, hits-gain multiplier, armor gain
 
 ## Architecture notes
 
+- **Layout** mirrors ServUO's player-summoned creatures: the creature under `Mobiles/Summons/` (as `Scripts/Mobiles/Summons`), its AI layer under `Mobiles/AI/`, summoning and player casting under `Spells/`, and one ability per file grouped by element (like `Scripts/Spells/<circle>/`). `DudeCreature`, `DudeBall` and `DudeLinkSystem` are `partial` so each concern sits in its own folder; type names and namespaces are unchanged, so saves load as before.
 - **Dust formula** (`DudeDustFormula`): level-based quantity; rarity/type multipliers reserved.
 - **Jobs**: station asks `DudeJobRegistry.GetJobForDude(data)` — does not hard-code professions. Only **Earth Gathering** is registered.
 - **Travel**: real `PathFollower` movement; stuck / timeout → teleport fallback; station never permanently blocked.
