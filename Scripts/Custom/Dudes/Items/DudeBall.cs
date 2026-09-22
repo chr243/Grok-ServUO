@@ -235,7 +235,15 @@ namespace Server.Items
                 return false;
             }
 
-            return base.OnDragLift(from);
+            if (!base.OnDragLift(from))
+                return false;
+
+            // The ball is the Dude's anchor: lifting it (moving, trading or dropping it) recalls
+            // the summoned Dude, so the creature can never outlive the ball's place in the pack.
+            if (IsSummoned)
+                Recall(from);
+
+            return true;
         }
 
         public void ClearSummonLink()
